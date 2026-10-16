@@ -45,14 +45,14 @@ class InboxController extends Controller
     {
         $model = $this->device($request, $device);
 
-        return response()->json(['chat' => $this->present->chat($model, $this->chat($model, $chat)->load('assignee:id,name'))]);
+        return response()->json(['chat' => $this->present->chat($model, $this->findChat($model, $chat)->load('assignee:id,name'))]);
     }
 
     /** 60 pesan terbaru, atau 60 sebelum ?before=<id pesan> saat menggulir ke atas. */
     public function messages(Request $request, string $device, string $chat): JsonResponse
     {
         $model = $this->device($request, $device);
-        $thread = $this->chat($model, $chat);
+        $thread = $this->findChat($model, $chat);
         $query = $thread->messages()->orderByDesc('sent_at')->orderByDesc('id')->limit(60);
 
         if ($before = $thread->messages()->find($request->query('before'))) {
@@ -143,14 +143,14 @@ class InboxController extends Controller
     {
         $model = $this->device($request, $device);
 
-        return $this->gatewayJson($this->wa->markRead($model->branch_id, $this->chat($model, $chat)->id));
+        return $this->gatewayJson($this->wa->markRead($model->branch_id, $this->findChat($model, $chat)->id));
     }
 
     public function presence(Request $request, string $device, string $chat): JsonResponse
     {
         $model = $this->device($request, $device);
 
-        return $this->gatewayJson($this->wa->subscribePresence($model->branch_id, $this->chat($model, $chat)->id));
+        return $this->gatewayJson($this->wa->subscribePresence($model->branch_id, $this->findChat($model, $chat)->id));
     }
 
     /** File pesan: diarahkan ke go_bizbos dengan token singkat, jadi tautan di halaman tidak pernah kedaluwarsa. */
@@ -166,7 +166,7 @@ class InboxController extends Controller
     {
         $model = $this->device($request, $device);
 
-        return redirect()->away($this->wa->avatarUrl($model->branch_id, $this->chat($model, $chat)->id))
+        return redirect()->away($this->wa->avatarUrl($model->branch_id, $this->findChat($model, $chat)->id))
             ->header('Cache-Control', 'private, max-age=600');
     }
 
@@ -197,7 +197,7 @@ class InboxController extends Controller
     private function target(WaDevice $device, array $data): string
     {
         if (! empty($data['chat_id'])) {
-            $chat = $this->chat($device, $data['chat_id']);
+            $chat = $this->findChat($device, $data['chat_id']);
             // Admin membalas dari inbox: bot diam dulu (lihat BotRouter::HUMAN_HOLD_MINUTES).
             $chat->forceFill(['human_replied_at' => now()])->save();
 

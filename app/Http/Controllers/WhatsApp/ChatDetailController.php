@@ -163,7 +163,7 @@ class ChatDetailController extends Controller
     {
         $model = $this->device($request, $device);
 
-        return [$model, $this->chat($model, $chat)];
+        return [$model, $this->findChat($model, $chat)];
     }
 
     private function label(WaDevice $device, string $id): WaLabel

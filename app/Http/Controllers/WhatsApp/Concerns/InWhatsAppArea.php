@@ -35,7 +35,7 @@ trait InWhatsAppArea
         return WaDevice::whereIn('branch_id', $this->ownerBranches($request)->pluck('id'))->findOrFail($id);
     }
 
-    protected function chat(WaDevice $device, string $id): WaChat
+    protected function findChat(WaDevice $device, string $id): WaChat
     {
         return $device->chats()->findOrFail($id);
     }
