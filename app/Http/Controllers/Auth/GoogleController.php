@@ -60,7 +60,7 @@ class GoogleController extends Controller
                     'email' => $email,
                     'password' => Str::random(40),
                 ]);
-                $user->forceFill(['google_id' => $google->getId(), 'email_verified_at' => now()])->save();
+                $user->forceFill(['google_id' => $google->getId(), 'status' => User::STATUS_ACTIVE, 'email_verified_at' => now()])->save();
                 $this->referrals->recordSignup($user, $request->session()->pull('referral_code'));
 
                 return $user;
