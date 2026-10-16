@@ -100,6 +100,7 @@ return [
                             'whatsapp.auto-replies' => ['label' => 'Auto Reply', 'route' => 'whatsapp.auto-replies.index', 'active' => 'whatsapp.auto-replies.*'],
                             'whatsapp.quick-replies' => ['label' => 'Quick Reply', 'route' => 'whatsapp.quick-replies.index', 'active' => 'whatsapp.quick-replies.*'],
                             'whatsapp.ai-bots' => ['label' => 'AI Bot', 'route' => 'whatsapp.ai-bots.index', 'active' => 'whatsapp.ai-bots.*'],
+                            'whatsapp.templates' => ['label' => 'Template', 'route' => 'whatsapp.templates.index', 'active' => 'whatsapp.templates.*'],
                             'whatsapp.labels' => ['label' => 'Label', 'route' => 'whatsapp.labels.index', 'active' => 'whatsapp.labels.*'],
                         ],
                     ],

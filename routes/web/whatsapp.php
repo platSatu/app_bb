@@ -12,6 +12,7 @@ use App\Http\Controllers\WhatsApp\DeviceController;
 use App\Http\Controllers\WhatsApp\InboxController;
 use App\Http\Controllers\WhatsApp\LabelController;
 use App\Http\Controllers\WhatsApp\QuickReplyController;
+use App\Http\Controllers\WhatsApp\TemplateController;
 use App\Http\Controllers\WhatsApp\WaGroupController;
 use Illuminate\Support\Facades\Route;
 
@@ -111,6 +112,16 @@ Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function
         Route::post('/', 'store')->name('store');
         Route::put('{reply}', 'update')->whereUuid('reply')->name('update');
         Route::delete('{reply}', 'destroy')->whereUuid('reply')->name('destroy');
+    });
+
+    Route::middleware('permission:whatsapp.templates')->controller(TemplateController::class)->prefix('templates')->name('templates.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('create', 'create')->name('create');
+        Route::post('/', 'store')->middleware('throttle:30,1')->name('store');
+        Route::get('{template}/edit', 'edit')->whereUuid('template')->name('edit');
+        Route::put('{template}', 'update')->whereUuid('template')->middleware('throttle:30,1')->name('update');
+        Route::delete('{template}', 'destroy')->whereUuid('template')->name('destroy');
+        Route::get('{template}/file', 'file')->whereUuid('template')->name('file');
     });
 
     Route::middleware('permission:whatsapp.labels')->controller(LabelController::class)->prefix('labels')->name('labels.')->group(function () {
