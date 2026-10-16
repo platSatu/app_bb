@@ -1,0 +1,296 @@
+<?php
+
+/*
+| Satu-satunya daftar menu + kunci izin. Sidebar, middleware 'permission',
+| dan halaman Role semuanya membaca file ini. Menu baru = tambah 1 item.
+| Struktur: section > group (menu induk di sidebar) > items (submenu).
+| Group juga boleh berisi 'submenus' (menu tingkat 3): group > submenu > items.
+| 'superadmin_only' => true artinya tidak bisa diberikan ke role staff.
+| 'sidebar' => false artinya tidak tampil di sidebar (mis. dipakai sebagai tab).
+*/
+
+return [
+    // Aplikasi untuk user (owner). Nanti dibatasi sesuai package yang aktif.
+    'apps' => [
+        'label' => 'Aplikasi',
+        'owner_app' => true,
+        'groups' => [
+            'pages' => [
+                'label' => 'Pages',
+                'icon' => 'ri-pages-line',
+                'items' => [
+                    'pages.list' => [
+                        'label' => 'List Page',
+                        'route' => 'pages.index',
+                        'active' => 'pages.*',
+                    ],
+                ],
+            ],
+            // Jadwal rutin & sesi, master data Ruangan > Bidang > Kategori > Grade, plus Pengajar & Murid.
+            'schedules' => [
+                'label' => 'Schedules',
+                'icon' => 'ri-calendar-2-line',
+                'items' => [
+                    'schedules.routines' => [
+                        'label' => 'Jadwal Rutin',
+                        'route' => 'schedules.routines.index',
+                        'active' => 'schedules.routines.*',
+                    ],
+                    'schedules.sessions' => [
+                        'label' => 'Sesi & Absensi',
+                        'route' => 'schedules.sessions.index',
+                        'active' => 'schedules.sessions.*',
+                    ],
+                    'schedules.rooms' => [
+                        'label' => 'Ruangan',
+                        'route' => 'schedules.rooms.index',
+                        'active' => 'schedules.rooms.*',
+                    ],
+                    'schedules.subjects' => [
+                        'label' => 'Bidang',
+                        'route' => 'schedules.subjects.index',
+                        'active' => 'schedules.subjects.*',
+                    ],
+                    'schedules.categories' => [
+                        'label' => 'Kategori',
+                        'route' => 'schedules.categories.index',
+                        'active' => 'schedules.categories.*',
+                    ],
+                    'schedules.grades' => [
+                        'label' => 'Grade',
+                        'route' => 'schedules.grades.index',
+                        'active' => 'schedules.grades.*',
+                    ],
+                    'schedules.teachers' => [
+                        'label' => 'Pengajar',
+                        'route' => 'schedules.teachers.index',
+                        'active' => 'schedules.teachers.*',
+                    ],
+                    'schedules.students' => [
+                        'label' => 'Murid',
+                        'route' => 'schedules.students.index',
+                        'active' => 'schedules.students.*',
+                    ],
+                ],
+            ],
+            // Tagihan ke customer: dari dashboard (kategori > periode) atau lewat API website.
+            'invoices' => [
+                'label' => 'Invoice',
+                'icon' => 'ri-file-list-3-line',
+                'items' => [
+                    'invoices.list' => ['label' => 'Semua Invoice', 'route' => 'invoices.index', 'active' => ['invoices.index', 'invoices.show']],
+                    'invoices.batches' => ['label' => 'Invoice Periode', 'route' => 'invoices.batches.index', 'active' => 'invoices.batches.*'],
+                    'invoices.categories' => ['label' => 'Kategori', 'route' => 'invoices.categories.index', 'active' => 'invoices.categories.*'],
+                    'invoices.api' => ['label' => 'API & Integrasi', 'route' => 'invoices.api.index', 'active' => ['invoices.api.*', 'invoices.docs']],
+                ],
+            ],
+            // Nomor WhatsApp per branch, inbox realtime, dan Phone Book (Buku Kontak + Group).
+            'whatsapp' => [
+                'label' => 'WhatsApp',
+                'icon' => 'ri-whatsapp-line',
+                'items' => [
+                    'whatsapp.devices' => ['label' => 'Device & Inbox', 'route' => 'whatsapp.devices.index', 'active' => ['whatsapp.devices.*', 'whatsapp.inbox.*', 'whatsapp.api-key.*']],
+                ],
+                'submenus' => [
+                    'settings' => [
+                        'label' => 'Settings',
+                        'items' => [
+                            'whatsapp.messages' => ['label' => 'Message', 'route' => 'whatsapp.messages.index', 'active' => 'whatsapp.messages.*'],
+                            'whatsapp.flows' => ['label' => 'Chatbot Flow', 'route' => 'whatsapp.flows.index', 'active' => 'whatsapp.flows.*'],
+                            'whatsapp.auto-replies' => ['label' => 'Auto Reply', 'route' => 'whatsapp.auto-replies.index', 'active' => 'whatsapp.auto-replies.*'],
+                            'whatsapp.quick-replies' => ['label' => 'Quick Reply', 'route' => 'whatsapp.quick-replies.index', 'active' => 'whatsapp.quick-replies.*'],
+                            'whatsapp.ai-bots' => ['label' => 'AI Bot', 'route' => 'whatsapp.ai-bots.index', 'active' => 'whatsapp.ai-bots.*'],
+                            'whatsapp.labels' => ['label' => 'Label', 'route' => 'whatsapp.labels.index', 'active' => 'whatsapp.labels.*'],
+                        ],
+                    ],
+                    'phone-book' => [
+                        'label' => 'Phone Book',
+                        'items' => [
+                            'whatsapp.contacts' => ['label' => 'Contact', 'route' => 'whatsapp.contacts.index', 'active' => 'whatsapp.contacts.*'],
+                            'whatsapp.groups' => ['label' => 'Group', 'route' => 'whatsapp.groups.index', 'active' => 'whatsapp.groups.*'],
+                            'whatsapp.wa-groups' => ['label' => 'Group WhatsApp', 'route' => 'whatsapp.wa-groups.index', 'active' => 'whatsapp.wa-groups.*'],
+                        ],
+                    ],
+                ],
+            ],
+            'contacts' => [
+                'label' => 'Kontak',
+                'icon' => 'ri-contacts-book-line',
+                'items' => [
+                    'contacts.list' => [
+                        'label' => 'Buku Kontak',
+                        'route' => 'contacts.index',
+                        'active' => 'contacts.*',
+                    ],
+                ],
+            ],
+        ],
+    ],
+    'superadmin' => [
+        'label' => 'Superadmin',
+        'groups' => [
+            'data-user' => [
+                'label' => 'Data User',
+                'icon' => 'ri-group-line',
+                'items' => [
+                    'superadmin.users' => [
+                        'label' => 'User',
+                        'route' => 'superadmin.users.index',
+                        'active' => ['superadmin.users.*', 'superadmin.companies.*', 'superadmin.branches.*', 'superadmin.referral.*'],
+                    ],
+                    // Tiga item ini tampil sebagai tab di halaman User, bukan di sidebar.
+                    'superadmin.companies' => [
+                        'label' => 'Company',
+                        'route' => 'superadmin.companies.index',
+                        'active' => 'superadmin.companies.*',
+                        'sidebar' => false,
+                    ],
+                    'superadmin.branches' => [
+                        'label' => 'Branch',
+                        'route' => 'superadmin.branches.index',
+                        'active' => 'superadmin.branches.*',
+                        'sidebar' => false,
+                    ],
+                    'superadmin.referral' => [
+                        'label' => 'Referral',
+                        'route' => 'superadmin.referral.index',
+                        'active' => 'superadmin.referral.*',
+                        'sidebar' => false,
+                    ],
+                ],
+            ],
+            // Aplikasi yang dijual, sama seperti menu user, tapi superadmin mengelola semua datanya.
+            'applications' => [
+                'label' => 'Applications',
+                'icon' => 'ri-apps-2-line',
+                'submenus' => [
+                    'pages' => [
+                        'label' => 'Pages',
+                        'items' => [
+                            // Kategori yang dipilih user saat membuat page.
+                            'superadmin.page-types' => [
+                                'label' => 'Category Pages',
+                                'route' => 'superadmin.page-types.index',
+                                'active' => 'superadmin.page-types.*',
+                            ],
+                            'superadmin.pages' => [
+                                'label' => 'List Pages',
+                                'route' => 'superadmin.pages.index',
+                                'active' => 'superadmin.pages.*',
+                            ],
+                        ],
+                    ],
+                    'schedules' => [
+                        'label' => 'Schedules',
+                        'items' => [
+                            'superadmin.schedules' => [
+                                'label' => 'Data Schedules',
+                                'route' => 'superadmin.schedules.rooms.index',
+                                'active' => 'superadmin.schedules.*',
+                            ],
+                        ],
+                    ],
+                    'invoices' => [
+                        'label' => 'Invoice',
+                        'items' => [
+                            'superadmin.invoices' => [
+                                'label' => 'List Invoice',
+                                'route' => 'superadmin.invoices.index',
+                                'active' => ['superadmin.invoices.index', 'superadmin.invoices.show'],
+                            ],
+                            // Biaya layanan bizbos yang dipotong dari setiap pembayaran invoice.
+                            'superadmin.invoice-settings' => [
+                                'label' => 'Biaya Invoice',
+                                'route' => 'superadmin.invoices.settings',
+                                'active' => 'superadmin.invoices.settings*',
+                                'superadmin_only' => true,
+                            ],
+                        ],
+                    ],
+                    'contacts' => [
+                        'label' => 'Kontak',
+                        'items' => [
+                            'superadmin.customers' => [
+                                'label' => 'Buku Kontak',
+                                'route' => 'superadmin.contacts.index',
+                                'active' => 'superadmin.contacts.*',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'packages' => [
+                'label' => 'Packages',
+                'icon' => 'ri-box-3-line',
+                'items' => [
+                    'superadmin.category-applications' => [
+                        'label' => 'Kategori Aplikasi',
+                        'route' => 'superadmin.category-applications.index',
+                        'active' => 'superadmin.category-applications.*',
+                    ],
+                    'superadmin.packages' => [
+                        'label' => 'Package',
+                        'route' => 'superadmin.packages.index',
+                        'active' => 'superadmin.packages.*',
+                    ],
+                    'superadmin.vouchers' => [
+                        'label' => 'Voucher',
+                        'route' => 'superadmin.vouchers.index',
+                        'active' => 'superadmin.vouchers.*',
+                    ],
+                ],
+            ],
+            'deposit' => [
+                'label' => 'Deposit',
+                'icon' => 'ri-wallet-3-line',
+                'items' => [
+                    // Tab Data Deposit & History Saldo User.
+                    'superadmin.deposits' => [
+                        'label' => 'Data Deposit',
+                        'route' => 'superadmin.deposits.index',
+                        'active' => ['superadmin.deposits.*', 'superadmin.wallet-adjustment.*'],
+                    ],
+                    // Lihat = lihat pengaturan, Kelola = ubah kredensial Duitku.
+                    'superadmin.payment-gateway' => [
+                        'label' => 'Payment Gateway',
+                        'route' => 'superadmin.payment-gateway.setting',
+                        'active' => 'superadmin.payment-gateway.*',
+                    ],
+                    // Pengajuan, verifikasi rekening, dan kredensial Duitku Disbursement (tab).
+                    'superadmin.withdrawals' => [
+                        'label' => 'Penarikan Saldo',
+                        'route' => 'superadmin.withdrawals.index',
+                        'active' => ['superadmin.withdrawals.*', 'superadmin.bank-accounts.*', 'superadmin.disbursement.*'],
+                        'superadmin_only' => true,
+                    ],
+                    'superadmin.wallet-adjustment' => [
+                        'label' => 'Koreksi Saldo',
+                        'route' => 'superadmin.wallet-adjustment.create',
+                        'active' => 'superadmin.wallet-adjustment.*',
+                        'superadmin_only' => true,
+                        'sidebar' => false,
+                    ],
+                ],
+            ],
+            'settings' => [
+                'label' => 'Settings',
+                'icon' => 'ri-settings-3-line',
+                'items' => [
+                    'superadmin.roles' => [
+                        'label' => 'Role',
+                        'route' => 'superadmin.roles.index',
+                        'active' => 'superadmin.roles.*',
+                        'superadmin_only' => true,
+                    ],
+                    // Berisi API key penyedia AI, jadi khusus superadmin.
+                    'superadmin.ai' => [
+                        'label' => 'AI',
+                        'route' => 'superadmin.ai.index',
+                        'active' => 'superadmin.ai.*',
+                        'superadmin_only' => true,
+                    ],
+                ],
+            ],
+        ],
+    ],
+];
