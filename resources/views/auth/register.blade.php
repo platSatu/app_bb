@@ -1,7 +1,7 @@
 @extends('layouts.auth')
 
 @section('title', 'Daftar')
-@section('image', 'login.jpg')
+@section('image', 'login_new.jpg')
 
 @section('content')
     <div class="mb-6">
@@ -55,6 +55,8 @@
 
         <button type="submit" class="btn btn-primary w-100">Daftar</button>
     </form>
+
+    @include('auth.partials.google-button', ['label' => 'Daftar dengan Google'])
 
     <p class="text-center text-muted fs-14 my-6">
         Sudah punya akun? <a href="{{ route('login') }}" class="link link-primary">Masuk di sini</a>

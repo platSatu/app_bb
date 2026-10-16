@@ -1,7 +1,7 @@
 @extends('layouts.auth')
 
 @section('title', 'Lupa Password')
-@section('image', 'login.jpg')
+@section('image', 'login_new.jpg')
 
 @section('content')
     <div class="mb-6">

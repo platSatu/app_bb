@@ -34,6 +34,8 @@
         <button type="submit" class="btn btn-primary w-100">Masuk</button>
     </form>
 
+    @include('auth.partials.google-button')
+
     <p class="text-center text-muted fs-14 my-6">
         Belum punya akun? <a href="{{ route('register') }}" class="link link-primary">Daftar sekarang</a>
     </p>
