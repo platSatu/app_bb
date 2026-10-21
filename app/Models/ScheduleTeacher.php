@@ -5,10 +5,11 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToScheduleBranch;
 use App\Models\Concerns\HasActiveStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
-/** Pengajar: bukan user bizbos. Login ke dashboard pengajar sendiri (tahap berikutnya). */
+/** Pengajar. Bisa terhubung ke akun portal (user_id), satu akun bisa mengajar di beberapa branch. */
 class ScheduleTeacher extends Authenticatable
 {
     use BelongsToScheduleBranch, HasActiveStatus, HasUuids;
@@ -27,5 +28,11 @@ class ScheduleTeacher extends Authenticatable
     public function grades(): BelongsToMany
     {
         return $this->belongsToMany(ScheduleGrade::class, 'schedule_teacher_grades', 'teacher_id', 'grade_id');
+    }
+
+    /** Akun portal (orang tua/murid atau pengajar) yang terhubung. */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

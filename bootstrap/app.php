@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->appendToGroup('web', \App\Http\Middleware\EnsureUserIsActive::class);
+        $middleware->appendToGroup('web', \App\Http\Middleware\SeparatePortalMember::class);
         $middleware->validateCsrfTokens(except: ['payment/duitku/callback']);
 
         $middleware->alias([

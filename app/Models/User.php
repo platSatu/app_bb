@@ -28,14 +28,19 @@ class User extends Authenticatable
     public const TYPE_SUPERADMIN = 'superadmin';
     public const TYPE_STAFF = 'staff';
     public const TYPE_USER = 'user';
+    // Murid/orang tua & pengajar: hanya bisa membuka portal, tidak punya menu bisnis.
+    public const TYPE_MEMBER = 'member';
 
     public const TYPE_LABELS = [
         self::TYPE_SUPERADMIN => 'Superadmin',
         self::TYPE_STAFF => 'Staff',
         self::TYPE_USER => 'User',
+        self::TYPE_MEMBER => 'Member Portal',
     ];
 
     private ?array $platformPermissionCache = null;
+
+    private ?array $portalRolesCache = null;
 
     public const INACTIVE_MESSAGE = 'Akun Anda sedang tidak aktif. Silakan hubungi admin kami.';
 
@@ -92,6 +97,30 @@ class User extends Authenticatable
     public function isPlatformTeam(): bool
     {
         return $this->isSuperadmin() || $this->isStaff();
+    }
+
+    public function isMember(): bool
+    {
+        return $this->user_type === self::TYPE_MEMBER;
+    }
+
+    public function scheduleStudents(): HasMany
+    {
+        return $this->hasMany(ScheduleStudent::class);
+    }
+
+    public function scheduleTeachers(): HasMany
+    {
+        return $this->hasMany(ScheduleTeacher::class);
+    }
+
+    /** Menu portal yang tampil: murid (termasuk anak) dan/atau pengajar. */
+    public function portalRoles(): array
+    {
+        return $this->portalRolesCache ??= [
+            'student' => $this->scheduleStudents()->exists(),
+            'teacher' => $this->scheduleTeachers()->exists(),
+        ];
     }
 
     public function wallet(): HasOne

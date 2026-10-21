@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
-/** Murid: tersambung ke Buku Kontak branch. Login ke dashboard murid sendiri (tahap berikutnya). */
+/** Murid: tersambung ke Buku Kontak branch. Bisa terhubung ke akun portal orang tua/murid (user_id). */
 class ScheduleStudent extends Authenticatable
 {
     use BelongsToScheduleBranch, HasActiveStatus, HasUuids;
@@ -27,5 +27,11 @@ class ScheduleStudent extends Authenticatable
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    /** Akun portal (orang tua/murid atau pengajar) yang terhubung. */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

@@ -71,6 +71,11 @@ return [
                         'route' => 'schedules.students.index',
                         'active' => 'schedules.students.*',
                     ],
+                    'schedules.portal' => [
+                        'label' => 'Portal Murid & Pengajar',
+                        'route' => 'schedules.portal.requests',
+                        'active' => 'schedules.portal.*',
+                    ],
                 ],
             ],
             // Tagihan ke customer: dari dashboard (kategori > periode) atau lewat API website.
