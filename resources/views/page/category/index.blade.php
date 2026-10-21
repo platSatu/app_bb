@@ -91,6 +91,9 @@
                                 </td>
                                 <td><span class="badge {{ $page->statusBadge() }}">{{ $page->statusLabel() }}</span></td>
                                 <td class="text-end text-nowrap">
+                                    @if ($canManage)
+                                    <a href="{{ route($routes.'.edit', $page) }}" class="btn btn-sm rounded-pill btn-primary"><i class="ri-settings-3-line"></i> Setting</a>
+                                    @endif
                                     @if ($quick = $page->templateConfig('quick'))
                                         <a href="{{ route($routes.'.'.$quick[2], $page) }}" class="btn btn-sm rounded-pill btn-outline-success"><i class="{{ $quick[1] }}"></i> {{ $quick[0] }} ({{ $page->{$quick[3]} ?? 0 }})</a>
                                     @endif

@@ -63,9 +63,8 @@ class PageCategoryController extends Controller
     {
         $page = $this->pages->save(new PageCategory(), $request->branch(), $request->validated());
 
-        return $page->load('type')->isRegistration()
-            ? redirect()->route('pages.builder', $page)->with('success', "Page {$page->name} berhasil dibuat. Sekarang susun field form pendaftarannya.")
-            : redirect()->route('pages.index')->with('success', "Page {$page->name} berhasil dibuat. Link dan QR code-nya sudah siap.");
+        return redirect()->route('pages.index')
+            ->with('success', "Page {$page->name} berhasil dibuat. Link dan QR code-nya sudah siap, klik Setting untuk mengatur isinya.");
     }
 
     public function edit(Request $request, string $page): View
