@@ -39,6 +39,7 @@ return [
     'ticket' => [
         'tabs' => [
             'ticket-categories' => ['Kategori Tiket', 'ri-coupon-3-line', 'ticket.categories.index'],
+            'ticket-manage' => ['Atur Kategori Tiket', 'ri-equalizer-line', 'ticket.categories.manage'],
             'ticket-orders' => ['Pesanan', 'ri-file-list-3-line', 'ticket.orders.index'],
             'ticket-design' => ['Desain E-ticket', 'ri-palette-line', 'ticket.design.edit'],
             'ticket-scanners' => ['Registrasi Ulang', 'ri-qr-scan-2-line', 'ticket.scanners.index'],

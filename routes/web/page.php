@@ -41,6 +41,7 @@ $read = function () {
     Route::get('{page}/quiz/attempts/{attempt}', [QuizAttemptController::class, 'show'])->name('quiz.attempts.show');
 
     Route::get('{page}/tickets/categories', [TicketCategoryController::class, 'index'])->name('ticket.categories.index');
+    Route::get('{page}/tickets/categories/manage', [TicketCategoryController::class, 'manage'])->name('ticket.categories.manage');
     Route::get('{page}/tickets/categories/{category}/sales', [TicketCategoryController::class, 'sales'])->name('ticket.categories.sales');
     Route::get('{page}/tickets/orders', [TicketOrderController::class, 'index'])->name('ticket.orders.index');
     Route::get('{page}/tickets/orders/{order}', [TicketOrderController::class, 'show'])->name('ticket.orders.show');

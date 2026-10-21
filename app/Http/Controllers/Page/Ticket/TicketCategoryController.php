@@ -23,11 +23,23 @@ class TicketCategoryController extends Controller
 
     private const MAX = 30;
 
+    /** Ringkasan penjualan per kategori. */
     public function index(Request $request, string $page): View
+    {
+        return $this->show($request, $page, 'page.ticket.categories');
+    }
+
+    /** Form tambah/ubah kategori tiket. */
+    public function manage(Request $request, string $page): View
+    {
+        return $this->show($request, $page, 'page.ticket.manage');
+    }
+
+    private function show(Request $request, string $page, string $view): View
     {
         $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET);
 
-        return view('page.ticket.categories', [
+        return view($view, [
             'page' => $model,
             'categories' => $model->ticketCategories()->get(),
             'routes' => $this->routes($request),
@@ -51,8 +63,12 @@ class TicketCategoryController extends Controller
             'categories.*.sale_ends_at' => ['nullable', 'date'],
             'categories.*.status' => ['required', Rule::in(array_keys(TicketCategory::STATUS_LABELS))],
         ], [
-            'categories.*.name.required' => 'Nama kategori wajib diisi.',
-            'categories.*.quota.min' => 'Kuota minimal 1.',
+            'categories.*.name.required' => 'Nama kategori tiket belum diisi.',
+            'categories.*.price.required' => 'Harga tiket belum diisi. Isi 0 kalau tiketnya gratis.',
+            'categories.*.quota.required' => 'Jumlah tiket yang dijual belum diisi.',
+            'categories.*.quota.min' => 'Jumlah tiket yang dijual minimal 1.',
+            'categories.*.max_per_order.required' => 'Batas pembelian per orang belum diisi.',
+            'categories.*.max_per_order.max' => 'Batas pembelian per orang maksimal 100 tiket.',
         ])['categories']);
 
         DB::transaction(function () use ($model, $rows) {
@@ -66,11 +82,11 @@ class TicketCategoryController extends Controller
                 $label = 'Kategori '.$row['name'];
 
                 if ($category->exists && $row['quota'] < $category->sold + $category->reserved) {
-                    $errors["categories.{$position}.quota"] = "{$label}: kuota tidak boleh kurang dari ".($category->sold + $category->reserved).' (sudah terjual/ditahan).';
+                    $errors["categories.{$position}.quota"] = "{$label}: jumlah tiket minimal ".($category->sold + $category->reserved).', karena sebanyak itu sudah terjual atau sedang menunggu pembayaran.';
                 }
 
                 if (filled($row['sale_starts_at'] ?? null) && filled($row['sale_ends_at'] ?? null) && $row['sale_ends_at'] < $row['sale_starts_at']) {
-                    $errors["categories.{$position}.sale_ends_at"] = "{$label}: waktu tutup penjualan tidak boleh sebelum waktu buka.";
+                    $errors["categories.{$position}.sale_ends_at"] = "{$label}: waktu berhenti dijual harus setelah waktu mulai dijual.";
                 }
 
                 $category->fill($row);
@@ -82,7 +98,7 @@ class TicketCategoryController extends Controller
 
             foreach ($existing->except($kept) as $removed) {
                 if ($removed->sold > 0 || $removed->reserved > 0 || $removed->orderItems()->exists()) {
-                    $errors['categories'] = "Kategori {$removed->name} sudah punya pesanan, jadi tidak bisa dihapus. Ubah statusnya menjadi Tidak Aktif saja.";
+                    $errors['categories'] = "Kategori {$removed->name} sudah ada yang membeli, jadi tidak bisa dihapus. Ubah statusnya menjadi Tidak Aktif supaya tidak dijual lagi.";
                 } else {
                     $removed->delete();
                 }
@@ -93,7 +109,7 @@ class TicketCategoryController extends Controller
             }
         });
 
-        return back()->with('success', 'Kategori tiket berhasil disimpan.');
+        return back()->with('success', 'Kategori tiket sudah disimpan.');
     }
 
     /** Riwayat pembelian satu kategori (hanya yang lunas). */
