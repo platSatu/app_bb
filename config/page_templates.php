@@ -35,6 +35,7 @@ return [
             'ticket-orders' => ['Pesanan', 'ri-file-list-3-line', 'ticket.orders.index'],
             'ticket-design' => ['Desain E-ticket', 'ri-palette-line', 'ticket.design.edit'],
             'ticket-scanners' => ['Registrasi Ulang', 'ri-qr-scan-2-line', 'ticket.scanners.index'],
+            'ticket-reports' => ['Laporan', 'ri-file-chart-line', 'ticket.reports.index'],
         ],
         'quick' => ['Pesanan', 'ri-coupon-3-line', 'ticket.orders.index', 'ticket_orders_count'],
         'public' => 'page.public.ticket',

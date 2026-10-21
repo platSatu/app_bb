@@ -7,8 +7,7 @@ use App\Http\Controllers\Page\Concerns\ResolvesPage;
 use App\Models\PageCategory;
 use App\Models\PageType;
 use App\Models\TicketCategory;
-use App\Models\TicketOrder;
-use App\Models\TicketOrderItem;
+use App\Models\TicketStockLog;
 use App\Support\Menu;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -71,7 +70,9 @@ class TicketCategoryController extends Controller
             'categories.*.max_per_order.max' => 'Batas pembelian per orang maksimal 100 tiket.',
         ])['categories']);
 
-        DB::transaction(function () use ($model, $rows) {
+        $actorId = $request->user()->getKey();
+
+        DB::transaction(function () use ($model, $rows, $actorId) {
             PageCategory::whereKey($model->getKey())->lockForUpdate()->first();
             $existing = TicketCategory::where('page_id', $model->getKey())->lockForUpdate()->get()->keyBy('id');
             $errors = [];
@@ -89,10 +90,12 @@ class TicketCategoryController extends Controller
                     $errors["categories.{$position}.sale_ends_at"] = "{$label}: waktu berhenti dijual harus setelah waktu mulai dijual.";
                 }
 
+                $before = $category->exists ? TicketStockLog::snapshot($category) : ['quota' => 0, 'reserved' => 0, 'sold' => 0];
                 $category->fill($row);
                 $category->page_id = $model->getKey();
                 $category->sort_order = $position;
                 $category->save();
+                TicketStockLog::record($category, $before, TicketStockLog::ACTION_QUOTA, null, $actorId, $before['quota'] === 0 ? 'Kategori baru' : null);
                 $kept[] = $category->getKey();
             }
 
@@ -110,32 +113,5 @@ class TicketCategoryController extends Controller
         });
 
         return back()->with('success', 'Kategori tiket sudah disimpan.');
-    }
-
-    /** Riwayat pembelian satu kategori (hanya yang lunas). */
-    public function sales(Request $request, string $page, string $category): View
-    {
-        $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET);
-        $item = TicketCategory::where('page_id', $model->getKey())->findOrFail($category);
-        $search = trim((string) $request->query('search'));
-
-        $sales = TicketOrderItem::query()
-            ->where('category_id', $item->getKey())
-            ->whereHas('order', fn ($q) => $q->where('status', TicketOrder::STATUS_PAID)
-                ->when($search !== '', fn ($w) => $w->where(fn ($s) => $s
-                    ->where('reference', 'like', "%{$search}%")
-                    ->orWhere('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%"))))
-            ->with('order:id,reference,name,email,phone,paid_at')
-            ->latest()
-            ->paginate(25)
-            ->withQueryString();
-
-        return view('page.ticket.sales', [
-            'page' => $model,
-            'category' => $item,
-            'sales' => $sales,
-            'routes' => $this->routes($request),
-        ]);
     }
 }

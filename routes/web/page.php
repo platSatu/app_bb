@@ -15,6 +15,7 @@ use App\Http\Controllers\Page\PublicTicketController;
 use App\Http\Controllers\Page\Ticket\TicketCategoryController;
 use App\Http\Controllers\Page\Ticket\TicketDesignController;
 use App\Http\Controllers\Page\Ticket\TicketOrderController;
+use App\Http\Controllers\Page\Ticket\TicketReportController;
 use App\Http\Controllers\Page\Ticket\TicketScannerController;
 use App\Http\Controllers\Page\TicketScanController;
 use App\Http\Controllers\Page\Quiz\QuizAttemptController;
@@ -40,7 +41,8 @@ $read = function () {
 
     Route::get('{page}/tickets/categories', [TicketCategoryController::class, 'index'])->name('ticket.categories.index');
     Route::get('{page}/tickets/categories/manage', [TicketCategoryController::class, 'manage'])->name('ticket.categories.manage');
-    Route::get('{page}/tickets/categories/{category}/sales', [TicketCategoryController::class, 'sales'])->name('ticket.categories.sales');
+    Route::get('{page}/tickets/categories/{category}/sales', [TicketReportController::class, 'sales'])->name('ticket.categories.sales');
+    Route::get('{page}/tickets/reports', [TicketReportController::class, 'index'])->name('ticket.reports.index');
     Route::get('{page}/tickets/orders', [TicketOrderController::class, 'index'])->name('ticket.orders.index');
     Route::get('{page}/tickets/orders/{order}', [TicketOrderController::class, 'show'])->name('ticket.orders.show');
     Route::get('{page}/tickets/design', [TicketDesignController::class, 'edit'])->name('ticket.design.edit');

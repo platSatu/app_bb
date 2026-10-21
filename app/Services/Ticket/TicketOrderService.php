@@ -8,8 +8,10 @@ use App\Models\PaymentCallback;
 use App\Models\PaymentGatewaySetting;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
+use App\Models\TicketEmailLog;
 use App\Models\TicketOrder;
 use App\Models\TicketOrderItem;
+use App\Models\TicketStockLog;
 use App\Models\UserBranch;
 use App\Models\WalletTransaction;
 use App\Services\Customer\CustomerService;
@@ -102,7 +104,9 @@ class TicketOrderService
 
             foreach ($quantities as $id => $qty) {
                 $category = $categories[$id];
-                $category->increment('reserved', $qty);
+                $before = TicketStockLog::snapshot($category);
+                $category->forceFill(['reserved' => $category->reserved + $qty])->save();
+                TicketStockLog::record($category, $before, TicketStockLog::ACTION_RESERVE, $order->getKey());
 
                 $item = new TicketOrderItem();
                 $item->forceFill([
@@ -218,16 +222,30 @@ class TicketOrderService
         return $summary;
     }
 
-    /** Email gagal tidak boleh menggagalkan callback: tiket tetap bisa dibuka dari halaman order & dikirim ulang owner. */
-    public function sendTickets(TicketOrder $order): bool
+    /**
+     * Email gagal tidak boleh menggagalkan callback: tiket tetap bisa dibuka dari halaman order & dikirim ulang owner.
+     * Setiap pengiriman dicatat; statusnya diperbarui oleh TicketOrderPaid saat benar-benar terkirim/gagal.
+     */
+    public function sendTickets(TicketOrder $order, string $trigger = 'auto', ?string $actorId = null): bool
     {
+        $log = new TicketEmailLog();
+        $log->forceFill([
+            'page_id' => $order->page_id,
+            'order_id' => $order->getKey(),
+            'actor_id' => $actorId,
+            'email' => $order->email,
+            'trigger' => $trigger,
+            'status' => TicketEmailLog::STATUS_QUEUED,
+        ])->save();
+
         try {
-            Mail::to($order->email)->queue(new TicketOrderPaid($order->getKey()));
+            Mail::to($order->email)->queue(new TicketOrderPaid($order->getKey(), $log->getKey()));
             $order->forceFill(['email_sent_at' => now()])->save();
 
             return true;
         } catch (Throwable $e) {
             report($e);
+            TicketOrderPaid::markFailed($log->getKey(), $e);
 
             return false;
         }
@@ -266,10 +284,13 @@ class TicketOrderService
                     $category = $categories->get($item->category_id);
 
                     if ($category) {
+                        $before = TicketStockLog::snapshot($category);
                         $category->forceFill([
                             'reserved' => $wasPending ? max(0, $category->reserved - $item->quantity) : $category->reserved,
                             'sold' => $category->sold + $item->quantity,
                         ])->save();
+                        TicketStockLog::record($category, $before, TicketStockLog::ACTION_SELL, $locked->getKey(), null,
+                            $locked->total === 0 ? 'Tiket gratis' : ($wasPending ? null : 'Dibayar setelah batas waktu'));
                     }
 
                     for ($i = 0; $i < $item->quantity; $i++) {
@@ -314,7 +335,9 @@ class TicketOrderService
 
             foreach ($locked->items as $item) {
                 if ($category = $categories->get($item->category_id)) {
+                    $before = TicketStockLog::snapshot($category);
                     $category->forceFill(['reserved' => max(0, $category->reserved - $item->quantity)])->save();
+                    TicketStockLog::record($category, $before, TicketStockLog::ACTION_RELEASE, $locked->getKey(), null, $reason);
                 }
             }
 

@@ -68,7 +68,7 @@
                     @if ($order->isPaid())
                         <hr>
                         <div class="small text-muted mb-2">
-                            Email e-ticket: {{ $order->email_sent_at ? 'dikirim '.$order->email_sent_at->translatedFormat('d M Y H:i') : 'belum terkirim' }}
+                            Email e-ticket: {{ $order->email_sent_at ? 'terakhir diproses '.$order->email_sent_at->translatedFormat('d M Y H:i') : 'belum diproses' }}. Status kirimnya ada di Riwayat Transaksi.
                         </div>
                         @if ($canManage)
                             <form method="POST" action="{{ route($routes.'.ticket.orders.resend', [$page, $order]) }}">
@@ -99,6 +99,26 @@
                     </div>
                 </div>
             @endif
+            <div class="card">
+                <div class="card-header bg-white border-bottom px-4 py-3"><h6 class="mb-0 fw-semibold">Riwayat Transaksi</h6></div>
+                <div class="card-body p-3 p-md-4">
+                    <ul class="list-unstyled mb-0 small">
+                        @foreach ($timeline as $row)
+                            <li class="d-flex gap-2 {{ $loop->last ? '' : 'pb-3 mb-3 border-bottom' }}">
+                                <i class="ri-checkbox-blank-circle-fill text-primary mt-1" style="font-size: 8px;"></i>
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="d-flex justify-content-between gap-2">
+                                        <span class="fw-semibold">{{ $row['title'] }}</span>
+                                        <span class="text-muted text-nowrap">{{ $row['at']?->format('d M H:i:s') }}</span>
+                                    </div>
+                                    @if ($row['badge']) <span class="badge {{ $row['badge'][1] }} mt-1">{{ $row['badge'][0] }}</span> @endif
+                                    @if ($row['detail']) <div class="text-muted text-break mt-1">{{ $row['detail'] }}</div> @endif
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
             <a href="{{ route($routes.'.ticket.orders.index', $page) }}" class="btn btn-light w-100"><i class="ri-arrow-left-line"></i> Kembali</a>
         </div>
     </div>
