@@ -3,16 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Models\CatalogOrder;
+use App\Models\BankAccount;
 use App\Models\Customer;
+use App\Models\Deposit;
 use App\Models\Invoice;
 use App\Models\SchedulePortalRequest;
 use App\Models\ScheduleRoutine;
 use App\Models\ScheduleSession;
 use App\Models\TicketOrder;
 use App\Models\UserCompany;
+use App\Models\User;
 use App\Models\UserBranch;
 use App\Models\WaChat;
 use App\Models\WaDevice;
+use App\Models\WalletWithdrawal;
+use App\Models\WebContactMessage;
+use App\Support\Menu;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -21,7 +27,7 @@ use Illuminate\View\View;
 /**
  * Dashboard owner: ringkasan bulan ini, hal yang perlu ditindaklanjuti, jadwal hari ini, dan aktivitas terbaru.
  * Semua dibatasi ke branch & perusahaan miliknya.
- * Tim platform (superadmin/staff) menyusul di tahap dashboard superadmin.
+ * Tim platform (superadmin/staff) melihat ringkasan platform, sesuai izin menu masing-masing.
  */
 class DashboardController extends Controller
 {
@@ -33,7 +39,7 @@ class DashboardController extends Controller
         $user = $request->user();
 
         if ($user->isPlatformTeam()) {
-            return view('dashboard', ['owner' => false]);
+            return $this->admin($user);
         }
 
         $branchIds = UserBranch::where('user_id', $user->getKey())->pluck('id');
@@ -172,5 +178,50 @@ class DashboardController extends Controller
             ->map(fn ($i) => ['at' => $i->paid_at, 'icon' => 'ri-file-list-3-line', 'color' => 'success', 'title' => $i->customer_name.' membayar invoice '.$i->number, 'amount' => $rupiah($i->paid_amount), 'url' => route('invoices.show', $i->id)]);
 
         return $tickets->concat($catalog)->concat($invoices)->filter(fn ($row) => $row['at'])->sortByDesc('at')->take(5)->values();
+    }
+
+    /** Superadmin & staff: setiap kartu hanya muncul kalau role-nya boleh membuka menu terkait. */
+    private function admin(User $user): View
+    {
+        $can = fn (string $key, string $ability = Menu::ABILITY_VIEW) => $user->canAccess($key, $ability);
+        $start = now()->startOfMonth();
+        $rupiah = fn ($v) => 'Rp '.number_format((int) $v, 0, ',', '.');
+        $owners = User::where('user_type', User::TYPE_USER);
+
+        $cards = array_filter([
+            $can('superadmin.users') ? ['Pengguna baru bulan ini', number_format((clone $owners)->where('created_at', '>=', $start)->count(), 0, ',', '.'),
+                'Total '.number_format((clone $owners)->count(), 0, ',', '.').' pemilik usaha', 'ri-user-add-line', 'primary', route('superadmin.users.index')] : null,
+            $can('superadmin.companies') ? ['Perusahaan aktif', number_format(UserCompany::where('status', UserCompany::STATUS_ACTIVE)->count(), 0, ',', '.'),
+                UserBranch::where('status', UserBranch::STATUS_ACTIVE)->count().' branch aktif', 'ri-building-4-line', 'info', route('superadmin.companies.index')] : null,
+            $can('superadmin.deposits') ? ['Top up bulan ini', $rupiah(Deposit::where('status', Deposit::STATUS_SUCCESS)->where('paid_at', '>=', $start)->sum('amount')),
+                Deposit::where('status', Deposit::STATUS_SUCCESS)->where('paid_at', '>=', $start)->count().' transaksi berhasil', 'ri-wallet-3-line', 'success', route('superadmin.deposits.index')] : null,
+            $can('superadmin.withdrawals', Menu::ABILITY_MANAGE) ? ['Penarikan bulan ini', $rupiah(WalletWithdrawal::where('status', WalletWithdrawal::STATUS_SUCCESS)->where('updated_at', '>=', $start)->sum('amount')),
+                'Sudah berhasil dikirim ke rekening', 'ri-bank-line', 'warning', route('superadmin.withdrawals.index')] : null,
+        ]);
+
+        $actions = collect([
+            $can('superadmin.withdrawals', Menu::ABILITY_MANAGE) ? [
+                WalletWithdrawal::whereIn('status', [WalletWithdrawal::STATUS_PENDING, WalletWithdrawal::STATUS_NEEDS_REVIEW])->count(),
+                'penarikan saldo menunggu diproses', 'ri-hand-coin-line', 'danger', route('superadmin.withdrawals.index'),
+            ] : null,
+            $can('superadmin.withdrawals', Menu::ABILITY_MANAGE) ? [
+                BankAccount::where('status', BankAccount::STATUS_PENDING)->count(),
+                'rekening bank menunggu dicek', 'ri-bank-card-line', 'warning', route('superadmin.bank-accounts.index'),
+            ] : null,
+            $can('superadmin.web.contact-messages') ? [
+                WebContactMessage::where('status', 'new')->count(),
+                'pesan baru dari website', 'ri-mail-unread-line', 'primary', route('superadmin.web.contact-messages.index'),
+            ] : null,
+            $can('superadmin.pages') ? [
+                TicketOrder::where('status', TicketOrder::STATUS_REFUND_NEEDED)->count(),
+                'pesanan tiket perlu refund', 'ri-refund-2-line', 'danger', route('superadmin.pages.index'),
+            ] : null,
+        ])->filter(fn ($item) => $item && $item[0] > 0)->values();
+
+        return view('dashboard.admin', [
+            'cards' => array_values($cards),
+            'actions' => $actions,
+            'newUsers' => $can('superadmin.users') ? (clone $owners)->with('company:id,user_id,name')->latest()->limit(6)->get(['id', 'name', 'email', 'created_at']) : null,
+        ]);
     }
 }
