@@ -56,22 +56,6 @@ class Menu
             ->filter(fn (array $section) => $section['groups']->isNotEmpty());
     }
 
-    /** Grup menu aplikasi yang paketnya belum aktif di branch mana pun milik owner; tampil terkunci di sidebar. */
-    public static function lockedApps(User $user): Collection
-    {
-        if ($user->isPlatformTeam() || $user->isMember()) {
-            return collect();
-        }
-
-        $access = app(\App\Services\Subscription\AppAccess::class);
-
-        return collect(config('menu'))
-            ->filter(fn (array $section) => $section['owner_app'] ?? false)
-            ->flatMap(fn (array $section) => $section['groups'])
-            ->filter(fn (array $group) => isset($group['app']) && ! $access->ownerHas($user, $group['app']))
-            ->values();
-    }
-
     /** Item yang dipakai sebagai tab: hanya yang boleh dibuka user. */
     public static function tabs(User $user, array $keys): Collection
     {
