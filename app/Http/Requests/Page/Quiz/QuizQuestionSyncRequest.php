@@ -60,6 +60,8 @@ class QuizQuestionSyncRequest extends FormRequest
             'questions.*.options' => ['array', 'max:'.self::MAX_OPTIONS],
             'questions.*.options.*.id' => ['nullable', 'uuid'],
             'questions.*.options.*.label' => ['required', 'string', 'max:255'],
+            // Wajib ada aturan: validated() hanya mengembalikan field yang punya aturan.
+            'questions.*.options.*.is_correct' => ['boolean'],
         ];
     }
 
