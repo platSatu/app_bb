@@ -3,13 +3,18 @@
     $tabs = [
         'profile' => ['label' => 'Profile', 'icon' => 'ri-user-line', 'route' => 'profile.edit'],
         'referral' => ['label' => 'Referral Saya', 'icon' => 'ri-gift-line', 'route' => 'profile.referral'],
+        'packages' => ['label' => 'Paket Saya', 'icon' => 'ri-vip-crown-line', 'route' => 'profile.packages'],
         'balance' => ['label' => 'Saldo', 'icon' => 'ri-wallet-3-line', 'route' => 'profile.balance'],
         'withdrawal' => ['label' => 'Tarik Saldo', 'icon' => 'ri-bank-line', 'route' => 'profile.withdrawals'],
         'history' => ['label' => 'History', 'icon' => 'ri-history-line', 'route' => 'profile.history'],
     ];
+
+    if (auth()->user()->isPlatformTeam()) {
+        unset($tabs['packages']);
+    }
 @endphp
 
-<ul class="nav nav-tabs mb-3">
+<ul class="nav nav-tabs mb-3 flex-nowrap overflow-auto text-nowrap">
     @foreach ($tabs as $key => $tab)
         <li class="nav-item">
             <a href="{{ route($tab['route']) }}" class="nav-link {{ $active === $key ? 'active' : '' }}"
