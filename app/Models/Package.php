@@ -12,11 +12,11 @@ class Package extends Model
 {
     use HasActiveStatus, HasUuids;
 
-    protected $fillable = ['category_application_id', 'name', 'price', 'description', 'duration', 'status'];
+    protected $fillable = ['category_application_id', 'name', 'price', 'description', 'duration', 'apps', 'is_trial', 'status'];
 
     protected function casts(): array
     {
-        return ['price' => 'integer', 'duration' => 'integer'];
+        return ['price' => 'integer', 'duration' => 'integer', 'apps' => 'array', 'is_trial' => 'boolean'];
     }
 
     public function category(): BelongsTo
@@ -33,5 +33,11 @@ class Package extends Model
     public function features(): array
     {
         return array_values(array_filter(array_map('trim', preg_split('/\R/', (string) $this->description))));
+    }
+
+    /** Nama layanan yang dibuka paket ini. */
+    public function appLabels(): array
+    {
+        return array_map(fn ($key) => \App\Support\Apps::label($key), $this->apps ?? []);
     }
 }

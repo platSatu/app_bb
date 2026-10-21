@@ -29,7 +29,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>Package</th>
-                            <th>Kategori</th>
+                            <th>Kategori & Layanan</th>
                             <th class="text-end">Harga</th>
                             <th class="text-center">Durasi</th>
                             <th>Fitur</th>
@@ -40,8 +40,18 @@
                     <tbody>
                         @forelse ($packages as $package)
                             <tr>
-                                <td class="fw-semibold">{{ $package->name }}</td>
-                                <td>{{ $package->category?->name ?? '-' }}</td>
+                                <td>
+                                    <div class="fw-semibold">{{ $package->name }}</div>
+                                    @if ($package->is_trial) <span class="badge bg-info-subtle text-info">Trial</span> @endif
+                                </td>
+                                <td>
+                                    <div>{{ $package->category?->name ?? '-' }}</div>
+                                    @forelse ($package->appLabels() as $label)
+                                        <span class="badge bg-primary-subtle text-primary">{{ $label }}</span>
+                                    @empty
+                                        <span class="badge bg-danger-subtle text-danger" title="Edit paket ini dan pilih layanannya">Belum pilih layanan</span>
+                                    @endforelse
+                                </td>
                                 <td class="text-end text-nowrap">Rp {{ number_format($package->price, 0, ',', '.') }}</td>
                                 <td class="text-center text-nowrap">{{ $package->duration }} hari</td>
                                 <td>
