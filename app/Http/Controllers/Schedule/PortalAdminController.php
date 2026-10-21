@@ -7,6 +7,7 @@ use App\Models\SchedulePortalLink;
 use App\Models\SchedulePortalRequest;
 use App\Models\UserBranch;
 use App\Services\Schedule\SchedulePortalService;
+use App\Services\Subscription\AppAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -22,7 +23,7 @@ class PortalAdminController extends Controller
     public function requests(Request $request): View|RedirectResponse
     {
         $user = $request->user();
-        $branches = UserBranch::where('user_id', $user->getKey())->orderBy('name')->get(['id', 'name']);
+        $branches = UserBranch::where('user_id', $user->getKey())->whereIn('id', AppAccess::activeBranches('schedules'))->orderBy('name')->get(['id', 'name']);
 
         if ($branches->isEmpty()) {
             return redirect()->route('settings.branches.index')->with('info', 'Buat branch dulu ya, pendaftar portal tercatat per branch.');
@@ -85,7 +86,7 @@ class PortalAdminController extends Controller
 
     public function links(Request $request): View|RedirectResponse
     {
-        $branches = UserBranch::where('user_id', $request->user()->getKey())->orderBy('name')->get(['id', 'name', 'status']);
+        $branches = UserBranch::where('user_id', $request->user()->getKey())->whereIn('id', AppAccess::activeBranches('schedules'))->orderBy('name')->get(['id', 'name', 'status']);
 
         if ($branches->isEmpty()) {
             return redirect()->route('settings.branches.index')->with('info', 'Buat branch dulu ya, link pendaftaran dibuat per branch.');

@@ -11,8 +11,23 @@ class EnsurePermission
 {
     public function handle(Request $request, Closure $next, string $key, string $ability = Menu::ABILITY_VIEW): Response
     {
-        abort_unless($request->user()?->canAccess($key, $ability), 403);
+        $user = $request->user();
 
-        return $next($request);
+        if ($user?->canAccess($key, $ability)) {
+            return $next($request);
+        }
+
+        // Menu aplikasi yang paketnya belum aktif/habis: arahkan ke Paket Saya, bukan halaman 403.
+        $app = Menu::find($key)['app'] ?? null;
+
+        if ($user && $app && ! $user->isPlatformTeam() && ! $user->isMember()) {
+            $message = 'Layanan '.\App\Support\Apps::label($app).' belum aktif atau masa aktifnya sudah habis. Aktifkan paket dulu ya.';
+
+            return $request->expectsJson()
+                ? response()->json(['message' => $message], 403)
+                : redirect()->route('profile.packages')->with('warning', $message);
+        }
+
+        abort(403);
     }
 }

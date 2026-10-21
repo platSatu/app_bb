@@ -106,6 +106,7 @@ class JoinController extends Controller
         return SchedulePortalLink::with('branch:id,name,status')
             ->where('token', $token)
             ->whereHas('branch', fn ($q) => $q->where('status', 'active'))
+            ->whereIn('branch_id', \App\Services\Subscription\AppAccess::activeBranches('schedules'))
             ->firstOrFail();
     }
 }

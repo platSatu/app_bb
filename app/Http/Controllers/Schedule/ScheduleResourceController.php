@@ -306,7 +306,8 @@ abstract class ScheduleResourceController extends Controller
                 ->sortBy(fn ($branch) => $branch->company?->name)->values();
         }
 
-        return UserBranch::where('user_id', $request->user()->getKey())->orderBy('name')->get(['id', 'name', 'status']);
+        return UserBranch::where('user_id', $request->user()->getKey())->whereIn('id', \App\Services\Subscription\AppAccess::activeBranches('schedules'))
+            ->orderBy('name')->get(['id', 'name', 'status']);
     }
 
     private function find(Request $request, string $id): Model

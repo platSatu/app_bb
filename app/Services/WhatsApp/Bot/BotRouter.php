@@ -37,6 +37,7 @@ class BotRouter
         $chat = $message?->chat;
 
         if (! $message || ! $chat || $message->from_me || $chat->is_group || $message->type !== 'text'
+            || ! app(\App\Services\Subscription\AppAccess::class)->branchActive($chat->branch_id, 'whatsapp')
             || blank($message->body) || $message->sent_at->diffInSeconds(now()) > self::MAX_AGE_SECONDS) {
             return;
         }

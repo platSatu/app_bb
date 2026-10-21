@@ -72,6 +72,20 @@
                     @endforeach
                 @endforeach
 
+                {{-- Aplikasi yang paketnya belum aktif: tetap terlihat, klik untuk mengaktifkan. --}}
+                @php($lockedApps = \App\Support\Menu::lockedApps(auth()->user()))
+                @if ($lockedApps->isNotEmpty())
+                    <li class="pe-menu-title">Belum Aktif</li>
+                    @foreach ($lockedApps as $locked)
+                        <li class="pe-slide">
+                            <a href="{{ route('profile.packages') }}" class="pe-nav-link opacity-75" title="Aktifkan paket untuk membuka menu ini">
+                                <i class="{{ $locked['icon'] }} pe-nav-icon"></i>
+                                <span class="pe-nav-content">{{ $locked['label'] }} <i class="ri-lock-line ms-1"></i></span>
+                            </a>
+                        </li>
+                    @endforeach
+                @endif
+
                 <li class="pe-slide">
                     <form id="sidebar-logout-form" method="POST" action="{{ route('logout') }}" class="d-none">
                         @csrf

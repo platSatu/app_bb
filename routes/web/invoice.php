@@ -10,7 +10,8 @@ use App\Http\Controllers\Superadmin\Invoice\InvoiceSettingController;
 use Illuminate\Support\Facades\Route;
 
 // Halaman bayar publik (tanpa login). Token 48 karakter acak.
-Route::controller(PublicInvoiceController::class)->prefix('pay/{token}')->name('invoice.pay')->group(function () {
+// Ikut tutup kalau paket Tagihan branch habis (invoice yang sudah lunas tetap bisa dibuka).
+Route::controller(PublicInvoiceController::class)->middleware('public.app:invoices')->prefix('pay/{token}')->name('invoice.pay')->group(function () {
     Route::get('/', 'show')->middleware('throttle:60,1')->name('');
     Route::post('checkout', 'checkout')->middleware('throttle:10,1')->name('.checkout');
     Route::get('return', 'returned')->middleware('throttle:30,1')->name('.return');

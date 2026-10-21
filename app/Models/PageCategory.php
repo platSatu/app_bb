@@ -100,7 +100,8 @@ class PageCategory extends Model
     public function scopeAccessibleBy(Builder $query, User $user, string $ability = Menu::ABILITY_VIEW): Builder
     {
         if (! $user->isPlatformTeam()) {
-            return $query->ownedBy($user);
+            // Page di branch yang paket Pages-nya habis tidak bisa dibuka/diubah.
+            return $query->ownedBy($user)->whereIn($this->qualifyColumn('branch_id'), \App\Services\Subscription\AppAccess::activeBranches('pages'));
         }
 
         return $user->canAccess('superadmin.pages', $ability) ? $query : $query->whereRaw('1 = 0');

@@ -167,8 +167,10 @@ class User extends Authenticatable
         $item = Menu::find($key);
 
         // Menu aplikasi milik user sendiri (data selalu di-scope ke perusahaannya).
+        // Owner: hanya terbuka kalau paket layanannya aktif di minimal satu branch miliknya.
         if ($item['owner_app'] ?? false) {
-            return true;
+            return $this->isPlatformTeam() || empty($item['app'])
+                || app(\App\Services\Subscription\AppAccess::class)->ownerHas($this, $item['app']);
         }
 
         if (! $this->isStaff() || $item === null || ($item['superadmin_only'] ?? false)) {

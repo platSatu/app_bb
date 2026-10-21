@@ -61,12 +61,13 @@ class PageCategoryRequest extends FormRequest
     /** User biasa: hanya branch miliknya sendiri. Superadmin meng-override ini. */
     protected function branchQuery()
     {
-        return UserBranch::where('user_id', $this->user()->getKey());
+        return UserBranch::where('user_id', $this->user()->getKey())->whereIn('id', \App\Services\Subscription\AppAccess::activeBranches('pages'));
     }
 
     protected function branchRule()
     {
-        return Rule::exists(UserBranch::class, 'id')->where('user_id', $this->user()->getKey());
+        return Rule::exists(UserBranch::class, 'id')->where('user_id', $this->user()->getKey())
+            ->whereIn('id', \App\Services\Subscription\AppAccess::activeBranches('pages')->pluck('branch_id')->all());
     }
 
     /** Kategori aktif, atau kategori lama page ini (supaya edit tidak gagal saat kategorinya dinonaktifkan). */

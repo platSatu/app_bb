@@ -18,6 +18,10 @@ class WaGateway
 {
     public function connect(string $branchId, string $deviceId, ?string $phone = null): array
     {
+        if ($denied = $this->inactive($branchId)) {
+            return $denied;
+        }
+
         return $this->json('POST', "/v1/devices/{$deviceId}/connect", $branchId, ['phone' => $phone], 30);
     }
 
@@ -33,16 +37,28 @@ class WaGateway
 
     public function sendText(string $branchId, array $data): array
     {
+        if ($denied = $this->inactive($branchId)) {
+            return $denied;
+        }
+
         return $this->json('POST', '/v1/messages', $branchId, $data);
     }
 
     public function sendMedia(string $branchId, array $data, UploadedFile $file): array
     {
+        if ($denied = $this->inactive($branchId)) {
+            return $denied;
+        }
+
         return $this->multipart('/v1/messages/media', $branchId, $data, $file);
     }
 
     public function sendPoll(string $branchId, array $data): array
     {
+        if ($denied = $this->inactive($branchId)) {
+            return $denied;
+        }
+
         return $this->json('POST', '/v1/messages/poll', $branchId, $data);
     }
 
@@ -74,6 +90,11 @@ class WaGateway
     /** $action: start | pause | cancel */
     public function campaign(string $branchId, string $campaignId, string $action): array
     {
+        // Batal/jeda tetap boleh supaya kiriman bisa dihentikan; mulai/lanjut butuh paket aktif.
+        if (in_array($action, ['start', 'resume'], true) && ($denied = $this->inactive($branchId))) {
+            return $denied;
+        }
+
         return $this->json('POST', "/v1/campaigns/{$campaignId}/{$action}", $branchId);
     }
 
@@ -103,6 +124,13 @@ class WaGateway
     public function avatarUrl(string $branchId, string $chatId): string
     {
         return $this->publicUrl("/avatar/{$chatId}?token=".$this->token($branchId, 'avatar', $chatId));
+    }
+
+    /** Paket WhatsApp branch habis: kirim pesan & tautkan nomor ditolak (cara jawabnya sama dengan error lain). */
+    private function inactive(string $branchId): ?array
+    {
+        return app(\App\Services\Subscription\AppAccess::class)->branchActive($branchId, 'whatsapp') ? null
+            : ['success' => false, 'status' => 403, 'message' => 'Paket WhatsApp untuk branch ini belum aktif atau sudah habis. Aktifkan paket dulu ya.', 'data' => []];
     }
 
     private function publicUrl(string $path): string

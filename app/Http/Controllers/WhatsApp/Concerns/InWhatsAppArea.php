@@ -19,7 +19,9 @@ trait InWhatsAppArea
 {
     protected function ownerBranches(Request $request): Collection
     {
-        return once(fn () => UserBranch::where('user_id', $request->user()->getKey())->orderBy('name')->get(['id', 'name', 'status', 'company_id', 'user_id']));
+        // Hanya branch yang paket WhatsApp-nya aktif.
+        return once(fn () => UserBranch::where('user_id', $request->user()->getKey())->whereIn('id', \App\Services\Subscription\AppAccess::activeBranches('whatsapp'))
+            ->orderBy('name')->get(['id', 'name', 'status', 'company_id', 'user_id']));
     }
 
     /** Branch terpilih dari ?branch=, default branch pertama. */

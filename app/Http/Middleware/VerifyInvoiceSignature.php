@@ -45,6 +45,10 @@ class VerifyInvoiceSignature
             return $this->deny('Akses API sedang dinonaktifkan oleh pemilik akun.', 403);
         }
 
+        if (! app(\App\Services\Subscription\AppAccess::class)->branchActive($client->branch_id, 'invoices')) {
+            return $this->deny('Paket Tagihan untuk akun ini belum aktif atau sudah habis.', 403);
+        }
+
         $limiter = 'invoice-api:'.$client->getKey();
 
         if (RateLimiter::tooManyAttempts($limiter, self::PER_MINUTE)) {

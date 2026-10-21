@@ -27,7 +27,8 @@ trait InInvoiceArea
 
     protected function ownerBranches(Request $request): Collection
     {
-        return UserBranch::where('user_id', $request->user()->getKey())->orderBy('name')->get(['id', 'name', 'status', 'company_id']);
+        return UserBranch::where('user_id', $request->user()->getKey())->whereIn('id', \App\Services\Subscription\AppAccess::activeBranches('invoices'))
+            ->orderBy('name')->get(['id', 'name', 'status', 'company_id']);
     }
 
     protected function branchRequired(): RedirectResponse

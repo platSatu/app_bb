@@ -99,36 +99,39 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin/pages')->name('sup
     Route::middleware('permission:superadmin.pages,manage')->group($write);
 });
 
-Route::get('page/{slug}', [PublicPageController::class, 'show'])
-    ->where('slug', '[a-z0-9-]+')
-    ->middleware('throttle:120,1')
-    ->name('page.show');
-Route::get('page/{slug}/p/{product}', [PublicPageController::class, 'product'])
-    ->where(['slug' => '[a-z0-9-]+', 'product' => '[a-z0-9-]+'])
-    ->middleware('throttle:120,1')
-    ->name('page.product');
-Route::get('page/{slug}/checkout', [PublicPageController::class, 'checkout'])
-    ->where('slug', '[a-z0-9-]+')
-    ->name('page.checkout');
-Route::post('page/{slug}/checkout', [PublicPageController::class, 'placeOrder'])
-    ->where('slug', '[a-z0-9-]+')
-    ->middleware('throttle:10,1')
-    ->name('page.checkout.store');
-Route::post('page/{slug}/quiz/start', [PublicQuizController::class, 'start'])
-    ->where('slug', '[a-z0-9-]+')
-    ->middleware('throttle:10,1')
-    ->name('page.quiz.start');
-Route::get('page/{slug}/quiz', [PublicQuizController::class, 'play'])
-    ->where('slug', '[a-z0-9-]+')
-    ->name('page.quiz.play');
-Route::post('page/{slug}/quiz', [PublicQuizController::class, 'submit'])
-    ->where('slug', '[a-z0-9-]+')
-    ->middleware('throttle:10,1')
-    ->name('page.quiz.submit');
-Route::post('page/{slug}/tickets', [PublicTicketController::class, 'checkout'])
-    ->where('slug', '[a-z0-9-]+')
-    ->middleware('throttle:10,1')
-    ->name('page.tickets.checkout');
+// Halaman publik ikut tutup kalau paket Pages branch pemiliknya habis.
+Route::middleware('public.app:pages')->group(function () {
+    Route::get('page/{slug}', [PublicPageController::class, 'show'])
+        ->where('slug', '[a-z0-9-]+')
+        ->middleware('throttle:120,1')
+        ->name('page.show');
+    Route::get('page/{slug}/p/{product}', [PublicPageController::class, 'product'])
+        ->where(['slug' => '[a-z0-9-]+', 'product' => '[a-z0-9-]+'])
+        ->middleware('throttle:120,1')
+        ->name('page.product');
+    Route::get('page/{slug}/checkout', [PublicPageController::class, 'checkout'])
+        ->where('slug', '[a-z0-9-]+')
+        ->name('page.checkout');
+    Route::post('page/{slug}/checkout', [PublicPageController::class, 'placeOrder'])
+        ->where('slug', '[a-z0-9-]+')
+        ->middleware('throttle:10,1')
+        ->name('page.checkout.store');
+    Route::post('page/{slug}/quiz/start', [PublicQuizController::class, 'start'])
+        ->where('slug', '[a-z0-9-]+')
+        ->middleware('throttle:10,1')
+        ->name('page.quiz.start');
+    Route::get('page/{slug}/quiz', [PublicQuizController::class, 'play'])
+        ->where('slug', '[a-z0-9-]+')
+        ->name('page.quiz.play');
+    Route::post('page/{slug}/quiz', [PublicQuizController::class, 'submit'])
+        ->where('slug', '[a-z0-9-]+')
+        ->middleware('throttle:10,1')
+        ->name('page.quiz.submit');
+    Route::post('page/{slug}/tickets', [PublicTicketController::class, 'checkout'])
+        ->where('slug', '[a-z0-9-]+')
+        ->middleware('throttle:10,1')
+        ->name('page.tickets.checkout');
+});
 
 // Link e-ticket: token 48 karakter acak, tidak bisa ditebak atau dicari.
 Route::middleware('throttle:60,1')->prefix('e-ticket/{slug}')->where(['slug' => '[a-z0-9-]+'])->name('eticket.')->group(function () {
@@ -138,7 +141,7 @@ Route::middleware('throttle:60,1')->prefix('e-ticket/{slug}')->where(['slug' => 
 });
 
 // Halaman petugas registrasi ulang: token 48 karakter + PIN.
-Route::prefix('scan/{token}')->where(['token' => '[A-Za-z0-9]{48}'])->name('scan.')->group(function () {
+Route::prefix('scan/{token}')->middleware('public.app:pages')->where(['token' => '[A-Za-z0-9]{48}'])->name('scan.')->group(function () {
     Route::get('/', [TicketScanController::class, 'show'])->middleware('throttle:60,1')->name('show');
     Route::post('login', [TicketScanController::class, 'login'])->middleware('throttle:20,1')->name('login');
     Route::post('check', [TicketScanController::class, 'check'])->middleware('throttle:240,1')->name('check');

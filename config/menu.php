@@ -17,6 +17,7 @@ return [
         'groups' => [
             'pages' => [
                 'label' => 'Pages',
+                'app' => 'pages',
                 'icon' => 'ri-pages-line',
                 'items' => [
                     'pages.list' => [
@@ -29,6 +30,7 @@ return [
             // Jadwal rutin & sesi, master data Ruangan > Bidang > Kategori > Grade, plus Pengajar & Murid.
             'schedules' => [
                 'label' => 'Schedules',
+                'app' => 'schedules',
                 'icon' => 'ri-calendar-2-line',
                 'items' => [
                     'schedules.routines' => [
@@ -81,6 +83,7 @@ return [
             // Tagihan ke customer: dari dashboard (kategori > periode) atau lewat API website.
             'invoices' => [
                 'label' => 'Invoice',
+                'app' => 'invoices',
                 'icon' => 'ri-file-list-3-line',
                 'items' => [
                     'invoices.list' => ['label' => 'Semua Invoice', 'route' => 'invoices.index', 'active' => ['invoices.index', 'invoices.show']],
@@ -92,6 +95,7 @@ return [
             // Nomor WhatsApp per branch, inbox realtime, dan Phone Book (Buku Kontak + Group).
             'whatsapp' => [
                 'label' => 'WhatsApp',
+                'app' => 'whatsapp',
                 'icon' => 'ri-whatsapp-line',
                 'items' => [
                     'whatsapp.devices' => ['label' => 'Device & Inbox', 'route' => 'whatsapp.devices.index', 'active' => ['whatsapp.devices.*', 'whatsapp.inbox.*', 'whatsapp.api-key.*']],

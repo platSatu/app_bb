@@ -116,6 +116,7 @@ class TeachingController extends Controller
     {
         return ScheduleSession::with([...self::SESSION_WITH, 'attendances.student:id,name'])
             ->whereIn('teacher_id', ScheduleTeacher::where('user_id', $request->user()->getKey())->select('id'))
+            ->whereIn('branch_id', \App\Services\Subscription\AppAccess::activeBranches('schedules'))
             ->findOrFail($id);
     }
 

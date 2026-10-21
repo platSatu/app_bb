@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Subscription\AppAccess;
 use App\Models\ScheduleRoutine;
 use App\Services\Schedule\ScheduleRoutineService;
 use Illuminate\Console\Command;
@@ -18,7 +19,9 @@ class GenerateScheduleSessions extends Command
     {
         $created = 0;
 
+        // Branch yang paket Jadwal-nya habis tidak dibuatkan sesi baru.
         ScheduleRoutine::active()
+            ->whereIn('branch_id', AppAccess::activeBranches('schedules'))
             ->where(fn ($q) => $q->whereNull('ends_on')->orWhere('ends_on', '>=', today()))
             ->chunkById(100, function ($items) use ($routines, &$created) {
                 foreach ($items as $routine) {

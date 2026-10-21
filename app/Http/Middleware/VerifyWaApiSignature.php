@@ -39,6 +39,9 @@ class VerifyWaApiSignature
         if (! $client->is_active || $client->device?->branch?->status !== 'active') {
             return $this->deny('Akses API sedang dinonaktifkan oleh pemilik akun.', 403);
         }
+        if (! app(\App\Services\Subscription\AppAccess::class)->branchActive($client->device?->branch_id, 'whatsapp')) {
+            return $this->deny('Paket WhatsApp untuk akun ini belum aktif atau sudah habis.', 403);
+        }
 
         $limiter = 'wa-api:'.$client->getKey();
         if (RateLimiter::tooManyAttempts($limiter, self::PER_MINUTE)) {

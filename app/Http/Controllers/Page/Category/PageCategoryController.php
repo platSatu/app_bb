@@ -116,12 +116,12 @@ class PageCategoryController extends Controller
 
     private function owned(Request $request, string $id): PageCategory
     {
-        return PageCategory::ownedBy($request->user())->findOrFail($id);
+        return PageCategory::accessibleBy($request->user())->findOrFail($id);
     }
 
     private function branches(Request $request)
     {
-        $branches = $request->user()->company?->branches()->orderBy('name')->get(['id', 'name', 'status']);
+        $branches = $request->user()->company?->branches()->whereIn('id', \App\Services\Subscription\AppAccess::activeBranches('pages'))->orderBy('name')->get(['id', 'name', 'status']);
 
         return $branches?->isNotEmpty() ? $branches : null;
     }

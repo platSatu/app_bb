@@ -6,11 +6,12 @@ use App\Models\ScheduleSession;
 use App\Models\ScheduleStudent;
 use App\Models\ScheduleTeacher;
 use App\Models\User;
+use App\Services\Subscription\AppAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
-/** Data portal selalu dimulai dari murid/pengajar milik akun yang sedang masuk. */
+/** Data portal selalu dimulai dari murid/pengajar milik akun yang sedang masuk, di branch yang paket Jadwal-nya aktif. */
 trait InPortal
 {
     protected const SESSION_WITH = ['branch:id,name', 'teacher:id,name', 'room:id,name', 'grade:id,name,category_id', 'grade.category:id,name,subject_id', 'grade.category.subject:id,name'];
@@ -19,12 +20,12 @@ trait InPortal
 
     protected function students(User $user): Collection
     {
-        return ScheduleStudent::where('user_id', $user->getKey())->with('branch:id,name')->orderBy('name')->get(['id', 'name', 'branch_id', 'status']);
+        return ScheduleStudent::where('user_id', $user->getKey())->whereIn('branch_id', AppAccess::activeBranches('schedules'))->with('branch:id,name')->orderBy('name')->get(['id', 'name', 'branch_id', 'status']);
     }
 
     protected function teachers(User $user): Collection
     {
-        return ScheduleTeacher::where('user_id', $user->getKey())->with('branch:id,name')->get(['id', 'name', 'branch_id', 'status']);
+        return ScheduleTeacher::where('user_id', $user->getKey())->whereIn('branch_id', AppAccess::activeBranches('schedules'))->with('branch:id,name')->get(['id', 'name', 'branch_id', 'status']);
     }
 
     /** Sesi yang diikuti murid-murid ini; absensi yang dimuat hanya milik mereka. */

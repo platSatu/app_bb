@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'invoice.api' => \App\Http\Middleware\VerifyInvoiceSignature::class,
             'wa.api' => \App\Http\Middleware\VerifyWaApiSignature::class,
             'frontend.api-key' => \App\Http\Middleware\VerifyFrontendApiKey::class,
+            'public.app' => \App\Http\Middleware\EnsurePublicAppActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

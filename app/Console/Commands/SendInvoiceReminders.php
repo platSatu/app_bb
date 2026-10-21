@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Subscription\AppAccess;
 use App\Models\Invoice;
 use App\Services\Invoice\InvoiceService;
 use Illuminate\Console\Command;
@@ -19,6 +20,7 @@ class SendInvoiceReminders extends Command
         $sent = 0;
 
         Invoice::where('status', Invoice::STATUS_UNPAID)
+            ->whereIn('branch_id', AppAccess::activeBranches('invoices'))
             ->whereNotNull('customer_email')
             ->whereNotNull('category_id')
             ->whereBetween('due_date', [today(), today()->addDays(60)])
