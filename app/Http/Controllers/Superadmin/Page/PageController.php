@@ -57,9 +57,7 @@ class PageController extends Controller
     {
         $page = $this->pages->save(new PageCategory(), $request->branch(), $request->validated());
 
-        return $page->load('type')->isRegistration()
-            ? redirect()->route(self::ROUTES.'.builder', $page)->with('success', "Page {$page->name} berhasil dibuat. Sekarang susun field form-nya.")
-            : redirect()->route(self::ROUTES.'.index')->with('success', "Page {$page->name} berhasil dibuat.");
+        return redirect()->route(self::ROUTES.'.index')->with('success', "Page {$page->name} berhasil dibuat.");
     }
 
     public function edit(PageCategory $page): View

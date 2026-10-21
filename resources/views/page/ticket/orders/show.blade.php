@@ -80,6 +80,25 @@
                     @endif
                 </div>
             </div>
+            @if ($order->submission)
+                <div class="card">
+                    <div class="card-header bg-white border-bottom px-4 py-3"><h6 class="mb-0 fw-semibold">Data Tambahan</h6></div>
+                    <div class="card-body p-3 p-md-4">
+                        <dl class="mb-0">
+                            @foreach ($order->submission->answers as $answer)
+                                <dt class="text-muted fw-normal small">{{ $answer->label }}</dt>
+                                <dd class="{{ $loop->last ? 'mb-0' : '' }}" style="white-space: pre-line;">
+                                    @if ($answer->file_path)
+                                        <a href="{{ route($routes.'.submissions.file', [$page, $order->submission, $answer]) }}"><i class="ri-download-2-line"></i> {{ $answer->file_name }}</a>
+                                    @else
+                                        {{ filled($answer->value) ? $answer->value : '-' }}
+                                    @endif
+                                </dd>
+                            @endforeach
+                        </dl>
+                    </div>
+                </div>
+            @endif
             <a href="{{ route($routes.'.ticket.orders.index', $page) }}" class="btn btn-light w-100"><i class="ri-arrow-left-line"></i> Kembali</a>
         </div>
     </div>

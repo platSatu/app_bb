@@ -28,7 +28,6 @@ class PageFormSyncRequest extends FormRequest
                     ? array_values(array_unique(array_filter(array_map('trim', $lines), 'strlen')))
                     : null,
                 'is_required' => filter_var($row['is_required'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                'contact_field' => filled($row['contact_field'] ?? null) ? $row['contact_field'] : null,
             ];
         });
 
@@ -47,7 +46,6 @@ class PageFormSyncRequest extends FormRequest
             'fields.*.options' => ['nullable', 'array', 'max:50'],
             'fields.*.options.*' => ['string', 'max:100'],
             'fields.*.is_required' => ['boolean'],
-            'fields.*.contact_field' => ['nullable', Rule::in(array_keys(PageFormField::CONTACT_FIELDS)), 'distinct'],
         ];
     }
 
@@ -56,13 +54,7 @@ class PageFormSyncRequest extends FormRequest
         return [function (Validator $validator) {
             foreach ($this->input('fields', []) as $i => $row) {
                 if (in_array($row['type'], PageFormField::WITH_OPTIONS, true) && empty($row['options'])) {
-                    $validator->errors()->add("fields.{$i}.options", 'Baris '.($i + 1).': isi minimal satu pilihan.');
-                }
-
-                [$contactLabel, $allowedTypes] = PageFormField::CONTACT_FIELDS[$row['contact_field'] ?? ''] ?? [null, []];
-
-                if ($contactLabel && ! in_array($row['type'], $allowedTypes, true)) {
-                    $validator->errors()->add("fields.{$i}.contact_field", 'Baris '.($i + 1).": jenis field ini tidak cocok untuk disimpan sebagai {$contactLabel}.");
+                    $validator->errors()->add("fields.{$i}.options", 'Pertanyaan ke-'.($i + 1).': isi minimal satu pilihan jawaban.');
                 }
             }
         }];
@@ -71,9 +63,8 @@ class PageFormSyncRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'fields.max' => 'Satu form maksimal '.self::MAX_FIELDS.' field.',
-            'fields.*.label.required' => 'Label wajib diisi di setiap baris.',
-            'fields.*.contact_field.distinct' => 'Setiap jenis kontak (Nama/WhatsApp/Email) hanya boleh dipilih di satu baris.',
+            'fields.max' => 'Satu form maksimal '.self::MAX_FIELDS.' pertanyaan.',
+            'fields.*.label.required' => 'Setiap pertanyaan wajib diberi judul.',
         ];
     }
 }

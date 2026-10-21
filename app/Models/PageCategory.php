@@ -85,11 +85,6 @@ class PageCategory extends Model
         return $this->template() === $template;
     }
 
-    public function isRegistration(): bool
-    {
-        return $this->isTemplate(PageType::TEMPLATE_REGISTRATION);
-    }
-
     /** Pengaturan tab & tampilan publik dari config/page_templates.php. */
     public function templateConfig(?string $key = null): mixed
     {

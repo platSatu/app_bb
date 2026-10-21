@@ -51,7 +51,7 @@ class TicketOrderController extends Controller
 
         return view('page.ticket.orders.show', [
             'page' => $model,
-            'order' => TicketOrder::where('page_id', $model->getKey())->with(['items', 'tickets', 'customer'])->findOrFail($order),
+            'order' => TicketOrder::where('page_id', $model->getKey())->with(['items', 'tickets', 'customer', 'submission.answers'])->findOrFail($order),
             'routes' => $this->routes($request),
             'canManage' => $this->canManage($request),
         ]);

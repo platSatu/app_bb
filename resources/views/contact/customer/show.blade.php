@@ -30,7 +30,7 @@
 
         <div class="col-lg-8">
             <div class="card">
-                <div class="card-header"><h5 class="mb-0">Riwayat Pendaftaran</h5></div>
+                <div class="card-header"><h5 class="mb-0">Riwayat Form Pembeli Tiket</h5></div>
                 <div class="card-body">
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
@@ -49,8 +49,8 @@
                                         <td>{{ $submission->page?->name ?? '-' }}</td>
                                         <td class="text-nowrap">{{ $submission->created_at->translatedFormat('d M Y H:i') }}</td>
                                         <td class="text-end">
-                                            @if ($submission->page)
-                                                <a href="{{ route($routes['pages'].'.submissions.show', [$submission->page, $submission]) }}" class="btn btn-sm rounded-pill btn-outline-secondary">
+                                            @if ($submission->page && $submission->ticketOrder)
+                                                <a href="{{ route($routes['pages'].'.ticket.orders.show', [$submission->page, $submission->ticketOrder]) }}" class="btn btn-sm rounded-pill btn-outline-secondary">
                                                     <i class="ri-eye-line"></i> Lihat
                                                 </a>
                                             @endif

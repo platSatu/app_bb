@@ -26,7 +26,11 @@ class PublicTicketController extends Controller
     {
         $page = $this->openPage($slug);
 
+        $fieldRules = $page->fields->mapWithKeys(fn ($field) => ['fields.'.$field->getKey() => $field->rules()])->all();
+        $fieldNames = $page->fields->mapWithKeys(fn ($field) => ['fields.'.$field->getKey() => $field->label])->all();
+
         $data = $request->validate([
+            ...$fieldRules,
             'website' => ['nullable', 'max:0'],
             'cf-turnstile-response' => [new Turnstile()],
             'tickets' => ['required', 'array', 'max:30'],
@@ -39,7 +43,7 @@ class PublicTicketController extends Controller
             'phone.regex' => 'Nomor WhatsApp belum benar.',
             'email.required' => 'Email wajib diisi, e-ticket akan dikirim ke sini.',
             'website.max' => 'Pesanan gagal dikirim.',
-        ], ['name' => 'nama', 'phone' => 'nomor WhatsApp']);
+        ], ['name' => 'nama', 'phone' => 'nomor WhatsApp', ...$fieldNames]);
 
         $quantities = collect($data['tickets'])
             ->filter(fn ($qty, $id) => is_string($id) && preg_match('/^[0-9a-f-]{36}$/i', $id))
@@ -51,7 +55,7 @@ class PublicTicketController extends Controller
                 'name' => trim($data['name']),
                 'email' => strtolower(trim($data['email'])),
                 'phone' => $data['phone'],
-            ], $request->ip(), $request->userAgent());
+            ], $data['fields'] ?? [], $request->ip(), $request->userAgent());
         } catch (RuntimeException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
@@ -113,7 +117,7 @@ class PublicTicketController extends Controller
 
     private function page(string $slug): PageCategory
     {
-        $page = PageCategory::with(['type', 'branch.company:id,name,logo'])->where('slug', $slug)->firstOrFail();
+        $page = PageCategory::with(['type', 'fields', 'branch.company:id,name,logo'])->where('slug', $slug)->firstOrFail();
         abort_unless($page->isTemplate(PageType::TEMPLATE_TICKET), 404);
 
         return $page;

@@ -7,6 +7,7 @@ use App\Http\Controllers\Page\Concerns\ResolvesPage;
 use App\Http\Requests\Page\Form\PageFormSyncRequest;
 use App\Models\PageCategory;
 use App\Models\PageFormField;
+use App\Models\PageType;
 use App\Support\Menu;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,13 +18,9 @@ class PageFormFieldController extends Controller
 {
     use ResolvesPage;
 
-    public function index(Request $request, string $page): View|RedirectResponse
+    public function index(Request $request, string $page): View
     {
-        $model = $this->page($request, $page);
-
-        if (! $model->isRegistration()) {
-            return $this->notRegistration($request, $model);
-        }
+        $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET);
 
         return view('page.form.builder', [
             'page' => $model->load('fields'),
@@ -35,11 +32,7 @@ class PageFormFieldController extends Controller
     /** Simpan semua baris sekaligus: baris lama diperbarui, baris baru dibuat, baris yang dihapus ikut dihapus. */
     public function sync(PageFormSyncRequest $request, string $page): RedirectResponse
     {
-        $model = $this->page($request, $page, Menu::ABILITY_MANAGE);
-
-        if (! $model->isRegistration()) {
-            return $this->notRegistration($request, $model);
-        }
+        $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET, Menu::ABILITY_MANAGE);
 
         DB::transaction(function () use ($model, $request) {
             // Kunci page supaya 2 tab yang menyimpan bersamaan tidak saling menimpa urutan.
@@ -60,12 +53,6 @@ class PageFormFieldController extends Controller
             $model->fields()->whereKeyNot($kept)->delete();
         });
 
-        return back()->with('success', 'Susunan form berhasil disimpan.');
-    }
-
-    private function notRegistration(Request $request, PageCategory $page): RedirectResponse
-    {
-        return redirect()->route($this->routes($request).'.edit', $page)
-            ->with('info', 'Form builder hanya untuk page dengan kategori Registrasi.');
+        return back()->with('success', 'Form pembeli sudah disimpan.');
     }
 }

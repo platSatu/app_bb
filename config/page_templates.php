@@ -9,15 +9,6 @@
 */
 
 return [
-    'registration' => [
-        'tabs' => [
-            'builder' => ['Form Builder', 'ri-list-settings-line', 'builder'],
-            'submissions' => ['Data Masuk', 'ri-inbox-line', 'submissions.index'],
-        ],
-        'quick' => ['Data', 'ri-inbox-line', 'submissions.index', 'submissions_count'],
-        'public' => 'page.public.registration',
-    ],
-
     'catalog' => [
         'tabs' => [
             'catalog-categories' => ['Kategori', 'ri-price-tag-3-line', 'catalog.categories.index'],
@@ -40,6 +31,7 @@ return [
         'tabs' => [
             'ticket-categories' => ['Kategori Tiket', 'ri-coupon-3-line', 'ticket.categories.index'],
             'ticket-manage' => ['Atur Kategori Tiket', 'ri-equalizer-line', 'ticket.categories.manage'],
+            'builder' => ['Form Pembeli', 'ri-list-settings-line', 'builder'],
             'ticket-orders' => ['Pesanan', 'ri-file-list-3-line', 'ticket.orders.index'],
             'ticket-design' => ['Desain E-ticket', 'ri-palette-line', 'ticket.design.edit'],
             'ticket-scanners' => ['Registrasi Ulang', 'ri-qr-scan-2-line', 'ticket.scanners.index'],

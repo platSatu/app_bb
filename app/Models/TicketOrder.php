@@ -53,6 +53,11 @@ class TicketOrder extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    public function submission(): BelongsTo
+    {
+        return $this->belongsTo(PageSubmission::class, 'submission_id');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(TicketOrderItem::class, 'order_id');

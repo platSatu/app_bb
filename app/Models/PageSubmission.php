@@ -6,8 +6,9 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
-/** Data pendaftar dari form publik. Bukan akun login; pemiliknya = company pemilik page. */
+/** Jawaban Form Pembeli (tiket). Bukan akun login; pemiliknya = company pemilik page. */
 class PageSubmission extends Model
 {
     use HasUuids;
@@ -22,6 +23,11 @@ class PageSubmission extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function ticketOrder(): HasOne
+    {
+        return $this->hasOne(TicketOrder::class, 'submission_id');
     }
 
     public function answers(): HasMany

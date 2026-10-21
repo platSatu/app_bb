@@ -9,12 +9,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-/** Jenis page yang disiapkan superadmin (Pendaftaran, Landing Page, Katalog, Tiket, Quiz, ...). */
+/** Jenis page yang disiapkan superadmin (Landing Page, Katalog, Tiket, Quiz, ...). */
 class PageType extends Model
 {
     use HasActiveStatus, HasUuids;
 
-    public const TEMPLATE_REGISTRATION = 'registration';
     public const TEMPLATE_LANDING = 'landing';
     public const TEMPLATE_CATALOG = 'catalog';
     public const TEMPLATE_TICKET = 'ticket';
@@ -22,7 +21,6 @@ class PageType extends Model
     public const TEMPLATE_BIOLINK = 'biolink';
 
     public const TEMPLATES = [
-        self::TEMPLATE_REGISTRATION => 'Registrasi (form builder)',
         self::TEMPLATE_LANDING => 'Landing Page',
         self::TEMPLATE_CATALOG => 'Catalog Online',
         self::TEMPLATE_TICKET => 'Ticket',

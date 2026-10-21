@@ -26,17 +26,10 @@ class PageFormField extends Model
 
     public const WITH_OPTIONS = ['select', 'radio', 'checkbox'];
 
-    // Field yang ditandai owner untuk disimpan ke Buku Kontak, dan jenis field yang cocok.
-    public const CONTACT_FIELDS = [
-        'name' => ['Nama', ['text']],
-        'phone' => ['WhatsApp', ['phone', 'text']],
-        'email' => ['Email', ['email', 'text']],
-    ];
-
     public const FILE_MIMES = 'jpg,jpeg,png,webp,pdf';
     public const FILE_MAX_KB = 5120;
 
-    protected $fillable = ['type', 'label', 'placeholder', 'help_text', 'options', 'is_required', 'contact_field'];
+    protected $fillable = ['type', 'label', 'placeholder', 'help_text', 'options', 'is_required'];
 
     protected function casts(): array
     {
@@ -58,7 +51,7 @@ class PageFormField extends Model
         return in_array($this->type, self::WITH_OPTIONS, true);
     }
 
-    /** Aturan validasi jawaban pendaftar, dibentuk dari pengaturan field ini. */
+    /** Aturan validasi jawaban pembeli, dibentuk dari pengaturan pertanyaan ini. */
     public function rules(): array
     {
         $base = [$this->is_required ? 'required' : 'nullable'];

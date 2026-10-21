@@ -32,7 +32,7 @@ class PageTypeController extends Controller
 
     public function create(): View
     {
-        return view('superadmin.page-type.form', ['type' => new PageType(['status' => PageType::STATUS_ACTIVE, 'template' => PageType::TEMPLATE_REGISTRATION])]);
+        return view('superadmin.page-type.form', ['type' => new PageType(['status' => PageType::STATUS_ACTIVE, 'template' => PageType::TEMPLATE_TICKET])]);
     }
 
     public function store(PageTypeRequest $request): RedirectResponse

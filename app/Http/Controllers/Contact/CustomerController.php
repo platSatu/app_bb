@@ -38,7 +38,7 @@ class CustomerController extends Controller
 
         return view('contact.customer.show', [
             'customer' => $model,
-            'submissions' => $model->submissions()->with('page:id,name')->latest()->paginate(15),
+            'submissions' => $model->submissions()->with(['page:id,name', 'ticketOrder:id,submission_id'])->latest()->paginate(15),
             'routes' => $this->routes($request),
         ]);
     }

@@ -26,8 +26,6 @@ use Illuminate\Support\Facades\Route;
 // Hak akses tetap dicek lagi di controller lewat PageCategory::accessibleBy().
 $read = function () {
     Route::get('{page}/builder', [PageFormFieldController::class, 'index'])->name('builder');
-    Route::get('{page}/submissions', [PageSubmissionController::class, 'index'])->name('submissions.index');
-    Route::get('{page}/submissions/{submission}', [PageSubmissionController::class, 'show'])->name('submissions.show');
     Route::get('{page}/submissions/{submission}/files/{answer}', [PageSubmissionController::class, 'file'])->name('submissions.file');
 
     Route::get('{page}/catalog/categories', [CatalogCategoryController::class, 'index'])->name('catalog.categories.index');
@@ -142,8 +140,3 @@ Route::prefix('scan/{token}')->where(['token' => '[A-Za-z0-9]{48}'])->name('scan
     Route::post('check', [TicketScanController::class, 'check'])->middleware('throttle:240,1')->name('check');
     Route::post('logout', [TicketScanController::class, 'logout'])->name('logout');
 });
-
-Route::post('page/{slug}', [PublicPageController::class, 'submit'])
-    ->where('slug', '[a-z0-9-]+')
-    ->middleware('throttle:10,1')
-    ->name('page.submit');

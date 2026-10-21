@@ -19,7 +19,7 @@
         @if ($ticketCategories->isEmpty())
             <p class="text-center text-muted mb-0">Tiket belum dibuka. Pantau terus halaman ini ya.</p>
         @else
-            <form method="POST" action="{{ route('page.tickets.checkout', $page->slug) }}" id="ticket-form" onsubmit="this.querySelector('[type=submit]').disabled = true">
+            <form method="POST" action="{{ route('page.tickets.checkout', $page->slug) }}" id="ticket-form" enctype="multipart/form-data" onsubmit="this.querySelector('[type=submit]').disabled = true">
                 @csrf
                 @include('page.public._honeypot')
 
@@ -60,6 +60,11 @@
                         @error($field) <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
                 @endforeach
+
+                @if ($page->fields->isNotEmpty())
+                    <h2 class="h6 fw-semibold mb-2 mt-4">3. Data Tambahan</h2>
+                    @include('page.public._fields', ['fields' => $page->fields, 'preview' => false])
+                @endif
 
                 @include('auth.partials.turnstile')
                 <button type="submit" class="btn btn-primary w-100" id="ticket-submit" disabled>Lanjut ke Pembayaran</button>

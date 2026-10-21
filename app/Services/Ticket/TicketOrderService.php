@@ -13,6 +13,7 @@ use App\Models\TicketOrderItem;
 use App\Models\UserBranch;
 use App\Models\WalletTransaction;
 use App\Services\Customer\CustomerService;
+use App\Services\Page\PageSubmissionService;
 use App\Services\Payment\DuitkuClient;
 use App\Services\Wallet\WalletService;
 use Illuminate\Support\Facades\DB;
@@ -35,14 +36,16 @@ class TicketOrderService
     public function __construct(
         private readonly WalletService $wallets,
         private readonly CustomerService $customers,
+        private readonly PageSubmissionService $submissions,
     ) {
     }
 
     /**
      * @param  array<string, int>  $quantities  [category_id => qty]
      * @param  array{name: string, email: string, phone: string}  $buyer
+     * @param  array  $answers  jawaban Form Pembeli yang sudah tervalidasi
      */
-    public function create(PageCategory $page, array $quantities, array $buyer, ?string $ip, ?string $userAgent): TicketOrder
+    public function create(PageCategory $page, array $quantities, array $buyer, array $answers, ?string $ip, ?string $userAgent): TicketOrder
     {
         $quantities = array_filter($quantities, fn ($qty) => $qty > 0);
 
@@ -50,7 +53,7 @@ class TicketOrderService
             throw ValidationException::withMessages(['tickets' => 'Pilih minimal 1 tiket dulu ya.']);
         }
 
-        $order = DB::transaction(function () use ($page, $quantities, $buyer, $ip, $userAgent) {
+        $order = DB::transaction(function () use ($page, $quantities, $buyer, $answers, $ip, $userAgent) {
             $branch = UserBranch::whereKey($page->branch_id)->lockForUpdate()->firstOrFail();
             $categories = TicketCategory::where('page_id', $page->getKey())->whereKey(array_keys($quantities))->lockForUpdate()->get()->keyBy('id');
             $errors = [];
@@ -110,6 +113,10 @@ class TicketOrderService
                     'quantity' => $qty,
                     'subtotal' => $category->price * $qty,
                 ])->save();
+            }
+
+            if ($page->fields->isNotEmpty()) {
+                $order->forceFill(['submission_id' => $this->submissions->submit($page, $customer, $answers, $ip, $userAgent)->getKey()])->save();
             }
 
             return $order;

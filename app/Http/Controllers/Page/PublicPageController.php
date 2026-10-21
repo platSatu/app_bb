@@ -9,7 +9,6 @@ use App\Models\PageCategory;
 use App\Models\PageType;
 use App\Rules\Turnstile;
 use App\Services\Catalog\CatalogOrderService;
-use App\Services\Page\PageSubmissionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -102,26 +101,6 @@ class PublicPageController extends Controller
         ], $request->ip(), $request->userAgent());
 
         return redirect()->route('page.show', $page->slug)->with('ordered', ['reference' => $order->reference, 'total' => $order->total]);
-    }
-
-    public function submit(Request $request, PageSubmissionService $submissions, string $slug): RedirectResponse
-    {
-        $page = $this->find($slug);
-        abort_unless($this->isOpen($page) && $page->isRegistration() && $page->fields->isNotEmpty(), 404);
-
-        $rules = ['website' => ['nullable', 'max:0'], 'cf-turnstile-response' => [new Turnstile()]];
-        $attributes = [];
-
-        foreach ($page->fields as $field) {
-            $rules['fields.'.$field->getKey()] = $field->rules();
-            $attributes['fields.'.$field->getKey()] = $field->label;
-        }
-
-        $validated = $request->validate($rules, ['website.max' => 'Pendaftaran gagal dikirim.'], $attributes);
-
-        $submission = $submissions->submit($page, $validated['fields'] ?? [], $request->ip(), $request->userAgent());
-
-        return redirect()->route('page.show', $page->slug)->with('submitted', $submission->reference);
     }
 
     private function products(PageCategory $page)

@@ -1,10 +1,10 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Form Builder')
+@section('title', 'Form Pembeli')
 @section('page-section', $routes === 'pages' ? 'Pages' : 'Superadmin')
 
 @php
-    $rows = old('fields', $page->fields->map(fn ($f) => $f->only(['id', 'type', 'label', 'placeholder', 'help_text', 'options', 'is_required', 'contact_field']))->all());
+    $rows = old('fields', $page->fields->map(fn ($f) => $f->only(['id', 'type', 'label', 'placeholder', 'help_text', 'options', 'is_required']))->all());
 @endphp
 
 @section('content')
@@ -19,11 +19,11 @@
                 <div class="card">
                     <div class="card-header bg-white border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
                         <div>
-                            <h6 class="mb-1 fw-semibold">Langkah 2 · Susun Field</h6>
-                            <div class="text-muted small lh-sm">Urutan baris = urutan di form. Klik Simpan Semua setelah selesai.</div>
+                            <h6 class="mb-1 fw-semibold">Pertanyaan Tambahan untuk Pembeli</h6>
+                            <div class="text-muted small lh-sm">Nama, Email, dan WhatsApp sudah otomatis ditanyakan. Tambahkan pertanyaan lain di sini, mis. ukuran kaos atau foto KTP. Urutan di sini = urutan di form.</div>
                         </div>
                         @if ($canManage)
-                            <button type="submit" class="btn btn-primary btn-sm px-3"><i class="ri-save-line me-1"></i>Simpan Semua</button>
+                            <button type="submit" class="btn btn-primary btn-sm px-3"><i class="ri-save-line me-1"></i>Simpan Perubahan</button>
                         @endif
                     </div>
                     <div class="card-body bg-light p-3 p-md-4">
@@ -38,13 +38,13 @@
 
                             <div id="rows-empty" class="text-center text-muted py-4 {{ count($rows) ? 'd-none' : '' }}">
                                 <i class="ri-list-check-2 fs-2 d-block mb-1"></i>
-                                Belum ada field. Klik Tambah Baris, mis. Nama Lengkap dan WhatsApp.
+                                Belum ada pertanyaan tambahan. Kalau tidak perlu, biarkan kosong saja.
                             </div>
                         </fieldset>
 
                         @if ($canManage)
                             <button type="button" class="btn btn-outline-primary w-100 mt-2" id="add-row">
-                                <i class="ri-add-line"></i> Tambah Baris
+                                <i class="ri-add-line"></i> Tambah Pertanyaan
                             </button>
                         @endif
                     </div>
@@ -55,13 +55,13 @@
                 <div class="card position-sticky" style="top: 90px;">
                     <div class="card-header bg-white border-bottom px-4 py-3">
                         <h6 class="mb-1 fw-semibold">Preview</h6>
-                        <div class="text-muted small lh-sm">Tampilan yang dilihat pendaftar</div>
+                        <div class="text-muted small lh-sm">Tampilan yang dilihat pembeli</div>
                     </div>
                     <div class="card-body bg-light p-3 p-md-4">
                         <div class="bg-white rounded-3 border p-3 p-md-4">
                             <h5 class="mb-3">{{ $page->name }}</h5>
                             <div id="preview"></div>
-                            <button type="button" class="btn btn-primary w-100 mt-2" disabled>Kirim Pendaftaran</button>
+                            <button type="button" class="btn btn-primary w-100 mt-2" disabled>Lanjut</button>
                         </div>
                     </div>
                 </div>
@@ -125,7 +125,7 @@
                     html += (help ? '<div class="form-text">' + help + '</div>' : '') + '</div>';
                 });
 
-                preview.innerHTML = html || '<div class="text-muted small">Preview muncul setelah ada field.</div>';
+                preview.innerHTML = html || '<div class="text-muted small">Preview muncul setelah ada pertanyaan.</div>';
             }
 
             if (template) {
@@ -144,7 +144,7 @@
 
                     if (button.hasAttribute('data-remove')) {
                         var label = row.querySelector('[data-label]').value;
-                        if (row.querySelector('[name$="[id]"]').value && !confirm('Hapus field "' + label + '"? Terhapus setelah Simpan Semua. Jawaban lama tetap tersimpan.')) return;
+                        if (row.querySelector('[name$="[id]"]').value && !confirm('Hapus pertanyaan "' + label + '"? Terhapus setelah Simpan Perubahan. Jawaban yang sudah masuk tetap tersimpan.')) return;
                         row.remove();
                     } else if (button.dataset.move === 'up' && row.previousElementSibling) {
                         rows.insertBefore(row, row.previousElementSibling);
