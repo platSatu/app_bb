@@ -11,7 +11,7 @@
             <div>
                 <h6 class="mb-1 fw-semibold">{{ $category->name }}</h6>
                 <div class="text-muted small lh-sm">
-                    Dijual {{ $category->quota }} · Terjual {{ $category->sold }} · Menunggu bayar {{ $category->reserved }} · Tersedia {{ $category->remaining() }}
+                    Pembeli yang sudah lunas · Dijual {{ $category->quota }} · Terjual {{ $category->sold }} · Menunggu bayar {{ $category->reserved }} · Tersedia {{ $category->remaining() }}
                     · Pendapatan Rp {{ number_format($category->revenue(), 0, ',', '.') }}
                 </div>
             </div>
@@ -19,14 +19,11 @@
         </div>
         <div class="card-body p-3 p-md-4">
             @include('page.ticket._report-filter', [
-                'tabs' => ['buyers' => 'Pembeli', 'stock' => 'Riwayat Stok'],
-                'statuses' => $filters['tab'] === 'stock' ? \App\Models\TicketStockLog::ACTION_LABELS : null,
-                'searchPlaceholder' => $filters['tab'] === 'buyers' ? 'Nomor pesanan, nama, email, atau WhatsApp' : null,
+                'tabs' => ['buyers' => 'Pembeli'],
+                'statuses' => null,
+                'searchPlaceholder' => 'Nomor pesanan, nama, email, atau WhatsApp',
             ])
 
-            @if ($filters['tab'] === 'stock')
-                @include('page.ticket._stock-table', ['showCategory' => false])
-            @else
                 <div class="table-responsive">
                     <table class="table table-sm table-hover align-middle mb-0 small">
                         <thead class="table-light">
@@ -51,7 +48,6 @@
                         </tbody>
                     </table>
                 </div>
-            @endif
             <div class="mt-3">{{ $rows->links() }}</div>
         </div>
     </div>

@@ -1,12 +1,14 @@
-{{-- Tab + filter + tombol Export. $tabs [key => label], $statuses [key => label]|null, $searchPlaceholder|null. --}}
+{{-- Tab + filter + tombol Export. $tabs [key => label], $statuses|null, $categoryOptions [id => nama]|null, $searchPlaceholder|null. --}}
+@if (count($tabs) > 1)
 <ul class="nav nav-pills gap-2 mb-3">
     @foreach ($tabs as $key => $label)
         <li class="nav-item">
-            <a href="{{ request()->fullUrlWithQuery(['tab' => $key, 'status' => null, 'search' => null, 'page' => null, 'export' => null]) }}"
+            <a href="{{ request()->fullUrlWithQuery(['tab' => $key, 'status' => null, 'search' => null, 'category' => null, 'page' => null, 'export' => null]) }}"
                 class="nav-link py-1 px-3 {{ $filters['tab'] === $key ? 'active' : 'bg-light text-body' }}">{{ $label }}</a>
         </li>
     @endforeach
 </ul>
+@endif
 
 @if ($errors->any())
     <div class="alert alert-danger py-2 small">{{ $errors->first() }}</div>
@@ -18,6 +20,17 @@
         <div class="col-12 col-lg">
             <label class="form-label small mb-1">Cari</label>
             <input type="text" name="search" class="form-control form-control-sm" maxlength="100" placeholder="{{ $searchPlaceholder }}" value="{{ $filters['search'] }}">
+        </div>
+    @endif
+    @if ($categoryOptions ?? null)
+        <div class="col-6 col-lg-2">
+            <label class="form-label small mb-1">Kategori</label>
+            <select name="category" class="form-select form-select-sm">
+                <option value="">Semua</option>
+                @foreach ($categoryOptions as $value => $label)
+                    <option value="{{ $value }}" @selected($filters['category'] === $value)>{{ $label }}</option>
+                @endforeach
+            </select>
         </div>
     @endif
     @if ($statuses ?? null)
@@ -41,7 +54,7 @@
     </div>
     <div class="col-6 col-lg-auto d-flex gap-2">
         <button type="submit" class="btn btn-sm btn-outline-secondary flex-grow-1"><i class="ri-filter-3-line"></i> Terapkan</button>
-        @if ($filters['search'] || $filters['status'] || $filters['from'] || $filters['to'])
+        @if ($filters['search'] || $filters['status'] || $filters['category'] || $filters['from'] || $filters['to'])
             <a href="{{ url()->current() }}?tab={{ $filters['tab'] }}" class="btn btn-sm btn-outline-danger" title="Hapus filter"><i class="ri-close-line"></i></a>
         @endif
     </div>

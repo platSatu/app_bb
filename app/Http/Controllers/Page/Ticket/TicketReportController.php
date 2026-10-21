@@ -28,21 +28,16 @@ class TicketReportController extends Controller
 
     private const PER_PAGE = 25;
 
-    /** Per kategori: tab Pembeli & Riwayat Stok. */
+    /** Per kategori: daftar pembeli yang sudah lunas. Riwayat stok ada di tab Laporan. */
     public function sales(Request $request, string $page, string $category): View|StreamedResponse
     {
         $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET);
         $item = TicketCategory::where('page_id', $model->getKey())->findOrFail($category);
-        $filters = $this->filters($request, ['buyers', 'stock']);
-
-        $query = $filters['tab'] === 'stock'
-            ? $this->stockQuery($model, $filters)->where('category_id', $item->getKey())
-            : $this->buyersQuery($item, $filters);
+        $filters = $this->filters($request, ['buyers']);
+        $query = $this->buyersQuery($item, $filters);
 
         if ($request->boolean('export')) {
-            $name = Str::slug($model->name.'-'.$item->name).'-'.($filters['tab'] === 'stock' ? 'riwayat-stok' : 'pembeli');
-
-            return $filters['tab'] === 'stock' ? $this->exportStock($query, $name) : $this->exportBuyers($query, $name);
+            return $this->exportBuyers($query, Str::slug($model->name.'-'.$item->name).'-pembeli');
         }
 
         return view('page.ticket.sales', [
@@ -83,6 +78,7 @@ class TicketReportController extends Controller
             'filters' => $filters,
             'rows' => $rows,
             'orders' => $filters['tab'] === 'payments' ? $this->ordersByReference($model, $rows->pluck('merchant_order_id')) : collect(),
+            'categories' => $model->ticketCategories()->get(['id', 'name'])->pluck('name', 'id'),
             'routes' => $this->routes($request),
         ]);
     }
@@ -93,6 +89,7 @@ class TicketReportController extends Controller
             'tab' => ['nullable', Rule::in($tabs)],
             'status' => ['nullable', 'string', 'max:30'],
             'search' => ['nullable', 'string', 'max:100'],
+            'category' => ['nullable', 'uuid'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
         ], ['to.after_or_equal' => 'Tanggal akhir tidak boleh sebelum tanggal awal.']);
@@ -101,6 +98,7 @@ class TicketReportController extends Controller
             'tab' => $data['tab'] ?? $tabs[0],
             'status' => $data['status'] ?? null,
             'search' => trim((string) ($data['search'] ?? '')),
+            'category' => $data['category'] ?? null,
             'from' => $data['from'] ?? null,
             'to' => $data['to'] ?? null,
         ];
@@ -133,6 +131,7 @@ class TicketReportController extends Controller
     {
         return $this->period(TicketStockLog::where('page_id', $page->getKey()), $filters)
             ->when($filters['status'] && isset(TicketStockLog::ACTION_LABELS[$filters['status']]), fn ($q) => $q->where('action', $filters['status']))
+            ->when($filters['category'], fn ($q, $id) => $q->where('category_id', $id))
             ->with(['category:id,name', 'order:id,reference', 'actor:id,name'])
             ->latest('created_at')->orderByDesc('id');
     }

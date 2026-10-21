@@ -19,6 +19,7 @@
                     'stock' => \App\Models\TicketStockLog::ACTION_LABELS,
                     default => \App\Models\PaymentCallback::RESULT_LABELS,
                 },
+                'categoryOptions' => $filters['tab'] === 'stock' ? $categories : null,
                 'searchPlaceholder' => match ($filters['tab']) {
                     'emails' => 'Nomor pesanan atau email',
                     'stock' => null,
