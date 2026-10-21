@@ -17,6 +17,7 @@ use App\Http\Controllers\Page\Ticket\TicketDesignController;
 use App\Http\Controllers\Page\Ticket\TicketOrderController;
 use App\Http\Controllers\Page\Ticket\TicketReportController;
 use App\Http\Controllers\Page\Ticket\TicketScannerController;
+use App\Http\Controllers\Page\Ticket\TicketTermsController;
 use App\Http\Controllers\Page\TicketScanController;
 use App\Http\Controllers\Page\Quiz\QuizAttemptController;
 use App\Http\Controllers\Page\Quiz\QuizQuestionController;
@@ -45,6 +46,7 @@ $read = function () {
     Route::get('{page}/tickets/orders', [TicketOrderController::class, 'index'])->name('ticket.orders.index');
     Route::get('{page}/tickets/orders/{order}', [TicketOrderController::class, 'show'])->name('ticket.orders.show');
     Route::get('{page}/tickets/design', [TicketDesignController::class, 'edit'])->name('ticket.design.edit');
+    Route::get('{page}/tickets/terms', [TicketTermsController::class, 'edit'])->name('ticket.terms.edit');
     Route::get('{page}/tickets/scanners', [TicketScannerController::class, 'index'])->name('ticket.scanners.index');
 
     Route::get('{page}/landing/sections', [LandingSectionController::class, 'index'])->name('landing.sections.index');
@@ -71,6 +73,7 @@ $write = function () {
     Route::put('{page}/tickets/categories', [TicketCategoryController::class, 'sync'])->middleware('throttle:30,1')->name('ticket.categories.sync');
     Route::post('{page}/tickets/orders/{order}/resend', [TicketOrderController::class, 'resend'])->middleware('throttle:10,1')->name('ticket.orders.resend');
     Route::put('{page}/tickets/design', [TicketDesignController::class, 'update'])->name('ticket.design.update');
+    Route::put('{page}/tickets/terms', [TicketTermsController::class, 'update'])->name('ticket.terms.update');
     Route::post('{page}/tickets/scanners', [TicketScannerController::class, 'store'])->name('ticket.scanners.store');
     Route::patch('{page}/tickets/scanners/{scanner}', [TicketScannerController::class, 'update'])->name('ticket.scanners.update');
     Route::delete('{page}/tickets/scanners/{scanner}', [TicketScannerController::class, 'destroy'])->name('ticket.scanners.destroy');

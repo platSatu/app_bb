@@ -63,7 +63,10 @@
                     <dl class="mb-0">
                         <dt class="text-muted fw-normal small">Nama</dt><dd>{{ $order->name }}</dd>
                         <dt class="text-muted fw-normal small">Email</dt><dd>{{ $order->email }}</dd>
-                        <dt class="text-muted fw-normal small">WhatsApp</dt><dd class="mb-0">{{ $order->phone }}</dd>
+                        <dt class="text-muted fw-normal small">WhatsApp</dt><dd class="{{ $order->terms_accepted_at ? '' : 'mb-0' }}">{{ $order->phone }}</dd>
+                        @if ($order->terms_accepted_at)
+                            <dt class="text-muted fw-normal small">Syarat & Ketentuan</dt><dd class="mb-0">Disetujui {{ $order->terms_accepted_at->translatedFormat('d M Y H:i') }}</dd>
+                        @endif
                     </dl>
                     @if ($order->isPaid())
                         <hr>

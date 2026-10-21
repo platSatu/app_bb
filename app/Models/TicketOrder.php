@@ -40,7 +40,7 @@ class TicketOrder extends Model
 
     protected function casts(): array
     {
-        return ['total' => 'integer', 'expires_at' => 'datetime', 'paid_at' => 'datetime', 'email_sent_at' => 'datetime'];
+        return ['total' => 'integer', 'expires_at' => 'datetime', 'paid_at' => 'datetime', 'email_sent_at' => 'datetime', 'terms_accepted_at' => 'datetime'];
     }
 
     public function page(): BelongsTo

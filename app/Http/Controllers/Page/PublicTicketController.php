@@ -31,6 +31,7 @@ class PublicTicketController extends Controller
 
         $data = $request->validate([
             ...$fieldRules,
+            'terms' => filled($page->setting('ticket.terms')) ? ['accepted'] : ['nullable'],
             'website' => ['nullable', 'max:0'],
             'cf-turnstile-response' => [new Turnstile()],
             'tickets' => ['required', 'array', 'max:30'],
@@ -40,6 +41,7 @@ class PublicTicketController extends Controller
             'phone' => ['required', 'string', 'max:20', 'regex:/^\+?[0-9\s\-]{8,20}$/'],
         ], [
             'tickets.required' => 'Pilih minimal 1 tiket dulu ya.',
+            'terms.accepted' => 'Centang persetujuan Syarat & Ketentuan dulu ya.',
             'phone.regex' => 'Nomor WhatsApp belum benar.',
             'email.required' => 'Email wajib diisi, e-ticket akan dikirim ke sini.',
             'website.max' => 'Pesanan gagal dikirim.',

@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Page\Ticket;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Page\Concerns\ResolvesPage;
+use App\Models\PageCategory;
 use App\Models\PageType;
 use App\Services\Media\ImageUploader;
 use App\Support\Menu;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /** Background e-ticket per event (opsional). Disimpan di settings.ticket.background. */
@@ -36,8 +38,11 @@ class TicketDesignController extends Controller
             ? $images->store($request->file('background'), 'tickets/'.$model->getKey(), 'background', 1600)
             : ($request->boolean('remove') ? null : $old);
 
-        $model->settings = array_replace_recursive($model->settings ?? [], ['ticket' => ['background' => $new]]);
-        $model->save();
+        DB::transaction(function () use ($model, $new) {
+            $locked = PageCategory::whereKey($model->getKey())->lockForUpdate()->firstOrFail();
+            $locked->settings = array_replace_recursive($locked->settings ?? [], ['ticket' => ['background' => $new]]);
+            $locked->save();
+        });
 
         if ($old && $old !== $new) {
             $images->delete($old);

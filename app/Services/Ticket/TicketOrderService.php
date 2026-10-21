@@ -98,6 +98,8 @@ class TicketOrderService
                 'total' => $total,
                 'status' => TicketOrder::STATUS_PENDING,
                 'expires_at' => now()->addMinutes(PaymentGatewaySetting::duitku()->expiry_minutes),
+                // Checkout sudah menolak pesanan tanpa centang S&K, jadi di sini cukup dicatat waktunya.
+                'terms_accepted_at' => filled($page->setting('ticket.terms')) ? now() : null,
                 'ip_address' => $ip,
                 'user_agent' => Str::limit((string) $userAgent, 250, ''),
             ])->save();

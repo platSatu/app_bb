@@ -93,7 +93,6 @@
                         @include('page.public._fields', ['fields' => $page->fields, 'preview' => false])
                     @endif
 
-                    <div class="mt-3">@include('auth.partials.turnstile')</div>
                 </div>
             </div>
 
@@ -106,6 +105,17 @@
                     <div class="d-flex justify-content-between align-items-center fw-semibold mb-3">
                         <span>Total</span><span class="fs-5" id="ticket-total">Rp 0</span>
                     </div>
+                    @if ($terms = $page->setting('ticket.terms'))
+                        <details class="small border rounded-3 px-3 py-2 mb-2">
+                            <summary class="fw-semibold">Baca Syarat & Ketentuan</summary>
+                            <div class="text-muted mt-2" style="white-space: pre-line; max-height: 240px; overflow-y: auto;">{{ $terms }}</div>
+                        </details>
+                        <div class="form-check small mb-3">
+                            <input class="form-check-input @error('terms') is-invalid @enderror" type="checkbox" name="terms" value="1" id="terms" @checked(old('terms')) required>
+                            <label class="form-check-label" for="terms">Saya sudah membaca dan menyetujui Syarat & Ketentuan.</label>
+                        </div>
+                    @endif
+                    <div class="mb-3">@include('auth.partials.turnstile')</div>
                     <button type="submit" class="btn btn-brand w-100 py-2" id="ticket-submit" disabled>Lanjut ke Pembayaran</button>
                     <div class="form-text text-center mt-2" id="ticket-note">Tiket ditahan selama batas waktu pembayaran. Kalau tidak dibayar, tiket dilepas otomatis.</div>
                 </div>
@@ -141,7 +151,8 @@
                 document.getElementById('ticket-total').textContent = free ? 'Gratis' : money(total);
                 document.getElementById('ticket-submit').textContent = free ? 'Daftar Sekarang' : 'Lanjut ke Pembayaran';
                 document.getElementById('ticket-note').classList.toggle('d-none', free);
-                document.getElementById('ticket-submit').disabled = count === 0;
+                var terms = document.getElementById('terms');
+                document.getElementById('ticket-submit').disabled = count === 0 || (terms && !terms.checked);
             }
 
             form.addEventListener('click', function (event) {
@@ -152,6 +163,7 @@
                 update();
             });
             form.addEventListener('input', update);
+            form.addEventListener('change', update);
             update();
         })();
     </script>
