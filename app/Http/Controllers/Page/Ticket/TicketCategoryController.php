@@ -22,23 +22,12 @@ class TicketCategoryController extends Controller
 
     private const MAX = 30;
 
-    /** Ringkasan penjualan per kategori. */
+    /** Ringkasan penjualan + form atur kategori dalam satu halaman. */
     public function index(Request $request, string $page): View
-    {
-        return $this->show($request, $page, 'page.ticket.categories');
-    }
-
-    /** Form tambah/ubah kategori tiket. */
-    public function manage(Request $request, string $page): View
-    {
-        return $this->show($request, $page, 'page.ticket.manage');
-    }
-
-    private function show(Request $request, string $page, string $view): View
     {
         $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET);
 
-        return view($view, [
+        return view('page.ticket.categories', [
             'page' => $model,
             'categories' => $model->ticketCategories()->get(),
             'routes' => $this->routes($request),
