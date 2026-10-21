@@ -56,7 +56,7 @@
                                 <td class="text-end">
                                     <button type="button" class="btn btn-sm rounded-pill btn-outline-secondary"
                                         data-contact-edit="{{ route('whatsapp.contacts.update', $customer) }}"
-                                        data-contact='@json(['name' => $customer->name, 'phone' => $customer->phone, 'email' => $customer->email, 'groups' => $customer->groups->pluck('id')])'>
+                                        data-contact="{{ json_encode(['name' => $customer->name, 'phone' => $customer->phone, 'email' => $customer->email, 'groups' => $customer->groups->pluck('id')]) }}">
                                         <i class="ri-pencil-line"></i> Ubah
                                     </button>
                                 </td>

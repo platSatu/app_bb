@@ -22,7 +22,7 @@
                                         <td>{!! $reply->shortcut ? '<code>/'.e($reply->shortcut).'</code>' : '-' !!}</td>
                                         <td class="small text-muted text-truncate" style="max-width: 320px">{{ $reply->body }}</td>
                                         <td class="text-end text-nowrap">
-                                            <button type="button" class="btn btn-sm rounded-pill btn-outline-secondary" data-edit="{{ route('whatsapp.quick-replies.update', $reply) }}" data-values='@json($reply->only('title', 'shortcut', 'body'))'><i class="ri-pencil-line"></i> Ubah</button>
+                                            <button type="button" class="btn btn-sm rounded-pill btn-outline-secondary" data-edit="{{ route('whatsapp.quick-replies.update', $reply) }}" data-values="{{ json_encode($reply->only('title', 'shortcut', 'body')) }}"><i class="ri-pencil-line"></i> Ubah</button>
                                             <form method="POST" action="{{ route('whatsapp.quick-replies.destroy', $reply) }}" class="d-inline" onsubmit="return confirm('Hapus quick reply ini?')">
                                                 @csrf
                                                 @method('DELETE')

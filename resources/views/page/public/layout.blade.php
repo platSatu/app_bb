@@ -3,7 +3,16 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    @php($seo = $page->seo())
+    @php
+        // Semua variabel layout di satu blok (jangan campur bentuk sebaris dengan blok, Blade bisa salah baca).
+        $seo = $page->seo();
+        $gaIds = $page->analyticsIds();
+        // Menu & tema dari landing "Beranda" (kalau page ini termasuk di menunya).
+        $nav = ($open ?? true) ? \App\Support\LandingNavigation::for($page) : null;
+        $company = $page->branch?->company;
+        // Banner header: hanya di halaman utama page (bukan checkout/scan/pesanan).
+        $banner = $page->banner && request()->routeIs('page.show') && ($open ?? true) ? $page->bannerUrl() : null;
+    @endphp
     <title>@yield('title', $seo['title'])</title>
     <meta name="robots" content="{{ ($open ?? true) ? 'index,follow' : 'noindex' }}">
     <meta name="description" content="{{ $seo['description'] }}">
@@ -15,7 +24,7 @@
     <meta property="og:image" content="{{ $seo['image'] }}">
     <meta property="og:url" content="{{ url()->current() }}">
     <meta name="twitter:card" content="summary_large_image">
-    @if ($gaIds = $page->analyticsIds())
+    @if ($gaIds)
         <script async src="https://www.googletagmanager.com/gtag/js?id={{ $gaIds[0] }}"></script>
         <script>
             window.dataLayer = window.dataLayer || [];
@@ -27,11 +36,6 @@
     <link rel="shortcut icon" href="{{ asset('be') }}/assets/images/favicon.png">
     <link href="{{ asset('be') }}/assets/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ asset('be') }}/assets/css/icons.min.css" rel="stylesheet">
-    @php
-        // Menu & tema dari landing "Beranda" (kalau page ini termasuk di menunya).
-        $nav = ($open ?? true) ? \App\Support\LandingNavigation::for($page) : null;
-        $company = $page->branch?->company;
-    @endphp
     {{-- Font sama dengan dashboard (Outfit), kecuali landing memilih font sendiri. --}}
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ $nav ? \App\Support\LandingNavigation::FONTS[$nav['font']] : 'Outfit' }}:wght@400;500;600;700&display=swap">
     @stack('head')
@@ -71,8 +75,7 @@
         </nav>
     @endif
 
-    {{-- Banner header: hanya di halaman utama page (bukan checkout/scan/pesanan). Landing: selebar layar. --}}
-    @php($banner = $page->banner && request()->routeIs('page.show') && ($open ?? true) ? $page->bannerUrl() : null)
+    {{-- Landing: banner selebar layar; page lain: di dalam kontainer (di bawah). --}}
     @if ($banner && $__env->hasSection('bare'))
         <div class="page-banner"><img src="{{ $banner }}" alt="{{ $page->name }}" class="d-block w-100" fetchpriority="high"></div>
     @endif

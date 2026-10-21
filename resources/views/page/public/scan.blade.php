@@ -180,7 +180,7 @@
                 function send(code, confirmed) {
                     if (busy) return;
                     busy = true;
-                    fetch(@json(route('scan.check', request()->route('token'))), {
+                    fetch({{ \Illuminate\Support\Js::from(route('scan.check', request()->route('token'))) }}, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content },
                         body: JSON.stringify({ code: code, confirm: confirmed })

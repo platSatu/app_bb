@@ -109,7 +109,7 @@
             if (!final && @json(request()->boolean('returned'))) {
                 var tries = 0, timer = setInterval(function () {
                     if (++tries > 60) return clearInterval(timer);
-                    fetch(@json(route('invoice.pay.status', $invoice->token)), { headers: { Accept: 'application/json' } })
+                    fetch({{ \Illuminate\Support\Js::from(route('invoice.pay.status', $invoice->token)) }}, { headers: { Accept: 'application/json' } })
                         .then(function (r) { return r.json(); })
                         .then(function (data) { if (data.status !== 'unpaid') location.reload(); });
                 }, 5000);
