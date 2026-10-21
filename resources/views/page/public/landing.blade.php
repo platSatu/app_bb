@@ -19,7 +19,7 @@
                 <div class="container py-md-4" style="max-width: 1140px;">
                     <div class="row align-items-center g-4">
                         <div class="{{ $section->get('image') ? 'col-md-6' : 'col-md-10 mx-auto text-center' }}">
-                            <h1 class="display-5 fw-bold mb-3">{{ $section->get('title') ?: $page->name }}</h1>
+                            <h2 class="display-5 fw-bold mb-3">{{ $section->get('title') ?: $page->name }}</h2>
                             @if ($section->get('subtitle')) <p class="lead text-muted mb-4" style="white-space: pre-line;">{{ $section->get('subtitle') }}</p> @endif
                             @if ($section->get('button_label') && ($url = $button($section)))
                                 <a href="{{ $url }}" class="btn btn-brand btn-lg px-4">{{ $section->get('button_label') }}</a>
@@ -156,7 +156,6 @@
 @empty
     <section class="py-5 text-center">
         <div class="container">
-            <h1 class="h3">{{ $page->name }}</h1>
             <p class="text-muted">Halaman ini sedang disiapkan.</p>
         </div>
     </section>

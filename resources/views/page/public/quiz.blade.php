@@ -45,7 +45,6 @@
             <div class="card quiz-card shadow-sm h-100">
                 <div class="card-body p-4 p-md-5">
                     <span class="quiz-badge mb-3" style="width: 64px; height: 64px; font-size: 1.9rem;"><i class="ri-questionnaire-line"></i></span>
-                    <h1 class="h3 fw-bold mb-2">{{ $page->name }}</h1>
                     @if ($page->description)
                         <p class="text-muted" style="white-space: pre-line;">{{ $page->description }}</p>
                     @endif

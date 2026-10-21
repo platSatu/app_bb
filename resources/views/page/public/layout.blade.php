@@ -10,8 +10,9 @@
         // Menu & tema dari landing "Beranda" (kalau page ini termasuk di menunya).
         $nav = ($open ?? true) ? \App\Support\LandingNavigation::for($page) : null;
         $company = $page->branch?->company;
-        // Banner header: hanya di halaman utama page (bukan checkout/scan/pesanan).
-        $banner = $page->banner && request()->routeIs('page.show') && ($open ?? true) ? $page->bannerUrl() : null;
+        // Banner header selalu ada di halaman utama page (bukan checkout/scan/pesanan). Tanpa gambar: warna brand yang kalem.
+        $hero = request()->routeIs('page.show') && ($open ?? true);
+        $banner = $hero && $page->banner ? $page->bannerUrl() : null;
     @endphp
     <title>@yield('title', $seo['title'])</title>
     <meta name="robots" content="{{ ($open ?? true) ? 'index,follow' : 'noindex' }}">
@@ -43,7 +44,12 @@
         :root { --brand: {{ $nav['color'] ?? '#e36666' }}; }
         body { font-family: '{{ $nav['font'] ?? 'Outfit' }}', system-ui, sans-serif; background: linear-gradient(180deg, color-mix(in srgb, var(--brand) 9%, #fff) 0, #fbf9f9 480px) no-repeat, #fbf9f9; }
         h1, h2, h3, h4, h5, h6 { font-family: inherit; }
-        .page-banner img { aspect-ratio: 16 / 9; max-height: 560px; object-fit: cover; }
+        .page-hero { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; text-align: center; min-height: clamp(140px, 24vw, 240px); padding: 1.5rem; border-radius: 1.25rem; box-shadow: 0 6px 20px rgba(16,24,40,.08); background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 9%, #fff), color-mix(in srgb, var(--brand) 22%, #fff)); color: color-mix(in srgb, var(--brand) 70%, #000); }
+        .page-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .page-hero.has-image { color: #fff; }
+        .page-hero.has-image::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.2), rgba(0,0,0,.45)); }
+        .page-hero h1 { position: relative; z-index: 1; margin: 0; font-weight: 700; font-size: clamp(1.6rem, 5vw, 3.2rem); line-height: 1.15; }
+        .page-hero.has-image h1 { text-shadow: 0 2px 12px rgba(0,0,0,.35); }
         .btn-brand:disabled { background: color-mix(in srgb, var(--brand) 45%, #fff); border-color: transparent; color: #fff; opacity: 1; }
         .product-thumb { aspect-ratio: 1 / 1; object-fit: cover; }
         .cart-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030; }
@@ -77,9 +83,13 @@
         </nav>
     @endif
 
-    {{-- Banner = header page, selebar layar di paling atas. --}}
-    @if ($banner)
-        <div class="page-banner"><img src="{{ $banner }}" alt="{{ $page->name }}" class="d-block w-100" fetchpriority="high"></div>
+    @if ($hero)
+        <div class="container pt-3 pt-md-4" style="max-width: 1140px;">
+            <header class="page-hero {{ $banner ? 'has-image' : '' }}">
+                @if ($banner) <img src="{{ $banner }}" alt="" fetchpriority="high"> @endif
+                <h1>{{ $page->name }}</h1>
+            </header>
+        </div>
     @endif
 
     @hasSection('bare')

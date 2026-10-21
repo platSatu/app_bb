@@ -9,7 +9,6 @@
     @if ($company?->logoUrl())
         <img src="{{ $company->logoUrl() }}" alt="{{ $company->name }}" width="88" height="88" class="rounded-circle border bg-white mb-3" style="object-fit: cover;">
     @endif
-    <h1 class="h4 fw-semibold mb-1">{{ $page->name }}</h1>
     @if ($page->description)
         <p class="text-muted mb-4" style="white-space: pre-line;">{{ $page->description }}</p>
     @endif

@@ -12,10 +12,7 @@
     @elseif ($open)
         <div class="card shadow-sm">
             <div class="card-body p-4 p-md-5 text-center">
-                <h1 class="h3 mb-2">{{ $page->name }}</h1>
-                @if ($page->description)
-                    <p class="text-muted mb-0" style="white-space: pre-line;">{{ $page->description }}</p>
-                @endif
+                <p class="text-muted mb-0" style="white-space: pre-line;">{{ $page->description ?: 'Halaman ini sedang disiapkan.' }}</p>
             </div>
         </div>
     @else

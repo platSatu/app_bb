@@ -10,12 +10,9 @@
     </div>
 @endif
 
-<div class="text-center mb-4">
-    <h1 class="h3 mb-1">{{ $page->name }}</h1>
-    @if ($page->description)
-        <p class="text-muted mb-0" style="white-space: pre-line;">{{ $page->description }}</p>
-    @endif
-</div>
+@if ($page->description)
+    <p class="text-muted text-center mb-4" style="white-space: pre-line;">{{ $page->description }}</p>
+@endif
 
 @if ($categories->isNotEmpty())
     <div class="d-flex flex-wrap justify-content-center gap-2 mb-4">

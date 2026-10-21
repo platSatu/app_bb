@@ -24,7 +24,6 @@
 <div class="card ticket-hero shadow-sm mb-4">
     <div class="card-body p-4 p-md-5">
         <span class="badge rounded-pill mb-2" style="background: color-mix(in srgb, var(--brand) 15%, #fff); color: var(--brand);"><i class="ri-coupon-3-line"></i> E-Ticket</span>
-        <h1 class="h2 fw-bold mb-3">{{ $page->name }}</h1>
         <div class="d-flex flex-wrap gap-2">
             @if ($page->start_date)
                 <span class="ticket-chip"><i class="ri-calendar-event-line"></i>{{ $page->start_date->translatedFormat('l, d F Y') }}{{ $page->end_date && ! $page->end_date->isSameDay($page->start_date) ? ' – '.$page->end_date->translatedFormat('d F Y') : '' }}</span>
