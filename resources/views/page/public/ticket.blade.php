@@ -30,7 +30,7 @@
                         <div class="d-flex align-items-center justify-content-between gap-3 border rounded-3 p-3 mb-2 {{ $reason ? 'bg-light opacity-75' : '' }}">
                             <div>
                                 <div class="fw-semibold">{{ $category->name }}</div>
-                                <div>{{ $rupiah($category->price) }}</div>
+                                <div>{!! $category->price > 0 ? e($rupiah($category->price)) : '<span class="badge bg-success">Gratis</span>' !!}</div>
                                 @if ($category->description) <div class="small text-muted">{{ $category->description }}</div> @endif
                                 @if ($reason)
                                     <div class="small text-danger">{{ $reason }}</div>
@@ -48,7 +48,7 @@
                         </div>
                     @endforeach
                     <div class="d-flex justify-content-between fw-semibold px-1">
-                        <span>Total</span><span>Rp <span id="ticket-total">0</span></span>
+                        <span>Total</span><span id="ticket-total">Rp 0</span>
                     </div>
                 </div>
 
@@ -63,7 +63,7 @@
 
                 @include('auth.partials.turnstile')
                 <button type="submit" class="btn btn-primary w-100" id="ticket-submit" disabled>Lanjut ke Pembayaran</button>
-                <div class="form-text text-center">Tiket ditahan untuk Anda selama batas waktu pembayaran. Kalau tidak dibayar, tiket dilepas otomatis.</div>
+                <div class="form-text text-center" id="ticket-note">Tiket ditahan untuk Anda selama batas waktu pembayaran. Kalau tidak dibayar, tiket dilepas otomatis.</div>
             </form>
 
             <script>
@@ -72,7 +72,10 @@
                     function update() {
                         var total = 0, count = 0;
                         form.querySelectorAll('select[data-price]').forEach(function (s) { total += s.value * s.dataset.price; count += Number(s.value); });
-                        document.getElementById('ticket-total').textContent = total.toLocaleString('id-ID');
+                        var free = count > 0 && total === 0;
+                        document.getElementById('ticket-total').textContent = free ? 'Gratis' : 'Rp ' + total.toLocaleString('id-ID');
+                        document.getElementById('ticket-submit').textContent = free ? 'Daftar Sekarang' : 'Lanjut ke Pembayaran';
+                        document.getElementById('ticket-note').classList.toggle('d-none', free);
                         document.getElementById('ticket-submit').disabled = count === 0;
                     }
                     form.addEventListener('change', update);

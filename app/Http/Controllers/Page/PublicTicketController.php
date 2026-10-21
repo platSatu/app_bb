@@ -56,7 +56,9 @@ class PublicTicketController extends Controller
             return back()->withInput()->with('error', $e->getMessage());
         }
 
-        return redirect()->away($order->payment_url);
+        return $order->total > 0
+            ? redirect()->away($order->payment_url)
+            : redirect()->route('eticket.order', [$page->slug, $order->access_token]);
     }
 
     /** Halaman pesanan untuk pembeli: status bayar + daftar e-ticket. Ini juga returnUrl dari Duitku. */

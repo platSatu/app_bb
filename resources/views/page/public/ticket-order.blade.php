@@ -14,7 +14,7 @@
             @switch($order->status)
                 @case(\App\Models\TicketOrder::STATUS_PAID)
                     <i class="ri-checkbox-circle-line fs-1 text-success"></i>
-                    <h1 class="h4 mt-2">Pembayaran berhasil 🎉</h1>
+                    <h1 class="h4 mt-2">{{ $order->total > 0 ? 'Pembayaran berhasil' : 'Pendaftaran berhasil' }} 🎉</h1>
                     <p class="text-muted">E-ticket sudah dikirim ke <strong>{{ $order->email }}</strong>. Cek folder spam kalau belum masuk. Semua tiket juga bisa dibuka di bawah ini.</p>
                     @break
                 @case(\App\Models\TicketOrder::STATUS_PENDING)

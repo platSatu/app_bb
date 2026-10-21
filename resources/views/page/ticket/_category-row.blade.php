@@ -15,6 +15,7 @@
         <div class="col-6 col-md-3">
             <label class="form-label small mb-1">Harga per tiket (Rp)</label>
             <input type="number" name="categories[{{ $i }}][price]" min="0" value="{{ $row['price'] ?? '' }}" class="form-control form-control-sm" placeholder="0 = gratis" required>
+            <div class="form-text small">Isi 0 kalau tiket ini gratis.</div>
         </div>
         <div class="col-6 col-md-3">
             <label class="form-label small mb-1">Jumlah tiket dijual</label>

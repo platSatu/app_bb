@@ -45,7 +45,7 @@
                             @foreach ($categories as $category)
                                 <tr>
                                     <td class="fw-semibold">{{ $category->name }} @unless ($category->isActive()) <span class="badge bg-light text-muted">Tidak aktif</span> @endunless</td>
-                                    <td class="text-end text-nowrap">{{ $rupiah($category->price) }}</td>
+                                    <td class="text-end text-nowrap">{!! $category->price > 0 ? e($rupiah($category->price)) : '<span class="badge bg-success-subtle text-success">Gratis</span>' !!}</td>
                                     <td class="text-center">{{ $category->quota }}</td>
                                     <td class="text-center"><a href="{{ route($routes.'.ticket.categories.sales', [$page, $category]) }}" class="fw-semibold">{{ $category->sold }}</a></td>
                                     <td class="text-center text-warning">{{ $category->reserved }}</td>

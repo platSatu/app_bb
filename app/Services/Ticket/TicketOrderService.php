@@ -44,8 +44,6 @@ class TicketOrderService
      */
     public function create(PageCategory $page, array $quantities, array $buyer, ?string $ip, ?string $userAgent): TicketOrder
     {
-        // Penjualan tiket tidak ikut sakelar "Top up aktif"; cukup kredensial Duitku terisi.
-        $client = DuitkuClient::make(forCallback: true);
         $quantities = array_filter($quantities, fn ($qty) => $qty > 0);
 
         if (! $quantities) {
@@ -74,6 +72,13 @@ class TicketOrderService
             }
 
             $customer = $this->customers->resolve($branch, $buyer['name'], $buyer['phone'], $buyer['email'], 'Tiket: '.Str::limit($page->name, 200, ''));
+            $total = array_sum(array_map(fn ($id, $qty) => $qty * $categories[$id]->price, array_keys($quantities), $quantities));
+
+            // Tiket gratis: 1 orang (email/WA yang sama = customer yang sama) cukup sekali per page, supaya tidak diborong.
+            if ($total === 0 && TicketOrder::where('page_id', $page->getKey())->where('customer_id', $customer->getKey())
+                ->where('total', 0)->whereIn('status', [TicketOrder::STATUS_PENDING, TicketOrder::STATUS_PAID])->exists()) {
+                throw ValidationException::withMessages(['tickets' => 'Email atau nomor WhatsApp ini sudah pernah mendaftar tiket gratis di acara ini.']);
+            }
 
             $order = new TicketOrder();
             $order->forceFill([
@@ -85,7 +90,7 @@ class TicketOrderService
                 'name' => $buyer['name'],
                 'email' => $buyer['email'],
                 'phone' => $buyer['phone'],
-                'total' => array_sum(array_map(fn ($id, $qty) => $qty * $categories[$id]->price, array_keys($quantities), $quantities)),
+                'total' => $total,
                 'status' => TicketOrder::STATUS_PENDING,
                 'expires_at' => now()->addMinutes(PaymentGatewaySetting::duitku()->expiry_minutes),
                 'ip_address' => $ip,
@@ -110,18 +115,26 @@ class TicketOrderService
             return $order;
         });
 
+        if ($order->total === 0) {
+            $this->markPaid($order, 'free', null);
+
+            return $order->refresh();
+        }
+
         try {
-            $invoice = $client->createInvoice([
+            // Penjualan tiket tidak ikut sakelar "Top up aktif"; cukup kredensial Duitku terisi.
+            $invoice = DuitkuClient::make(forCallback: true)->createInvoice([
                 'amount' => $order->total,
                 'orderId' => $order->reference,
                 'product' => Str::limit('Tiket '.$page->name, 250, ''),
                 'customer' => ['name' => $order->name, 'email' => $order->email, 'phone' => $order->phone],
-                'items' => $order->items()->get()->map(fn ($item) => ['name' => $item->name, 'price' => $item->price, 'quantity' => $item->quantity])->all(),
+                // Duitku: price per baris = harga x jumlah, dan totalnya harus sama dengan paymentAmount.
+                'items' => $order->items()->get()->map(fn ($item) => ['name' => $item->name, 'price' => $item->subtotal, 'quantity' => $item->quantity])->all(),
                 'returnUrl' => route('eticket.order', [$page->slug, $order->access_token]),
             ]);
         } catch (Throwable $e) {
             report($e);
-            $invoice = ['paymentUrl' => null, 'reference' => null, 'message' => 'Duitku tidak bisa dihubungi'];
+            $invoice = ['paymentUrl' => null, 'reference' => null, 'message' => $e instanceof RuntimeException ? $e->getMessage() : 'Duitku tidak bisa dihubungi'];
         }
 
         if (! $invoice['paymentUrl']) {
@@ -258,15 +271,17 @@ class TicketOrderService
                 }
             }
 
-            // Uang sudah diterima Duitku bizbos -> tercatat sebagai saldo owner event.
-            $this->wallets->credit(
-                $locked->page->branch->user,
-                $locked->total,
-                WalletTransaction::TYPE_TICKET_SALE,
-                'ticket:'.$locked->getKey(),
-                $locked,
-                'Penjualan tiket '.$locked->reference,
-            );
+            // Uang sudah diterima Duitku bizbos -> tercatat sebagai saldo owner event. Tiket gratis tidak ada uang masuk.
+            if ($locked->total > 0) {
+                $this->wallets->credit(
+                    $locked->page->branch->user,
+                    $locked->total,
+                    WalletTransaction::TYPE_TICKET_SALE,
+                    'ticket:'.$locked->getKey(),
+                    $locked,
+                    'Penjualan tiket '.$locked->reference,
+                );
+            }
 
             return $enoughQuota ? 'paid' : 'refund_needed';
         });
