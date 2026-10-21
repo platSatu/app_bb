@@ -1,6 +1,6 @@
 <aside class="pe-app-sidebar" id="sidebar">
     <div class="pe-app-sidebar-logo px-5 d-flex align-items-center position-relative">
-        <a href="{{ route('dashboard') }}" class="d-flex gap-2 logo-main">
+        <a href="{{ route(auth()->user()->isMember() ? 'portal.home' : 'dashboard') }}" class="d-flex gap-2 logo-main">
             <img height="33" width="33" class="logo-dark" alt="Logo" src="{{ asset('be') }}/assets/images/favicon.png">
             <h3 class="text-white text-opacity-80 mb-0 lh-base fw-semibold">{{ config('app.name') }}</h3>
         </a>
@@ -12,6 +12,9 @@
     <nav class="pe-app-sidebar-menu nav nav-pills" data-simplebar id="sidebar-simplebar">
         <div class="d-flex align-items-start flex-column w-100">
             <ul class="pe-main-menu list-unstyled">
+                @if (auth()->user()->isMember())
+                    @include('layouts.partials.menu-portal')
+                @else
                 <li class="pe-menu-title">Main</li>
                 <li class="pe-slide">
                     <a href="{{ route('dashboard') }}" class="pe-nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
@@ -71,6 +74,8 @@
                         </li>
                     @endforeach
                 @endforeach
+
+                @endif
 
                 <li class="pe-slide">
                     <form id="sidebar-logout-form" method="POST" action="{{ route('logout') }}" class="d-none">

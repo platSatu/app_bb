@@ -9,10 +9,10 @@
             @endforeach
         </select>
     @else
-        <div class="pill-tabs d-flex flex-wrap gap-2 mb-3">
-            <a href="{{ $url(null) }}" class="btn btn-sm {{ $active ? 'btn-light' : 'btn-primary' }}">Semua</a>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <a href="{{ $url(null) }}" class="btn btn-sm rounded-pill {{ $active ? 'btn-light' : 'btn-primary' }}">Semua</a>
             @foreach ($tabs as $id => $label)
-                <a href="{{ $url($id) }}" class="btn btn-sm {{ $active === $id ? 'btn-primary' : 'btn-light' }}">{{ $label }}</a>
+                <a href="{{ $url($id) }}" class="btn btn-sm rounded-pill {{ $active === $id ? 'btn-primary' : 'btn-light' }}">{{ $label }}</a>
             @endforeach
         </div>
     @endif

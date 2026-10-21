@@ -1,16 +1,19 @@
-@extends('layouts.portal')
+@extends('layouts.dashboard')
+
+@section('page-section', 'Portal')
 
 @section('title', 'Absen Murid')
 
 @section('content')
-    <div class="pill-tabs d-flex flex-wrap gap-2 mb-3">
-        <a href="{{ route('portal.absen') }}" class="btn btn-sm {{ $done ? 'btn-light' : 'btn-primary' }}">
+    <div class="pb-4">
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <a href="{{ route('portal.absen') }}" class="btn btn-sm rounded-pill {{ $done ? 'btn-light' : 'btn-primary' }}">
             Perlu diisi @if ($toFill) <span class="badge bg-danger rounded-pill ms-1">{{ $toFill }}</span> @endif
         </a>
-        <a href="{{ route('portal.absen', ['lihat' => 'selesai']) }}" class="btn btn-sm {{ $done ? 'btn-primary' : 'btn-light' }}">Sudah diisi (30 hari)</a>
+        <a href="{{ route('portal.absen', ['lihat' => 'selesai']) }}" class="btn btn-sm rounded-pill {{ $done ? 'btn-primary' : 'btn-light' }}">Sudah diisi (30 hari)</a>
     </div>
 
-    <div class="card portal-card">
+    <div class="card">
         <div class="card-body">
             @if ($sessions->isEmpty())
                 @include('portal._empty', $done
@@ -52,5 +55,6 @@
                 <div class="mt-3">{{ $sessions->links() }}</div>
             @endif
         </div>
+    </div>
     </div>
 @endsection

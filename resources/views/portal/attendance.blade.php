@@ -1,4 +1,6 @@
-@extends('layouts.portal')
+@extends('layouts.dashboard')
+
+@section('page-section', 'Portal')
 
 @section('title', 'Riwayat Kehadiran')
 
@@ -14,12 +16,13 @@
 @endphp
 
 @section('content')
+    <div class="pb-4">
     @include('portal._tabs', ['param' => 'anak'])
 
     <div class="row g-3 mb-3">
         @foreach ($cards as $status => [$label, $color, $icon])
             <div class="col-4">
-                <div class="card portal-card mb-0">
+                <div class="card mb-0">
                     <div class="card-body py-3 text-center">
                         <i class="{{ $icon }} fs-3 text-{{ $color }}"></i>
                         <div class="fs-4 fw-semibold lh-1 my-1">{{ $summary[$status] ?? 0 }}</div>
@@ -30,7 +33,7 @@
         @endforeach
     </div>
 
-    <div class="card portal-card">
+    <div class="card">
         <div class="card-body">
             <form method="GET" class="d-flex flex-wrap align-items-center gap-2 mb-3">
                 @if ($active) <input type="hidden" name="anak" value="{{ $active }}"> @endif
@@ -81,5 +84,6 @@
                 <div class="mt-3">{{ $items->links() }}</div>
             @endif
         </div>
+    </div>
     </div>
 @endsection

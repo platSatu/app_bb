@@ -1,13 +1,16 @@
-@extends('layouts.portal')
+@extends('layouts.dashboard')
+
+@section('page-section', 'Portal')
 
 @section('title', 'Jadwal Les')
 
 @php($showBranch = count($colors) > 1)
 
 @section('content')
+    <div class="pb-4">
     @include('portal._tabs', ['param' => 'anak'])
 
-    <div class="card portal-card">
+    <div class="card">
         <div class="card-body">
             @if (! $sessions || $sessions->isEmpty())
                 @include('portal._empty', ['title' => 'Belum ada jadwal les yang akan datang', 'text' => 'Kalau seharusnya sudah ada, coba tanyakan ke admin tempat les.'])
@@ -54,5 +57,6 @@
                 <div class="mt-3">{{ $sessions->links() }}</div>
             @endif
         </div>
+    </div>
     </div>
 @endsection

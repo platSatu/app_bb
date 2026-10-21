@@ -1,11 +1,14 @@
-@extends('layouts.portal')
+@extends('layouts.dashboard')
+
+@section('page-section', 'Portal')
 
 @section('title', 'Profil')
 
 @section('content')
+    <div class="pb-4">
     <div class="row g-3">
         <div class="col-lg-6">
-            <div class="card portal-card mb-0">
+            <div class="card mb-0">
                 <div class="card-body">
                     <h6 class="mb-3">Data Diri</h6>
                     <form method="POST" action="{{ route('portal.profile.update') }}">
@@ -37,7 +40,7 @@
         </div>
 
         <div class="col-lg-6">
-            <div class="card portal-card mb-3">
+            <div class="card mb-3">
                 <div class="card-body">
                     <h6 class="mb-3">Terhubung Dengan</h6>
                     @forelse ([...$students->map(fn ($s) => [$s, 'Murid', 'ri-graduation-cap-line']), ...$teachers->map(fn ($t) => [$t, 'Pengajar', 'ri-user-star-line'])] as [$member, $role, $icon])
@@ -55,7 +58,7 @@
                 </div>
             </div>
 
-            <div class="card portal-card mb-0">
+            <div class="card mb-0">
                 <div class="card-body">
                     <h6 class="mb-3">Ganti Password</h6>
                     <form method="POST" action="{{ route('password.update') }}">
@@ -72,5 +75,6 @@
                 </div>
             </div>
         </div>
+    </div>
     </div>
 @endsection

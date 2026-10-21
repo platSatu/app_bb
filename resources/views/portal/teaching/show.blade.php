@@ -1,4 +1,6 @@
-@extends('layouts.portal')
+@extends('layouts.dashboard')
+
+@section('page-section', 'Portal')
 
 @section('title', 'Absen Murid')
 
@@ -13,11 +15,12 @@
 @endphp
 
 @section('content')
+    <div class="pb-4">
     <a href="{{ url()->previous() !== url()->current() ? url()->previous() : route('portal.absen') }}" class="d-inline-block text-muted mb-3"><i class="ri-arrow-left-line"></i> Kembali</a>
 
     <div class="row g-3">
         <div class="col-lg-4">
-            <div class="card portal-card mb-0">
+            <div class="card mb-0">
                 <div class="card-body">
                     <span class="badge {{ $session->statusBadge() }} mb-2">{{ $session->statusLabel() }}</span>
                     <h5 class="mb-1">{{ $session->grade?->label() }}</h5>
@@ -33,7 +36,7 @@
         </div>
 
         <div class="col-lg-8">
-            <div class="card portal-card mb-0">
+            <div class="card mb-0">
                 <div class="card-body">
                     @if ($session->status === 'scheduled' && $session->start_at->isFuture())
                         <div class="alert alert-info py-2">Absen bisa diisi mulai {{ $session->start_at->translatedFormat('d M, H:i') }}.</div>
@@ -80,5 +83,6 @@
                 </div>
             </div>
         </div>
+    </div>
     </div>
 @endsection

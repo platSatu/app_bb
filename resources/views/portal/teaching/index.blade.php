@@ -1,4 +1,6 @@
-@extends('layouts.portal')
+@extends('layouts.dashboard')
+
+@section('page-section', 'Portal')
 
 @section('title', 'Jadwal Mengajar')
 
@@ -9,9 +11,10 @@
 @endphp
 
 @section('content')
+    <div class="pb-4">
     @include('portal._tabs', ['param' => 'branch'])
 
-    <div class="card portal-card">
+    <div class="card">
         <div class="card-body">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                 <a href="{{ $weekUrl($week->copy()->subWeek()) }}" class="btn btn-sm btn-light" title="Minggu sebelumnya"><i class="ri-arrow-left-s-line"></i></a>
@@ -75,5 +78,6 @@
                 </div>
             @endif
         </div>
+    </div>
     </div>
 @endsection

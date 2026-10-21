@@ -2,7 +2,7 @@
     <div class="container-fluid w-100 px-0 px-md-2">
         <div class="d-flex justify-content-between align-items-center">
             <div class="d-inline-flex align-items-center gap-2">
-                <a href="{{ route('dashboard') }}" class="align-items-center logo-main d-none me-5 gap-2">
+                <a href="{{ route(Auth::user()->isMember() ? 'portal.home' : 'dashboard') }}" class="align-items-center logo-main d-none me-5 gap-2">
                     <img height="33" width="33" class="logo-dark" alt="Dark Logo"
                         src="{{ asset('be') }}/assets/images/favicon.png">
                     <h3 class="text-white text-opacity-80 mb-0 lh-base fw-semibold">{{ config('app.name') }}</h3>
@@ -61,33 +61,40 @@
                         </span>
                     </button>
                     <div class="dropdown-menu dropdown-mega-xs dropdown-menu-end header-dropdown-menu shadow-sm border">
-                        @php($headerReferral = app(\App\Services\Referral\ReferralService::class)->codeFor(Auth::user()))
-                        <div class="mb-2 py-2 px-4 border rounded-2">
-                            <h6 class="mb-1 fs-14">{{ Auth::user()->name }}</h6>
-                            <div class="d-flex align-items-center gap-1 mb-1" data-referral-share data-link="{{ $headerReferral->link() }}">
-                                <span class="badge bg-primary-subtle text-primary fw-semibold fs-10 text-nowrap">{{ $headerReferral->code }}</span>
-                                <button type="button" class="btn btn-icon btn-sm p-0 text-muted" data-copy title="Salin link referral" style="width: 18px; height: 18px; line-height: 1;">
-                                    <i class="ri-file-copy-line fs-11"></i>
-                                </button>
-                                <button type="button" class="btn btn-icon btn-sm p-0 text-muted d-none" data-share title="Bagikan link referral" style="width: 18px; height: 18px; line-height: 1;">
-                                    <i class="ri-share-forward-line fs-11"></i>
-                                </button>
+                        @if ($isMember = Auth::user()->isMember())
+                            <div class="mb-2 py-2 px-4 border rounded-2">
+                                <h6 class="mb-1 fs-14">{{ Auth::user()->name }}</h6>
+                                <p class="mb-0 text-muted fs-13">{{ Auth::user()->email }}</p>
                             </div>
-                            <p class="mb-0 text-muted fs-13">{{ Auth::user()->email }}</p>
-                            <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
-                                <span class="fw-semibold fs-12 text-body text-nowrap">Rp {{ number_format((int) Auth::user()->wallet?->balance, 0, ',', '.') }}</span>
-                                <a href="{{ route('account.deposits.create') }}" class="btn btn-primary text-nowrap" style="padding: .15rem .5rem; font-size: .6875rem; line-height: 1.4;">
-                                    <i class="ri-add-line"></i> Tambah Saldo
-                                </a>
+                        @else
+                            @php($headerReferral = app(\App\Services\Referral\ReferralService::class)->codeFor(Auth::user()))
+                            <div class="mb-2 py-2 px-4 border rounded-2">
+                                <h6 class="mb-1 fs-14">{{ Auth::user()->name }}</h6>
+                                <div class="d-flex align-items-center gap-1 mb-1" data-referral-share data-link="{{ $headerReferral->link() }}">
+                                    <span class="badge bg-primary-subtle text-primary fw-semibold fs-10 text-nowrap">{{ $headerReferral->code }}</span>
+                                    <button type="button" class="btn btn-icon btn-sm p-0 text-muted" data-copy title="Salin link referral" style="width: 18px; height: 18px; line-height: 1;">
+                                        <i class="ri-file-copy-line fs-11"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-icon btn-sm p-0 text-muted d-none" data-share title="Bagikan link referral" style="width: 18px; height: 18px; line-height: 1;">
+                                        <i class="ri-share-forward-line fs-11"></i>
+                                    </button>
+                                </div>
+                                <p class="mb-0 text-muted fs-13">{{ Auth::user()->email }}</p>
+                                <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
+                                    <span class="fw-semibold fs-12 text-body text-nowrap">Rp {{ number_format((int) Auth::user()->wallet?->balance, 0, ',', '.') }}</span>
+                                    <a href="{{ route('account.deposits.create') }}" class="btn btn-primary text-nowrap" style="padding: .15rem .5rem; font-size: .6875rem; line-height: 1.4;">
+                                        <i class="ri-add-line"></i> Tambah Saldo
+                                    </a>
+                                </div>
                             </div>
-                        </div>
+                        @endif
                         <ul class="list-unstyled mb-0">
                             <li class="profile-item">
-                                <a href="{{ route('profile.edit') }}" class="text-body">
-                                    <i class="ri-user-line me-3"></i>My Account
+                                <a href="{{ route($isMember ? 'portal.profile' : 'profile.edit') }}" class="text-body">
+                                    <i class="ri-user-line me-3"></i>{{ $isMember ? 'Profil Saya' : 'My Account' }}
                                 </a>
                             </li>
-                            @unless (Auth::user()->isPlatformTeam())
+                            @unless ($isMember || Auth::user()->isPlatformTeam())
                                 <li class="profile-item">
                                     <a href="{{ route('packages.catalog') }}" class="text-body">
                                         <i class="ri-vip-crown-line me-3"></i>Beli Paket
@@ -99,16 +106,18 @@
                                     </a>
                                 </li>
                             @endunless
-                            <li class="profile-item">
-                                <a href="{{ route('profile.history') }}" class="text-body">
-                                    <i class="ri-history-line me-3"></i>History
-                                </a>
-                            </li>
-                            <li class="profile-item">
-                                <a href="{{ route('settings.company.show') }}" class="text-body">
-                                    <i class="ri-settings-3-line me-3"></i>Settings
-                                </a>
-                            </li>
+                            @unless ($isMember)
+                                <li class="profile-item">
+                                    <a href="{{ route('profile.history') }}" class="text-body">
+                                        <i class="ri-history-line me-3"></i>History
+                                    </a>
+                                </li>
+                                <li class="profile-item">
+                                    <a href="{{ route('settings.company.show') }}" class="text-body">
+                                        <i class="ri-settings-3-line me-3"></i>Settings
+                                    </a>
+                                </li>
+                            @endunless
                             <li class="profile-item">
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
