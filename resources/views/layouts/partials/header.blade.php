@@ -87,6 +87,13 @@
                                     <i class="ri-user-line me-3"></i>My Account
                                 </a>
                             </li>
+                            @unless (Auth::user()->isPlatformTeam())
+                                <li class="profile-item">
+                                    <a href="{{ route('profile.packages') }}" class="text-body">
+                                        <i class="ri-vip-crown-line me-3"></i>Paket Saya
+                                    </a>
+                                </li>
+                            @endunless
                             <li class="profile-item">
                                 <a href="{{ route('profile.history') }}" class="text-body">
                                     <i class="ri-history-line me-3"></i>History
