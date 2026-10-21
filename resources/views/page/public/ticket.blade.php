@@ -21,22 +21,18 @@
     </style>
 @endpush
 
-<div class="card ticket-hero shadow-sm mb-4">
-    <div class="card-body p-4 p-md-5">
-        <span class="badge rounded-pill mb-2" style="background: color-mix(in srgb, var(--brand) 15%, #fff); color: var(--brand);"><i class="ri-coupon-3-line"></i> E-Ticket</span>
-        <div class="d-flex flex-wrap gap-2">
+@if ($page->start_date || $page->description)
+    <div class="card ticket-hero shadow-sm mb-4">
+        <div class="card-body p-4">
             @if ($page->start_date)
                 <span class="ticket-chip"><i class="ri-calendar-event-line"></i>{{ $page->start_date->translatedFormat('l, d F Y') }}{{ $page->end_date && ! $page->end_date->isSameDay($page->start_date) ? ' – '.$page->end_date->translatedFormat('d F Y') : '' }}</span>
             @endif
-            @if ($page->branch)
-                <span class="ticket-chip"><i class="ri-map-pin-line"></i>{{ $page->branch->name }}</span>
+            @if ($page->description)
+                <p class="text-muted mb-0 {{ $page->start_date ? 'mt-3' : '' }}" style="white-space: pre-line;">{{ $page->description }}</p>
             @endif
         </div>
-        @if ($page->description)
-            <p class="text-muted mb-0 mt-3" style="white-space: pre-line;">{{ $page->description }}</p>
-        @endif
     </div>
-</div>
+@endif
 
 @if (session('error'))
     <div class="alert alert-danger">{{ session('error') }}</div>

@@ -13,6 +13,8 @@
         // Banner header selalu ada di halaman utama page (bukan checkout/scan/pesanan). Tanpa gambar: warna brand yang kalem.
         $hero = request()->routeIs('page.show') && ($open ?? true);
         $banner = $hero && $page->banner ? $page->bannerUrl() : null;
+        // Lebar header = lebar isi, supaya sejajar.
+        $width = $__env->hasSection('bare') ? '1140px' : ($__env->yieldContent('width') ?: '720px');
     @endphp
     <title>@yield('title', $seo['title'])</title>
     <meta name="robots" content="{{ ($open ?? true) ? 'index,follow' : 'noindex' }}">
@@ -84,7 +86,7 @@
     @endif
 
     @if ($hero)
-        <div class="container pt-3 pt-md-4" style="max-width: 1140px;">
+        <div class="container pt-3 pt-md-4" style="max-width: {{ $width }};">
             <header class="page-hero {{ $banner ? 'has-image' : '' }}">
                 @if ($banner) <img src="{{ $banner }}" alt="" fetchpriority="high"> @endif
                 <h1>{{ $page->name }}</h1>
@@ -95,7 +97,7 @@
     @hasSection('bare')
         @yield('content')
     @else
-        <main class="container py-4 py-md-5" style="max-width: @yield('width', '720px');">
+        <main class="container py-4 py-md-5" style="max-width: {{ $width }};">
             @yield('content')
         </main>
     @endif
