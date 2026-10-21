@@ -56,4 +56,9 @@ return [
         ],
     ],
 
+    // Kunci API untuk fe-konexa (/api/frontend/*). Harus sama dengan TELEIOS_API_KEY di .env fe-konexa.
+    'frontend' => [
+        'key' => env('FRONTEND_API_KEY'),
+    ],
+
 ];

@@ -1,5 +1,20 @@
 <?php
 
+use App\Http\Controllers\Api\Frontend\ArticleController as FrontendArticleController;
+use App\Http\Controllers\Api\Frontend\CategoryApplicationController as FrontendCategoryApplicationController;
+use App\Http\Controllers\Api\Frontend\CategoryVideoController as FrontendCategoryVideoController;
+use App\Http\Controllers\Api\Frontend\ContactMessageController as FrontendContactMessageController;
+use App\Http\Controllers\Api\Frontend\FaqController as FrontendFaqController;
+use App\Http\Controllers\Api\Frontend\FeatureController as FrontendFeatureController;
+use App\Http\Controllers\Api\Frontend\FooterController as FrontendFooterController;
+use App\Http\Controllers\Api\Frontend\HeaderController as FrontendHeaderController;
+use App\Http\Controllers\Api\Frontend\HomeSectionController as FrontendHomeSectionController;
+use App\Http\Controllers\Api\Frontend\PackageController as FrontendPackageController;
+use App\Http\Controllers\Api\Frontend\PageController as FrontendPageController;
+use App\Http\Controllers\Api\Frontend\TermConditionController as FrontendTermConditionController;
+use App\Http\Controllers\Api\Frontend\VideoController as FrontendVideoController;
+use App\Http\Controllers\Api\Frontend\VisitorLogController as FrontendVisitorLogController;
+use App\Http\Controllers\Api\Frontend\WebSettingController as FrontendWebSettingController;
 use App\Http\Controllers\Invoice\Api\InvoiceApiController;
 use App\Http\Controllers\WhatsApp\Api\WaApiController;
 use App\Http\Controllers\WhatsApp\WaWebhookController;
@@ -26,4 +41,28 @@ Route::prefix('v1/wa')->middleware('wa.api')->group(function () {
     Route::post('messages', [WaApiController::class, 'send']);
     Route::post('messages/media', [WaApiController::class, 'sendMedia']);
     Route::get('messages/{id}', [WaApiController::class, 'status'])->whereUuid('id');
+});
+
+// Konten website untuk fe-konexa (bizbos.id), server-to-server dengan header X-API-KEY.
+// Alamat & bentuk JSON sama persis dengan API teleios.
+Route::prefix('frontend')->middleware('frontend.api-key')->group(function () {
+    Route::get('category-applications', [FrontendCategoryApplicationController::class, 'index']);
+    Route::get('packages', [FrontendPackageController::class, 'index']);
+    Route::get('articles', [FrontendArticleController::class, 'index']);
+    Route::get('articles/{slug}', [FrontendArticleController::class, 'show'])->where('slug', '[a-z0-9-]+');
+    Route::get('faqs', [FrontendFaqController::class, 'index']);
+    Route::get('term-condition', [FrontendTermConditionController::class, 'show']);
+    Route::get('category-videos', [FrontendCategoryVideoController::class, 'index']);
+    Route::get('videos', [FrontendVideoController::class, 'index']);
+    Route::get('web-setting', [FrontendWebSettingController::class, 'show']);
+    Route::get('features', [FrontendFeatureController::class, 'index']);
+    Route::get('headers', [FrontendHeaderController::class, 'index']);
+    Route::get('footers', [FrontendFooterController::class, 'index']);
+    Route::get('home-sections', [FrontendHomeSectionController::class, 'index']);
+    Route::get('pages', [FrontendPageController::class, 'index']);
+    Route::get('pages/{slug}', [FrontendPageController::class, 'show'])->where('slug', '[a-z0-9-]+');
+
+    // Satu-satunya endpoint tulis: form Kontak & catatan kunjungan dari server fe-konexa.
+    Route::post('contact-messages', [FrontendContactMessageController::class, 'store'])->middleware('throttle:30,1');
+    Route::post('visitor-log', [FrontendVisitorLogController::class, 'store']);
 });

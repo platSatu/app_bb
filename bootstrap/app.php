@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \App\Http\Middleware\EnsurePermission::class,
             'invoice.api' => \App\Http\Middleware\VerifyInvoiceSignature::class,
             'wa.api' => \App\Http\Middleware\VerifyWaApiSignature::class,
+            'frontend.api-key' => \App\Http\Middleware\VerifyFrontendApiKey::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
