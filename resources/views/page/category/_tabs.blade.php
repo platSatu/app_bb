@@ -4,9 +4,6 @@
     foreach ($page->templateConfig('tabs') ?? [] as $key => [$label, $icon, $route]) {
         $tabs[$key] = [$label, $icon, route($routes.'.'.$route, $page)];
     }
-
-    // Tombol pengaturan tambahan di kanan tab (mis. Syarat & Ketentuan tiket).
-    $action = $page->templateConfig('action');
 @endphp
 
 <div class="d-flex justify-content-end mb-2">
@@ -25,10 +22,4 @@
             </li>
         @endforeach
     </ul>
-    @if ($action)
-        @php([$key, $label, $icon, $route] = $action)
-        <a href="{{ route($routes.'.'.$route, $page) }}" class="btn btn-sm {{ $active === $key ? 'btn-primary' : 'btn-outline-primary' }}">
-            <i class="{{ $icon }}"></i> {{ $label }}
-        </a>
-    @endif
 </div>

@@ -4,7 +4,6 @@
 | Isi page per template. Kategori page (page_types) menunjuk salah satu key di sini.
 | 'tabs'   : tab tambahan di Edit Page => [label, icon, route relatif ke prefix pages/superadmin.pages]
 | 'quick'  : tombol cepat di List Page => [label, icon, route, kolom withCount]
-| 'action' : tombol pengaturan di kanan tab => [key aktif, label, icon, route]
 | 'public' : view isi halaman publik /page/{link}
 | Template tanpa entri di sini hanya punya tab Informasi.
 */
@@ -34,10 +33,10 @@ return [
             'builder' => ['Form Pembeli', 'ri-list-settings-line', 'builder'],
             'ticket-orders' => ['Pesanan', 'ri-file-list-3-line', 'ticket.orders.index'],
             'ticket-design' => ['Desain E-ticket', 'ri-palette-line', 'ticket.design.edit'],
+            'ticket-terms' => ['Syarat & Ketentuan', 'ri-file-shield-2-line', 'ticket.terms.edit'],
             'ticket-scanners' => ['Registrasi Ulang', 'ri-qr-scan-2-line', 'ticket.scanners.index'],
             'ticket-reports' => ['Laporan', 'ri-file-chart-line', 'ticket.reports.index'],
         ],
-        'action' => ['ticket-terms', 'Syarat & Ketentuan', 'ri-file-shield-2-line', 'ticket.terms.edit'],
         'quick' => ['Pesanan', 'ri-coupon-3-line', 'ticket.orders.index', 'ticket_orders_count'],
         'public' => 'page.public.ticket',
     ],

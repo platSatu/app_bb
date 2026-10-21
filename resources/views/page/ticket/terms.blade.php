@@ -1,6 +1,6 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Syarat & Ketentuan')
+@section('title', 'Syarat dan Ketentuan')
 @section('page-section', $routes === 'pages' ? 'Pages' : 'Superadmin')
 
 @section('content')
