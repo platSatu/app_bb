@@ -20,8 +20,13 @@ Route::middleware('auth')->group(function () {
     Route::get('profile/history', HistoryController::class)->name('profile.history');
 
     Route::get('profile/packages', [PackageController::class, 'index'])->name('profile.packages');
-    Route::post('profile/packages/redeem', [PackageController::class, 'redeem'])->middleware('throttle:10,1')->name('account.packages.redeem');
-    Route::post('profile/packages/{package}', [PackageController::class, 'purchase'])->whereUuid('package')->middleware('throttle:10,1')->name('account.packages.purchase');
+    Route::controller(PackageController::class)->prefix('packages')->name('packages.')->group(function () {
+        Route::get('/', 'catalog')->name('catalog');
+        Route::get('redeem', 'redeemForm')->name('redeem');
+        Route::post('redeem', 'redeem')->middleware('throttle:10,1')->name('redeem.store');
+        Route::get('{package}', 'show')->whereUuid('package')->name('show');
+        Route::post('{package}', 'purchase')->whereUuid('package')->middleware('throttle:10,1')->name('purchase');
+    });
 
     Route::controller(WithdrawalController::class)->prefix('profile/withdrawals')->group(function () {
         Route::get('/', 'index')->name('profile.withdrawals');

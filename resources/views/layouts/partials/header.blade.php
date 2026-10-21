@@ -89,8 +89,13 @@
                             </li>
                             @unless (Auth::user()->isPlatformTeam())
                                 <li class="profile-item">
-                                    <a href="{{ route('profile.packages') }}" class="text-body">
-                                        <i class="ri-vip-crown-line me-3"></i>Paket Saya
+                                    <a href="{{ route('packages.catalog') }}" class="text-body">
+                                        <i class="ri-vip-crown-line me-3"></i>Beli Paket
+                                    </a>
+                                </li>
+                                <li class="profile-item">
+                                    <a href="{{ route('packages.redeem') }}" class="text-body">
+                                        <i class="ri-coupon-2-line me-3"></i>Redeem Voucher
                                     </a>
                                 </li>
                             @endunless
