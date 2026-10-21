@@ -3,6 +3,7 @@
 @section('title', 'Dashboard')
 
 @php
+    $rupiah = fn ($v) => 'Rp '.number_format((int) $v, 0, ',', '.');
     $hour = now()->hour;
     $greeting = $hour < 11 ? 'Selamat pagi' : ($hour < 15 ? 'Selamat siang' : ($hour < 18 ? 'Selamat sore' : 'Selamat malam'));
 @endphp
@@ -24,6 +25,39 @@
             <a href="{{ route('settings.branches.index') }}" class="btn btn-sm btn-primary">Buat Branch</a>
         </div>
     @elseif ($owner)
+        @php
+            $cards = [
+                ['Pemasukan bulan ini', $rupiah($stats['income']['value']), $stats['income']['change'], 'ri-money-dollar-circle-line', 'success',
+                    collect(['Tiket' => $stats['income']['parts']['ticket'], 'Katalog' => $stats['income']['parts']['catalog'], 'Invoice' => $stats['income']['parts']['invoice']])->filter()->map(fn ($v, $k) => $k.' '.$rupiah($v))->join(' · ') ?: 'Belum ada pemasukan'],
+                ['Pesanan baru', number_format($stats['orders']['value'], 0, ',', '.'), $stats['orders']['change'], 'ri-shopping-cart-2-line', 'primary', 'Tiket lunas & pesanan katalog bulan ini'],
+                ['Invoice belum dibayar', number_format($stats['unpaid']['value'], 0, ',', '.'), null, 'ri-file-warning-line', 'warning', 'Total '.$rupiah($stats['unpaid']['amount'])],
+                ['Kontak baru', number_format($stats['contacts']['value'], 0, ',', '.'), $stats['contacts']['change'], 'ri-contacts-book-3-line', 'info', 'Masuk ke Buku Kontak bulan ini'],
+            ];
+        @endphp
+        <div class="row g-3 mb-3">
+            @foreach ($cards as [$label, $value, $change, $icon, $color, $note])
+                <div class="col-sm-6 col-xl-3">
+                    <div class="card h-100 mb-0">
+                        <div class="card-body">
+                            <div class="d-flex align-items-start justify-content-between mb-2">
+                                <span class="text-muted">{{ $label }}</span>
+                                <span class="rounded-circle bg-{{ $color }}-subtle text-{{ $color }} d-flex align-items-center justify-content-center" style="width:36px;height:36px"><i class="{{ $icon }} fs-5"></i></span>
+                            </div>
+                            <h4 class="mb-1">{{ $value }}</h4>
+                            <div class="small text-muted">
+                                @if ($change !== null)
+                                    <span class="{{ $change >= 0 ? 'text-success' : 'text-danger' }} fw-semibold">
+                                        <i class="{{ $change >= 0 ? 'ri-arrow-up-line' : 'ri-arrow-down-line' }}"></i>{{ abs($change) }}%
+                                    </span> dari bulan lalu ·
+                                @endif
+                                {{ $note }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+
         <div class="row g-3">
             <div class="{{ $usesSchedule ? 'col-xl-5' : 'col-12' }}">
                 <div class="card h-100 mb-0">
@@ -108,6 +142,48 @@
                     </div>
                 </div>
             @endif
+        </div>
+
+        <div class="row g-3 mt-0">
+            <div class="col-xl-8">
+                <div class="card h-100 mb-0">
+                    <div class="card-body">
+                        <h6 class="mb-3"><i class="ri-history-line text-primary me-1"></i> Aktivitas Terbaru</h6>
+                        @forelse ($recent as $row)
+                            <a href="{{ $row['url'] }}" class="d-flex align-items-center gap-3 py-2 text-body text-decoration-none {{ $loop->last ? '' : 'border-bottom' }}">
+                                <span class="rounded-circle bg-{{ $row['color'] }}-subtle text-{{ $row['color'] }} d-flex align-items-center justify-content-center flex-shrink-0" style="width:36px;height:36px"><i class="{{ $row['icon'] }}"></i></span>
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="text-truncate">{{ $row['title'] }}</div>
+                                    <div class="small text-muted">{{ $row['at']->diffForHumans() }}</div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-semibold text-nowrap">{{ $row['amount'] }}</div>
+                                    @isset($row['badge']) <span class="badge {{ $row['badge'][1] }}">{{ $row['badge'][0] }}</span> @endisset
+                                </div>
+                            </a>
+                        @empty
+                            <div class="text-center text-muted py-4">
+                                <i class="ri-inbox-line fs-1 d-block mb-2 opacity-50"></i>
+                                <div class="small">Belum ada transaksi. Pembelian tiket, pesanan katalog, dan pembayaran invoice akan muncul di sini.</div>
+                            </div>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-4">
+                <div class="card h-100 mb-0">
+                    <div class="card-body d-flex flex-column">
+                        <h6 class="mb-3"><i class="ri-wallet-3-line text-primary me-1"></i> Saldo Anda</h6>
+                        <h3 class="mb-1">{{ $rupiah($balance) }}</h3>
+                        <p class="small text-muted">Hasil penjualan tiket masuk ke saldo ini dan bisa ditarik ke rekening.</p>
+                        <div class="d-flex flex-wrap gap-2 mt-auto">
+                            <a href="{{ route('account.deposits.create') }}" class="btn btn-sm btn-primary"><i class="ri-add-line"></i> Tambah Saldo</a>
+                            <a href="{{ route('profile.withdrawals') }}" class="btn btn-sm btn-outline-secondary">Tarik Saldo</a>
+                            <a href="{{ route('profile.history') }}" class="btn btn-sm btn-light">Riwayat</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     @endif
 @endsection
