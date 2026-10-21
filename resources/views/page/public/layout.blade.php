@@ -42,7 +42,9 @@
     <style>
         :root { --brand: {{ $nav['color'] ?? '#e36666' }}; }
         body { font-family: '{{ $nav['font'] ?? 'Outfit' }}', system-ui, sans-serif; background: linear-gradient(180deg, color-mix(in srgb, var(--brand) 9%, #fff) 0, #fbf9f9 480px) no-repeat, #fbf9f9; }
-        .page-banner img { aspect-ratio: 16 / 9; max-height: 540px; object-fit: cover; }
+        h1, h2, h3, h4, h5, h6 { font-family: inherit; }
+        .page-banner img { aspect-ratio: 16 / 9; max-height: 560px; object-fit: cover; }
+        .btn-brand:disabled { background: color-mix(in srgb, var(--brand) 45%, #fff); border-color: transparent; color: #fff; opacity: 1; }
         .product-thumb { aspect-ratio: 1 / 1; object-fit: cover; }
         .cart-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030; }
         .btn-brand { background: var(--brand); border-color: var(--brand); color: #fff; }
@@ -75,8 +77,8 @@
         </nav>
     @endif
 
-    {{-- Landing: banner selebar layar; page lain: di dalam kontainer (di bawah). --}}
-    @if ($banner && $__env->hasSection('bare'))
+    {{-- Banner = header page, selebar layar di paling atas. --}}
+    @if ($banner)
         <div class="page-banner"><img src="{{ $banner }}" alt="{{ $page->name }}" class="d-block w-100" fetchpriority="high"></div>
     @endif
 
@@ -84,23 +86,6 @@
         @yield('content')
     @else
         <main class="container py-4 py-md-5" style="max-width: @yield('width', '720px');">
-            @unless ($nav)
-                @if ($company)
-                    <div class="d-flex justify-content-center mb-4">
-                        <span class="d-inline-flex align-items-center gap-2 bg-white rounded-pill shadow-sm px-3 py-2">
-                            @if ($company->logoUrl())
-                                <img src="{{ $company->logoUrl() }}" alt="{{ $company->name }}" height="28" style="object-fit: contain;">
-                            @endif
-                            <span class="fw-semibold">{{ $company->name }}</span>
-                        </span>
-                    </div>
-                @endif
-            @endunless
-
-            @if ($banner)
-                <div class="page-banner rounded-4 overflow-hidden shadow-sm mb-4"><img src="{{ $banner }}" alt="{{ $page->name }}" class="d-block w-100" fetchpriority="high"></div>
-            @endif
-
             @yield('content')
         </main>
     @endif

@@ -13,6 +13,8 @@
         .ticket-option { border: 1px solid #e9ecef; border-radius: .75rem; padding: .875rem 1rem; transition: border-color .15s, background .15s; }
         .ticket-option.is-picked { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 5%, #fff); }
         .qty { width: 116px; }
+        .qty .btn { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 35%, #fff); }
+        .qty .btn:hover { background: color-mix(in srgb, var(--brand) 10%, #fff); }
         .qty .form-control { text-align: center; -moz-appearance: textfield; }
         .qty .form-control::-webkit-inner-spin-button, .qty .form-control::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         .step-number { width: 26px; height: 26px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
