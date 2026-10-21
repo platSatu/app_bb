@@ -6,7 +6,10 @@
             .ticket-grid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); grid-template-areas: "buyer tickets" "buyer summary"; align-items: start; }
             .ticket-summary { position: sticky; top: 1.5rem; }
         }
-        .ticket-grid .card { border: 0; border-radius: 1rem; }
+        .ticket-grid .card { border: 0; border-radius: 1rem; box-shadow: 0 1px 3px rgba(16,24,40,.06), 0 8px 24px rgba(16,24,40,.04) !important; }
+        .ticket-hero { border: 0; border-radius: 1.25rem; background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 16%, #fff), #fff 65%); }
+        .ticket-chip { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .75rem; border-radius: 999px; background: #fff; font-size: .875rem; color: #555; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+        .ticket-chip i { color: var(--brand); }
         .ticket-option { border: 1px solid #e9ecef; border-radius: .75rem; padding: .875rem 1rem; transition: border-color .15s, background .15s; }
         .ticket-option.is-picked { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 5%, #fff); }
         .qty { width: 116px; }
@@ -16,14 +19,20 @@
     </style>
 @endpush
 
-<div class="card border-0 shadow-sm rounded-4 mb-4">
-    <div class="card-body p-4 text-center">
-        <h1 class="h3 fw-bold mb-1">{{ $page->name }}</h1>
-        @if ($page->start_date)
-            <div class="text-muted"><i class="ri-calendar-event-line"></i> {{ $page->start_date->translatedFormat('l, d F Y') }}</div>
-        @endif
+<div class="card ticket-hero shadow-sm mb-4">
+    <div class="card-body p-4 p-md-5">
+        <span class="badge rounded-pill mb-2" style="background: color-mix(in srgb, var(--brand) 15%, #fff); color: var(--brand);"><i class="ri-coupon-3-line"></i> E-Ticket</span>
+        <h1 class="h2 fw-bold mb-3">{{ $page->name }}</h1>
+        <div class="d-flex flex-wrap gap-2">
+            @if ($page->start_date)
+                <span class="ticket-chip"><i class="ri-calendar-event-line"></i>{{ $page->start_date->translatedFormat('l, d F Y') }}{{ $page->end_date && ! $page->end_date->isSameDay($page->start_date) ? ' – '.$page->end_date->translatedFormat('d F Y') : '' }}</span>
+            @endif
+            @if ($page->branch)
+                <span class="ticket-chip"><i class="ri-map-pin-line"></i>{{ $page->branch->name }}</span>
+            @endif
+        </div>
         @if ($page->description)
-            <p class="text-muted mb-0 mt-2" style="white-space: pre-line;">{{ $page->description }}</p>
+            <p class="text-muted mb-0 mt-3" style="white-space: pre-line;">{{ $page->description }}</p>
         @endif
     </div>
 </div>

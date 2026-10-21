@@ -32,13 +32,13 @@
         $nav = ($open ?? true) ? \App\Support\LandingNavigation::for($page) : null;
         $company = $page->branch?->company;
     @endphp
-    @if ($nav)
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ \App\Support\LandingNavigation::FONTS[$nav['font']] }}:wght@400;600;700&display=swap">
-    @endif
+    {{-- Font sama dengan dashboard (Outfit), kecuali landing memilih font sendiri. --}}
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ $nav ? \App\Support\LandingNavigation::FONTS[$nav['font']] : 'Outfit' }}:wght@400;500;600;700&display=swap">
     @stack('head')
     <style>
-        :root { --brand: {{ $nav['color'] ?? '#4f46e5' }}; }
-        @if ($nav) body { font-family: '{{ $nav['font'] }}', system-ui, sans-serif; } @endif
+        :root { --brand: {{ $nav['color'] ?? '#e36666' }}; }
+        body { font-family: '{{ $nav['font'] ?? 'Outfit' }}', system-ui, sans-serif; background: linear-gradient(180deg, color-mix(in srgb, var(--brand) 9%, #fff) 0, #fbf9f9 480px) no-repeat, #fbf9f9; }
+        .page-banner img { aspect-ratio: 16 / 9; max-height: 540px; object-fit: cover; }
         .product-thumb { aspect-ratio: 1 / 1; object-fit: cover; }
         .cart-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030; }
         .btn-brand { background: var(--brand); border-color: var(--brand); color: #fff; }
@@ -48,7 +48,7 @@
         .site-nav .nav-link.active { color: var(--brand); font-weight: 600; }
     </style>
 </head>
-<body class="bg-light">
+<body>
     @if ($nav)
         <nav class="navbar navbar-expand-md bg-white border-bottom sticky-top site-nav">
             <div class="container" style="max-width: 1140px;">
@@ -71,11 +71,10 @@
         </nav>
     @endif
 
-    {{-- Banner header: hanya di halaman utama page (bukan checkout/scan/pesanan). --}}
-    @if ($page->banner && request()->routeIs('page.show') && ($open ?? true))
-        <div class="page-banner bg-white">
-            <img src="{{ $page->bannerUrl() }}" alt="{{ $page->name }}" class="d-block w-100" style="aspect-ratio:16/9;max-height:540px;object-fit:cover" fetchpriority="high">
-        </div>
+    {{-- Banner header: hanya di halaman utama page (bukan checkout/scan/pesanan). Landing: selebar layar. --}}
+    @php($banner = $page->banner && request()->routeIs('page.show') && ($open ?? true) ? $page->bannerUrl() : null)
+    @if ($banner && $__env->hasSection('bare'))
+        <div class="page-banner"><img src="{{ $banner }}" alt="{{ $page->name }}" class="d-block w-100" fetchpriority="high"></div>
     @endif
 
     @hasSection('bare')
@@ -83,15 +82,21 @@
     @else
         <main class="container py-4 py-md-5" style="max-width: @yield('width', '720px');">
             @unless ($nav)
-                <div class="d-flex align-items-center justify-content-center gap-2 mb-4">
-                    @if ($company?->logoUrl())
-                        <img src="{{ $company->logoUrl() }}" alt="{{ $company->name }}" height="44" style="object-fit: contain;">
-                    @endif
-                    @if ($company)
-                        <span class="fw-semibold">{{ $company->name }}</span>
-                    @endif
-                </div>
+                @if ($company)
+                    <div class="d-flex justify-content-center mb-4">
+                        <span class="d-inline-flex align-items-center gap-2 bg-white rounded-pill shadow-sm px-3 py-2">
+                            @if ($company->logoUrl())
+                                <img src="{{ $company->logoUrl() }}" alt="{{ $company->name }}" height="28" style="object-fit: contain;">
+                            @endif
+                            <span class="fw-semibold">{{ $company->name }}</span>
+                        </span>
+                    </div>
+                @endif
             @endunless
+
+            @if ($banner)
+                <div class="page-banner rounded-4 overflow-hidden shadow-sm mb-4"><img src="{{ $banner }}" alt="{{ $page->name }}" class="d-block w-100" fetchpriority="high"></div>
+            @endif
 
             @yield('content')
         </main>
