@@ -1,7 +1,7 @@
 @extends('page.public.layout')
 
 @section('title', $open ? $page->name : 'Page tidak tersedia')
-@section('width', $open && $page->isTemplate(\App\Models\PageType::TEMPLATE_CATALOG) ? '1140px' : ($open && $page->isTemplate(\App\Models\PageType::TEMPLATE_TICKET) ? '1080px' : '720px'))
+@section('width', $open && $page->isTemplate(\App\Models\PageType::TEMPLATE_CATALOG) ? '1140px' : ($open && $page->isTemplate(\App\Models\PageType::TEMPLATE_TICKET) ? '1080px' : ($open && $page->isTemplate(\App\Models\PageType::TEMPLATE_QUIZ) ? '980px' : '720px')))
 @if ($open && $page->isTemplate(\App\Models\PageType::TEMPLATE_LANDING))
     @section('bare', true)
 @endif
