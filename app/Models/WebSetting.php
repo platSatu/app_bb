@@ -1,0 +1,110 @@
+<?php
+
+namespace App\Models;
+
+use App\Support\Web\WebImageUploader;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+
+/**
+ * Singleton settings row — site-wide favicon/logo, meta tags, contact
+ * info, Google Tag Manager/Analytics/Maps and ad pixel (Meta, TikTok,
+ * Google Ads) IDs, consumed by
+ * fe-konexa's public frontend (see App\Http\Controllers\Api\Frontend\
+ * WebSettingController). Same singleton shape as
+ * App\Models\AiModerationSetting — always accessed through current(),
+ * never queried directly, so exactly one row ever exists.
+ */
+class WebSetting extends Model
+{
+    protected $table = 'web_settings';
+
+    protected $keyType = 'string';
+
+    public $incrementing = false;
+
+    protected $fillable = [
+        'favicon',
+        'logo',
+        'meta_description',
+        'meta_keywords',
+        'meta_images',
+        'handphone',
+        'email',
+        'address',
+        'company_name',
+        'google_tag',
+        'google_analytics',
+        'meta_pixel_id',
+        'tiktok_pixel_id',
+        'google_ads_id',
+        'gmaps',
+        'instagram_url',
+        'facebook_url',
+        'twitter_url',
+        'icon_instagram',
+        'icon_facebook',
+        'icon_youtube',
+        'youtube_url',
+        'icon_tiktok',
+        'tiktok_url',
+        'running_text',
+    ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function (self $model) {
+            if (empty($model->id)) {
+                $model->id = (string) Str::uuid();
+            }
+        });
+    }
+
+    public function getFaviconUrlAttribute(): ?string
+    {
+        return WebImageUploader::url($this->favicon);
+    }
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        return WebImageUploader::url($this->logo);
+    }
+
+    public function getMetaImagesUrlAttribute(): ?string
+    {
+        return WebImageUploader::url($this->meta_images);
+    }
+
+    public function getIconInstagramUrlAttribute(): ?string
+    {
+        return WebImageUploader::url($this->icon_instagram);
+    }
+
+    public function getIconFacebookUrlAttribute(): ?string
+    {
+        return WebImageUploader::url($this->icon_facebook);
+    }
+
+    public function getIconYoutubeUrlAttribute(): ?string
+    {
+        return WebImageUploader::url($this->icon_youtube);
+    }
+
+    public function getIconTiktokUrlAttribute(): ?string
+    {
+        return WebImageUploader::url($this->icon_tiktok);
+    }
+
+    /**
+     * The one row this table ever needs — created with all-null
+     * defaults on first access rather than requiring a seeder. Every
+     * caller (a future settings form, WebSettingController) goes
+     * through this instead of querying the table directly.
+     */
+    public static function current(): self
+    {
+        return static::query()->first() ?? static::create();
+    }
+}

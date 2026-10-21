@@ -24,3 +24,6 @@ Homestead.yaml
 Thumbs.db
 
 /public/be/assets/libs/@iconscout/unicons/node_modules
+
+# Upload konten Website (Superadmin > Settings > Website), bukan bagian kode.
+/public/web

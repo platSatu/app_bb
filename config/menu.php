@@ -291,6 +291,28 @@ return [
                         'superadmin_only' => true,
                     ],
                 ],
+                // Konten website bizbos yang dibaca fe-konexa lewat API.
+                'submenus' => [
+                    'website' => [
+                        'label' => 'Website',
+                        'items' => [
+                            'superadmin.web.meta-tags' => ['label' => 'Meta Tags', 'route' => 'superadmin.web.meta-tags.index', 'active' => 'superadmin.web.meta-tags.*'],
+                            'superadmin.web.category-articles' => ['label' => 'Kategori Artikel', 'route' => 'superadmin.web.category-articles.index', 'active' => 'superadmin.web.category-articles.*'],
+                            'superadmin.web.articles' => ['label' => 'Artikel', 'route' => 'superadmin.web.articles.index', 'active' => 'superadmin.web.articles.*'],
+                            'superadmin.web.faqs' => ['label' => 'FAQ', 'route' => 'superadmin.web.faqs.index', 'active' => 'superadmin.web.faqs.*'],
+                            'superadmin.web.term-conditions' => ['label' => 'Syarat & Ketentuan', 'route' => 'superadmin.web.term-conditions.index', 'active' => 'superadmin.web.term-conditions.*'],
+                            'superadmin.web.category-videos' => ['label' => 'Kategori Video', 'route' => 'superadmin.web.category-videos.index', 'active' => 'superadmin.web.category-videos.*'],
+                            'superadmin.web.videos' => ['label' => 'Video', 'route' => 'superadmin.web.videos.index', 'active' => 'superadmin.web.videos.*'],
+                            'superadmin.web.headers' => ['label' => 'Header', 'route' => 'superadmin.web.headers.index', 'active' => 'superadmin.web.headers.*'],
+                            'superadmin.web.home-sections' => ['label' => 'Susunan Beranda', 'route' => 'superadmin.web.home-sections.index', 'active' => ['superadmin.web.home-sections.*', 'superadmin.web.home-section-items.*']],
+                            'superadmin.web.pages' => ['label' => 'Halaman', 'route' => 'superadmin.web.pages.index', 'active' => 'superadmin.web.pages.*'],
+                            'superadmin.web.contact-messages' => ['label' => 'Pesan Masuk', 'route' => 'superadmin.web.contact-messages.index', 'active' => 'superadmin.web.contact-messages.*'],
+                            'superadmin.web.features' => ['label' => 'Fitur', 'route' => 'superadmin.web.features.index', 'active' => 'superadmin.web.features.*'],
+                            'superadmin.web.footers' => ['label' => 'Footer', 'route' => 'superadmin.web.footers.index', 'active' => 'superadmin.web.footers.*'],
+                            'superadmin.web.setting' => ['label' => 'Pengaturan Web', 'route' => 'superadmin.web.setting.edit', 'active' => 'superadmin.web.setting.*'],
+                        ],
+                    ],
+                ],
             ],
         ],
     ],
