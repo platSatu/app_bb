@@ -61,4 +61,9 @@ return [
         'key' => env('FRONTEND_API_KEY'),
     ],
 
+    // Google Analytics bizbos (G-XXXX), dipasang di semua halaman publik page. Kosong = tidak dipasang.
+    'google_analytics' => [
+        'id' => env('GOOGLE_ANALYTICS_ID'),
+    ],
+
 ];

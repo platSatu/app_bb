@@ -10,7 +10,7 @@
             <div class="text-muted small">Setelah disimpan, Anda bisa lanjut menyusun isi page sesuai kategorinya.</div>
         </div>
         <div class="card-body">
-            <form method="POST" action="{{ route($routes.'.store') }}">
+            <form method="POST" action="{{ route($routes.'.store') }}" enctype="multipart/form-data">
                 @csrf
                 @include('page.category._form')
             </form>

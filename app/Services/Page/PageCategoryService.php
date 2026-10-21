@@ -4,6 +4,7 @@ namespace App\Services\Page;
 
 use App\Models\PageCategory;
 use App\Models\UserBranch;
+use App\Services\Media\ImageUploader;
 use App\Services\Media\QrCodeGenerator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -13,7 +14,7 @@ use Throwable;
 
 class PageCategoryService
 {
-    public function __construct(private readonly QrCodeGenerator $qrcodes)
+    public function __construct(private readonly QrCodeGenerator $qrcodes, private readonly ImageUploader $images)
     {
     }
 
@@ -22,32 +23,56 @@ class PageCategoryService
     {
         $page->fill($data);
         $page->branch_id = $branch->getKey();
+        $page->{$page->getKeyName()} ??= $page->newUniqueId();
 
         $slug = filled($data['slug'] ?? null) ? Str::slug($data['slug']) : ($page->slug ?? $this->uniqueSlug($page->name));
         $linkChanged = ! $page->exists || $slug !== $page->slug;
         $page->slug = $slug;
 
-        if (! $linkChanged) {
-            $page->save();
+        // File baru dicatat supaya bisa dibuang kalau simpan gagal; file lama dihapus setelah commit.
+        $created = [];
+        $replaced = $this->images($page, $data, $created);
 
-            return $page;
+        if ($linkChanged) {
+            $replaced[] = $page->qrcodePath();
+            $page->directory_qrcode = 'pages/'.$branch->getKey().'/qrcodes';
+            $page->qrcode = $this->qrcodes->store(route('page.show', $slug), $page->directory_qrcode);
+            $created[] = $page->qrcodePath();
         }
-
-        $oldQr = $page->qrcodePath();
-        $page->directory_qrcode = 'pages/'.$branch->getKey().'/qrcodes';
-        $page->qrcode = $this->qrcodes->store(route('page.show', $slug), $page->directory_qrcode);
 
         try {
             $page->save();
         } catch (Throwable $e) {
-            $this->qrcodes->delete($page->qrcodePath());
+            array_map(fn ($path) => $this->images->delete($path), $created);
 
             throw $e;
         }
 
-        DB::afterCommit(fn () => $this->qrcodes->delete($oldQr));
+        DB::afterCommit(fn () => array_map(fn ($path) => $this->images->delete($path), array_filter($replaced)));
 
         return $page;
+    }
+
+    /**
+     * Banner header (lebar maks 1920) & gambar share (maks 1200), dikompres ke WebP.
+     * Mengembalikan path lama yang diganti/dihapus; path baru masuk ke $created.
+     */
+    private function images(PageCategory $page, array $data, array &$created): array
+    {
+        $replaced = [];
+
+        foreach (['banner' => 1920, 'og_image' => 1200] as $column => $size) {
+            $file = $data[$column] ?? null;
+
+            if (! $file && empty($data['remove_'.$column])) {
+                continue;
+            }
+
+            $replaced[] = $page->getOriginal($column);
+            $page->{$column} = $file ? $created[] = $this->images->store($file, 'pages/'.$page->getKey(), $column, $size) : null;
+        }
+
+        return $replaced;
     }
 
     /** @throws RuntimeException kalau page sudah punya transaksi tiket (catatan uang tidak boleh hilang). */
@@ -62,6 +87,7 @@ class PageCategoryService
         $this->qrcodes->delete($qr);
         Storage::disk(PageSubmissionService::DISK)->deleteDirectory(PageSubmissionService::directory($page));
         Storage::disk('public')->deleteDirectory('catalog/'.$page->getKey());
+        Storage::disk('public')->deleteDirectory('pages/'.$page->getKey());
     }
 
     private function uniqueSlug(string $name): string

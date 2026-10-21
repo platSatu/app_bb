@@ -76,6 +76,92 @@
     </div>
 </div>
 
+{{-- Tampilan & SEO: semua opsional, yang kosong diisi otomatis. --}}
+@php($seo = $page->seo())
+<hr class="my-4">
+<h6 class="mb-1">Tampilan & SEO</h6>
+<p class="small text-muted mb-3">Semua boleh dikosongkan. Yang kosong otomatis memakai nama & deskripsi page, lalu banner, lalu gambar bawaan {{ config('app.name') }}.</p>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        @foreach (['banner' => ['Banner header', 'Tampil paling atas di page. Disarankan 1920 × 1080 px, otomatis dikompres.', $page->bannerUrl()], 'og_image' => ['Gambar share', 'Muncul saat link dibagikan di WhatsApp/Facebook. Disarankan 1200 × 630 px.', $page->og_image ? \Illuminate\Support\Facades\Storage::disk('public')->url($page->og_image) : null]] as $field => [$label, $hint, $current])
+            <div class="mb-3">
+                <label class="form-label" for="{{ $field }}">{{ $label }}</label>
+                @if ($current)
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <img src="{{ $current }}" alt="" class="rounded border" style="height:56px;aspect-ratio:16/9;object-fit:cover">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" name="remove_{{ $field }}" value="1" id="remove_{{ $field }}">
+                            <label class="form-check-label small" for="remove_{{ $field }}">Hapus</label>
+                        </div>
+                    </div>
+                @endif
+                <input type="file" id="{{ $field }}" name="{{ $field }}" accept="image/jpeg,image/png,image/webp" class="form-control @error($field) is-invalid @enderror" data-preview-image>
+                <div class="form-text">{{ $hint }} Maks {{ $field === 'banner' ? 5 : 3 }} MB.</div>
+                @error($field) <div class="invalid-feedback">{{ $message }}</div> @enderror
+            </div>
+        @endforeach
+
+        <div class="mb-3">
+            <label class="form-label d-flex justify-content-between" for="meta_title">Judul SEO <span class="small text-muted" data-count-for="meta_title"></span></label>
+            <input type="text" id="meta_title" name="meta_title" maxlength="70" class="form-control @error('meta_title') is-invalid @enderror" value="{{ old('meta_title', $page->meta_title) }}" placeholder="Kosongkan: pakai nama page">
+            @error('meta_title') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        </div>
+        <div class="mb-3">
+            <label class="form-label d-flex justify-content-between" for="meta_description">Deskripsi SEO <span class="small text-muted" data-count-for="meta_description"></span></label>
+            <textarea id="meta_description" name="meta_description" maxlength="160" rows="2" class="form-control @error('meta_description') is-invalid @enderror" placeholder="Kosongkan: pakai deskripsi page">{{ old('meta_description', $page->meta_description) }}</textarea>
+            @error('meta_description') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        </div>
+        <div>
+            <label class="form-label" for="ga_id">Google Analytics (opsional)</label>
+            <input type="text" id="ga_id" name="ga_id" maxlength="20" class="form-control text-uppercase @error('ga_id') is-invalid @enderror" value="{{ old('ga_id', $page->ga_id) }}" placeholder="G-XXXXXXXXXX">
+            <div class="form-text">Measurement ID dari Google Analytics 4 milik Anda, supaya statistik page masuk ke akun Analytics Anda juga.</div>
+            @error('ga_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="small text-muted mb-2">Pratinjau saat dibagikan</div>
+        <div class="border rounded-3 overflow-hidden bg-light">
+            <img src="{{ $seo['image'] }}" alt="" class="w-100" style="aspect-ratio:1.91/1;object-fit:cover" id="seo-preview-image">
+            <div class="p-3 bg-white">
+                <div class="small text-muted text-truncate">{{ parse_url(url('/'), PHP_URL_HOST) }}</div>
+                <div class="fw-semibold text-truncate" id="seo-preview-title">{{ $seo['title'] }}</div>
+                <div class="small text-muted" id="seo-preview-description" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ $seo['description'] }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+    <script>
+        (function () {
+            var val = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; };
+            var refresh = function () {
+                document.getElementById('seo-preview-title').textContent = val('meta_title') || val('name') || 'Nama page';
+                document.getElementById('seo-preview-description').textContent = val('meta_description') || val('description') || val('name');
+                document.querySelectorAll('[data-count-for]').forEach(function (el) {
+                    var input = document.getElementById(el.dataset.countFor);
+                    el.textContent = input.value.length + '/' + input.maxLength;
+                });
+            };
+            ['name', 'description', 'meta_title', 'meta_description'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.addEventListener('input', refresh);
+            });
+            // Gambar share dipilih: dipakai di pratinjau; banner dipakai kalau gambar share kosong.
+            document.querySelectorAll('[data-preview-image]').forEach(function (input) {
+                input.addEventListener('change', function () {
+                    var share = document.getElementById('og_image');
+                    var file = (share.files[0]) || (input.id === 'banner' ? input.files[0] : null);
+                    if (file) document.getElementById('seo-preview-image').src = URL.createObjectURL(file);
+                });
+            });
+            refresh();
+        })();
+    </script>
+@endpush
+
 <div class="d-flex justify-content-end gap-2 mt-4">
     <a href="{{ route($routes.'.index') }}" class="btn btn-light">Batal</a>
     <button type="submit" class="btn btn-primary">Simpan</button>

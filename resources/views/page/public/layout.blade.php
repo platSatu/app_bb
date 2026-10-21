@@ -3,8 +3,27 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', $page->name)</title>
+    @php($seo = $page->seo())
+    <title>@yield('title', $seo['title'])</title>
     <meta name="robots" content="{{ ($open ?? true) ? 'index,follow' : 'noindex' }}">
+    <meta name="description" content="{{ $seo['description'] }}">
+    <link rel="canonical" href="{{ url()->current() }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="{{ $page->branch?->company?->name ?? config('app.name') }}">
+    <meta property="og:title" content="{{ $seo['title'] }}">
+    <meta property="og:description" content="{{ $seo['description'] }}">
+    <meta property="og:image" content="{{ $seo['image'] }}">
+    <meta property="og:url" content="{{ url()->current() }}">
+    <meta name="twitter:card" content="summary_large_image">
+    @if ($gaIds = $page->analyticsIds())
+        <script async src="https://www.googletagmanager.com/gtag/js?id={{ $gaIds[0] }}"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag() { dataLayer.push(arguments); }
+            gtag('js', new Date());
+            @json($gaIds).forEach(function (id) { gtag('config', id); });
+        </script>
+    @endif
     <link rel="shortcut icon" href="{{ asset('be') }}/assets/images/favicon.png">
     <link href="{{ asset('be') }}/assets/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ asset('be') }}/assets/css/icons.min.css" rel="stylesheet">
@@ -50,6 +69,13 @@
                 @endif
             </div>
         </nav>
+    @endif
+
+    {{-- Banner header: hanya di halaman utama page (bukan checkout/scan/pesanan). --}}
+    @if ($page->banner && request()->routeIs('page.show') && ($open ?? true))
+        <div class="page-banner bg-white">
+            <img src="{{ $page->bannerUrl() }}" alt="{{ $page->name }}" class="d-block w-100" style="aspect-ratio:16/9;max-height:540px;object-fit:cover" fetchpriority="high">
+        </div>
     @endif
 
     @hasSection('bare')

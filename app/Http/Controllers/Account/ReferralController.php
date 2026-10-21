@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Account;
 
 use App\Http\Controllers\Controller;
+use App\Models\ReferralSetting;
 use App\Services\Referral\ReferralService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -15,6 +16,7 @@ class ReferralController extends Controller
 
         return view('profile.referral', [
             'referralCode' => $referrals->codeFor($user),
+            'setting' => ReferralSetting::current(),
             'referrals' => $user->referrals()
                 ->with('referredUser:id,name,created_at')
                 ->latest()

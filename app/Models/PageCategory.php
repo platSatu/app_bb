@@ -10,13 +10,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PageCategory extends Model
 {
     use HasActiveStatus, HasUuids;
 
     // branch_id, slug & QR diisi sistem setelah dicek kepemilikannya.
-    protected $fillable = ['page_type_id', 'name', 'description', 'start_date', 'end_date', 'status'];
+    protected $fillable = ['page_type_id', 'name', 'description', 'start_date', 'end_date', 'status', 'meta_title', 'meta_description', 'ga_id'];
+
+    /** Format Measurement ID Google Analytics 4. */
+    public const GA_PATTERN = '/^G-[A-Z0-9]{4,16}$/';
 
     protected $hidden = ['directory_qrcode'];
 
@@ -111,6 +115,30 @@ class PageCategory extends Model
     public function scopeOwnedBy(Builder $query, User $user): Builder
     {
         return $query->whereHas('branch', fn (Builder $b) => $b->where('user_id', $user->getKey()));
+    }
+
+    public function bannerUrl(): ?string
+    {
+        return $this->banner ? Storage::disk('public')->url($this->banner) : null;
+    }
+
+    /** Judul, deskripsi & gambar share; yang kosong diisi otomatis. */
+    public function seo(): array
+    {
+        $image = $this->og_image ? Storage::disk('public')->url($this->og_image) : $this->bannerUrl();
+
+        return [
+            'title' => $this->meta_title ?: $this->name,
+            'description' => Str::limit($this->meta_description ?: ($this->description ?: collect([$this->name, $this->branch?->company?->name])->filter()->join(' · ')), 160, ''),
+            'image' => url($image ?: asset('be/images/og-default.png')),
+        ];
+    }
+
+    /** ID Analytics bizbos + milik owner (kalau diisi), sudah divalidasi formatnya. */
+    public function analyticsIds(): array
+    {
+        return collect([config('services.google_analytics.id'), $this->ga_id])
+            ->filter(fn ($id) => is_string($id) && preg_match(self::GA_PATTERN, $id))->unique()->values()->all();
     }
 
     public function url(): string

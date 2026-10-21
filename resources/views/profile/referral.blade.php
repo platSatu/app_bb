@@ -10,7 +10,11 @@
             <div class="card h-100">
                 <div class="card-body">
                     <h5 class="mb-1">Kode Referral Anda</h5>
-                    <p class="text-muted mb-4">Bagikan link ini. Siapa pun yang daftar lewat link Anda akan tercatat sebagai ajakan Anda.</p>
+                    <p class="text-muted mb-4">Bagikan link ini. Siapa pun yang daftar lewat link Anda akan tercatat sebagai ajakan Anda.
+                        @if ($setting->isPayable())
+                            Anda dapat bonus <strong>Rp {{ number_format($setting->reward_amount, 0, ',', '.') }}</strong> saat mereka top up pertama kali{{ $setting->min_deposit_amount ? ' minimal Rp '.number_format($setting->min_deposit_amount, 0, ',', '.') : '' }}.
+                        @endif
+                    </p>
 
                     <div class="text-center border rounded-3 py-4 mb-3 bg-light">
                         <div class="text-muted small mb-1">Kode</div>
@@ -54,10 +58,14 @@
                                         <td>{{ $referral->referredUser?->name ?? '-' }}</td>
                                         <td>{{ $referral->created_at->translatedFormat('d F Y') }}</td>
                                         <td>
+                                            {{-- Daftar selalu sudah berhasil; bonus baru cair saat orang yang diajak top up pertama kali. --}}
                                             @if ($referral->status === \App\Models\Referral::STATUS_REWARDED)
-                                                <span class="badge bg-success-subtle text-success">Bonus diterima</span>
+                                                <span class="badge bg-success-subtle text-success">Bonus diterima Rp {{ number_format($referral->reward_amount, 0, ',', '.') }}</span>
                                             @else
-                                                <span class="badge bg-warning-subtle text-warning">Menunggu</span>
+                                                <span class="badge bg-info-subtle text-info">Sudah daftar</span>
+                                                @if ($setting->isPayable())
+                                                    <div class="small text-muted mt-1">Bonus cair setelah top up pertama</div>
+                                                @endif
                                             @endif
                                         </td>
                                     </tr>
