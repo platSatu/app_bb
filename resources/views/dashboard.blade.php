@@ -9,6 +9,8 @@
 @endphp
 
 @section('content')
+    {{-- Jarak bawah supaya kartu terakhir tidak menempel ke footer. --}}
+    <div class="pb-4">
     <div class="card">
         <div class="card-body d-flex flex-wrap align-items-center gap-3">
             <div class="flex-grow-1">
@@ -206,4 +208,5 @@
             </div>
         </div>
     @endif
+    </div>
 @endsection

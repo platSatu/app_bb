@@ -8,6 +8,8 @@
 @endphp
 
 @section('content')
+    {{-- Jarak bawah supaya kartu terakhir tidak menempel ke footer. --}}
+    <div class="pb-4">
     <div class="card">
         <div class="card-body">
             <h5 class="mb-1">{{ $greeting }}, {{ Auth::user()->name }}</h5>
@@ -95,4 +97,5 @@
             </div>
         </div>
     @endif
+    </div>
 @endsection
