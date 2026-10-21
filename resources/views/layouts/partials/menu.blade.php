@@ -20,6 +20,10 @@
                     </a>
                 </li>
 
+                @unless (auth()->user()->isPlatformTeam())
+                    @include('layouts.partials.menu-portal')
+                @endunless
+
                 @foreach (\App\Support\Menu::visibleSections(auth()->user()) as $sectionKey => $section)
                     <li class="pe-menu-title">{{ $section['label'] }}</li>
                     @foreach ($section['groups'] as $groupKey => $group)
@@ -71,10 +75,6 @@
                         </li>
                     @endforeach
                 @endforeach
-
-                @unless (auth()->user()->isPlatformTeam())
-                    @include('layouts.partials.menu-portal')
-                @endunless
 
                 <li class="pe-slide">
                     <form id="sidebar-logout-form" method="POST" action="{{ route('logout') }}" class="d-none">
