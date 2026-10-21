@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\SchedulePortalLink;
 use App\Models\User;
 use App\Rules\Turnstile;
+use App\Services\Referral\ReferralService;
 use App\Services\Schedule\SchedulePortalService;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,11 +20,11 @@ use RuntimeException;
 
 /**
  * Halaman link pendaftaran portal (/daftar/{token}).
- * Belum punya akun: buat akun member sekaligus ajukan. Sudah masuk sebagai member: cukup ajukan.
+ * Belum punya akun: buat akun sekaligus ajukan. Sudah masuk (owner/pengajar/orang tua): cukup ajukan.
  */
 class JoinController extends Controller
 {
-    public function __construct(private readonly SchedulePortalService $portal)
+    public function __construct(private readonly SchedulePortalService $portal, private readonly ReferralService $referrals)
     {
     }
 
@@ -47,7 +49,7 @@ class JoinController extends Controller
         }
 
         $user = $request->user();
-        abort_if($user && ! $user->isMember(), 403);
+        abort_if($user?->isPlatformTeam(), 403);
 
         $isStudent = $link->type === SchedulePortalLink::TYPE_STUDENT;
         $forChild = $isStudent && $request->input('for') === 'child';
@@ -71,8 +73,8 @@ class JoinController extends Controller
         ], ['name' => 'nama Anda', 'handphone' => 'nomor WhatsApp', 'student_name' => 'nama anak']);
 
         try {
-            $user = DB::transaction(function () use ($user, $data, $link, $forChild) {
-                $user ??= $this->createMember($data);
+            $user = DB::transaction(function () use ($user, $data, $link, $forChild, $request) {
+                $user ??= $this->createUser($data, $request);
                 $name = $forChild ? trim($data['student_name']) : $user->name;
                 $this->portal->request($link, $user, $name, $forChild ? $user->name : null);
 
@@ -89,14 +91,15 @@ class JoinController extends Controller
 
         $request->session()->forget('url.intended');
 
-        return redirect()->route('portal.home')->with('success', 'Pendaftaran terkirim ke admin '.$link->branch->name.'. Kami kabari begitu disetujui, ya.');
+        return redirect()->route('dashboard')->with('success', 'Pendaftaran terkirim ke admin '.$link->branch->name.'. Kami kabari begitu disetujui, ya.');
     }
 
-    private function createMember(array $data): User
+    /** Akun biasa (sama seperti daftar biasa): punya saldo & kode referral, bisa buka usaha sendiri kapan saja. */
+    private function createUser(array $data, Request $request): User
     {
-        $user = new User();
-        $user->fill(['name' => trim($data['name']), 'email' => $data['email'], 'handphone' => $data['handphone'], 'password' => $data['password']]);
-        $user->forceFill(['user_type' => User::TYPE_MEMBER, 'status' => User::STATUS_ACTIVE])->save();
+        $user = User::create(['name' => trim($data['name']), 'email' => $data['email'], 'handphone' => $data['handphone'], 'password' => $data['password']]);
+        $this->referrals->recordSignup($user, $request->session()->pull('referral_code'));
+        event(new Registered($user));
 
         return $user;
     }

@@ -20,13 +20,10 @@ Route::middleware(['auth', 'permission:schedules.portal'])->prefix('schedules/po
 Route::get('daftar/{token}', [JoinController::class, 'show'])->middleware('throttle:60,1')->name('portal.join');
 Route::post('daftar/{token}', [JoinController::class, 'store'])->middleware('throttle:10,1')->name('portal.join.store');
 
-// Portal murid/orang tua & pengajar. Akun member dibatasi ke sini oleh SeparatePortalMember.
+// Halaman peran pengajar & murid/orang tua. Data selalu dibatasi ke murid/pengajar milik akun yang login.
 Route::middleware('auth')->prefix('portal')->name('portal.')->group(function () {
-    Route::get('/', [PortalController::class, 'home'])->name('home');
     Route::get('jadwal', [PortalController::class, 'schedule'])->name('schedule');
     Route::get('kehadiran', [PortalController::class, 'attendance'])->name('attendance');
-    Route::get('profil', [PortalController::class, 'profile'])->name('profile');
-    Route::patch('profil', [PortalController::class, 'updateProfile'])->middleware('throttle:20,1')->name('profile.update');
 
     Route::get('mengajar', [TeachingController::class, 'index'])->name('teaching');
     Route::get('absen', [TeachingController::class, 'pending'])->name('absen');

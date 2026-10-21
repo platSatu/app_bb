@@ -28,14 +28,11 @@ class User extends Authenticatable
     public const TYPE_SUPERADMIN = 'superadmin';
     public const TYPE_STAFF = 'staff';
     public const TYPE_USER = 'user';
-    // Murid/orang tua & pengajar: hanya bisa membuka portal, tidak punya menu bisnis.
-    public const TYPE_MEMBER = 'member';
 
     public const TYPE_LABELS = [
         self::TYPE_SUPERADMIN => 'Superadmin',
         self::TYPE_STAFF => 'Staff',
         self::TYPE_USER => 'User',
-        self::TYPE_MEMBER => 'Member Portal',
     ];
 
     private ?array $platformPermissionCache = null;
@@ -99,11 +96,6 @@ class User extends Authenticatable
         return $this->isSuperadmin() || $this->isStaff();
     }
 
-    public function isMember(): bool
-    {
-        return $this->user_type === self::TYPE_MEMBER;
-    }
-
     public function scheduleStudents(): HasMany
     {
         return $this->hasMany(ScheduleStudent::class);
@@ -114,7 +106,7 @@ class User extends Authenticatable
         return $this->hasMany(ScheduleTeacher::class);
     }
 
-    /** Menu portal yang tampil: murid (termasuk anak) dan/atau pengajar. */
+    /** Peran selain owner, dibaca dari data: murid/orang tua dan/atau pengajar (bisa lintas perusahaan). */
     public function portalRoles(): array
     {
         return $this->portalRolesCache ??= [

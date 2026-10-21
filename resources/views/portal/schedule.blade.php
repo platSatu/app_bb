@@ -1,6 +1,6 @@
 @extends('layouts.dashboard')
 
-@section('page-section', 'Portal')
+@section('page-section', 'Student')
 
 @section('title', 'Jadwal Les')
 

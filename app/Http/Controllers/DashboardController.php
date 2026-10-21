@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Portal\Concerns\InPortal;
+use App\Http\Controllers\Portal\TeachingController;
 use App\Models\CatalogOrder;
 use App\Models\BankAccount;
 use App\Models\Customer;
@@ -27,12 +29,14 @@ use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 /**
- * Dashboard owner: ringkasan bulan ini, hal yang perlu ditindaklanjuti, jadwal hari ini, dan aktivitas terbaru.
- * Semua dibatasi ke branch & perusahaan miliknya.
+ * Dashboard semua akun. Owner: ringkasan bulan ini, hal yang perlu ditindaklanjuti, jadwal hari ini, dan aktivitas terbaru.
+ * Semua dibatasi ke branch & perusahaan miliknya. Peran pengajar/murid ditampilkan di atasnya.
  * Tim platform (superadmin/staff) melihat ringkasan platform, sesuai izin menu masing-masing.
  */
 class DashboardController extends Controller
 {
+    use InPortal;
+
     /** Pesanan katalog yang dihitung sebagai pemasukan. */
     private const CATALOG_SOLD = [CatalogOrder::STATUS_PAID, CatalogOrder::STATUS_PROCESSING, CatalogOrder::STATUS_COMPLETED];
 
@@ -59,7 +63,29 @@ class DashboardController extends Controller
             'chart' => $this->incomeChart($branchIds, $companyIds),
             'recent' => $this->recent($branchIds, $companyIds),
             'balance' => (int) $user->wallet?->balance,
+            'portal' => $this->portal($user),
         ]);
+    }
+
+    /** Kartu peran pengajar & murid/orang tua (status pendaftaran, mengajar hari ini, les berikutnya). */
+    private function portal(User $user): array
+    {
+        $studentIds = $this->students($user)->modelKeys();
+        $teacherIds = $this->teachers($user)->modelKeys();
+
+        return [
+            'roles' => ['student' => $studentIds !== [], 'teacher' => $teacherIds !== []],
+            'requests' => SchedulePortalRequest::with('branch:id,name')->where('user_id', $user->getKey())
+                ->where(fn ($q) => $q->where('status', SchedulePortalRequest::STATUS_PENDING)
+                    ->orWhere(fn ($r) => $r->where('status', SchedulePortalRequest::STATUS_REJECTED)->where('reviewed_at', '>=', now()->subDays(14))))
+                ->latest()->get(),
+            'lessons' => $studentIds ? $this->studentSessions(collect($studentIds))->where('status', ScheduleSession::STATUS_SCHEDULED)
+                ->where('start_at', '>=', now()->subHour())->orderBy('start_at')->limit(5)->get() : collect(),
+            'teaching' => $teacherIds ? ScheduleSession::with([...self::SESSION_WITH, 'attendances.student:id,name'])->whereIn('teacher_id', $teacherIds)
+                ->whereBetween('start_at', [today(), today()->endOfDay()])->orderBy('start_at')->get() : collect(),
+            'toFill' => $teacherIds ? TeachingController::needsAttendance($teacherIds)->count() : 0,
+            'multiChild' => count($studentIds) > 1,
+        ];
     }
 
     /** Hanya yang jumlahnya lebih dari 0 yang ditampilkan. */

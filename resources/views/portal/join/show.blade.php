@@ -28,14 +28,8 @@
             <i class="ri-lock-line fs-5"></i>
             <div>Pendaftaran di {{ $branchName }} sedang ditutup. Silakan hubungi admin untuk link yang baru.</div>
         </div>
-    @elseif ($user && ! $user->isMember())
-        <div class="alert alert-info">
-            Anda sedang masuk dengan akun bisnis <strong>{{ $user->email }}</strong>. Untuk mendaftar di portal, keluar dulu lalu buka link ini lagi dengan email lain.
-        </div>
-        <form method="POST" action="{{ route('logout') }}">
-            @csrf
-            <button class="btn btn-outline-secondary w-100">Keluar</button>
-        </form>
+    @elseif ($user?->isPlatformTeam())
+        <div class="alert alert-info mb-0">Akun tim {{ config('app.name') }} tidak bisa mendaftar lewat link ini.</div>
     @else
         <form method="POST" action="{{ route('portal.join.store', $link->token) }}">
             @csrf

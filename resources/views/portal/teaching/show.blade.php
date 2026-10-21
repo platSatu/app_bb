@@ -1,6 +1,6 @@
 @extends('layouts.dashboard')
 
-@section('page-section', 'Portal')
+@section('page-section', 'Pengajar')
 
 @section('title', 'Absen Murid')
 

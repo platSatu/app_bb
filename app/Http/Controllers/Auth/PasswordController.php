@@ -22,7 +22,7 @@ class PasswordController extends Controller
         // Perangkat lain yang masih login dengan password lama ikut dikeluarkan.
         $user->logoutEverywhere(exceptSessionId: $request->session()->getId());
 
-        return redirect()->route($user->isMember() ? 'portal.profile' : 'profile.edit')
+        return redirect()->route('profile.edit')
             ->with('success', 'Password berhasil diganti. Perangkat lain yang masih login sudah kami keluarkan.');
     }
 }
