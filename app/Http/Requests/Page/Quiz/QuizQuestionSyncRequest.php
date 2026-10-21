@@ -22,7 +22,11 @@ class QuizQuestionSyncRequest extends FormRequest
 
             // Penanda benar dibaca dari radio sebelum indeks pilihan dirapikan.
             $options = collect($row['options'] ?? [])
-                ->map(fn ($option, $key) => ['label' => trim((string) ($option['label'] ?? '')), 'is_correct' => (string) $key === $correct])
+                ->map(fn ($option, $key) => [
+                    'id' => $option['id'] ?? null,
+                    'label' => trim((string) ($option['label'] ?? '')),
+                    'is_correct' => (string) $key === $correct,
+                ])
                 ->values()
                 ->all();
 
@@ -54,6 +58,7 @@ class QuizQuestionSyncRequest extends FormRequest
             'questions.*.answer_keys' => ['nullable', 'array', 'max:20'],
             'questions.*.answer_keys.*' => ['string', 'max:255'],
             'questions.*.options' => ['array', 'max:'.self::MAX_OPTIONS],
+            'questions.*.options.*.id' => ['nullable', 'uuid'],
             'questions.*.options.*.label' => ['required', 'string', 'max:255'],
         ];
     }

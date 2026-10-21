@@ -7,7 +7,7 @@
     $rows = old('questions', $questions->map(fn ($q) => [
         'id' => $q->id, 'type' => $q->type, 'question' => $q->question, 'points' => $q->points, 'status' => $q->status,
         'answer_keys' => $q->answer_keys,
-        'options' => $q->options->map(fn ($o) => ['label' => $o->label, 'is_correct' => $o->is_correct])->all(),
+        'options' => $q->options->map(fn ($o) => ['id' => $o->id, 'label' => $o->label, 'is_correct' => $o->is_correct])->all(),
     ])->all());
 @endphp
 

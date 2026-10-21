@@ -31,7 +31,10 @@ class QuizQuestionController extends Controller
         ]);
     }
 
-    /** Soal lama diperbarui, soal baru dibuat, yang dihapus ikut dihapus. Pilihan jawaban ditulis ulang per soal. */
+    /**
+     * Soal & pilihan lama diperbarui di tempat (id tetap), yang baru dibuat, yang dihapus ikut dihapus.
+     * Id pilihan tidak boleh berubah: peserta yang sedang mengerjakan mengirim id pilihan dari halaman yang sudah terbuka.
+     */
     public function sync(QuizQuestionSyncRequest $request, string $page): RedirectResponse
     {
         $model = $this->templatePage($request, $page, PageType::TEMPLATE_QUIZ, Menu::ABILITY_MANAGE);
@@ -49,14 +52,20 @@ class QuizQuestionController extends Controller
                 $question->save();
                 $kept[] = $question->getKey();
 
-                $question->options()->delete();
+                $options = $question->options()->get()->keyBy('id');
+                $keptOptions = [];
 
                 foreach ($row['options'] ?? [] as $index => $option) {
-                    $item = new QuizOption($option);
+                    // id hanya dipakai kalau memang pilihan milik soal ini.
+                    $item = $options->get($option['id'] ?? '') ?? new QuizOption();
+                    $item->fill(['label' => $option['label'], 'is_correct' => $option['is_correct']]);
                     $item->question_id = $question->getKey();
                     $item->sort_order = $index;
                     $item->save();
+                    $keptOptions[] = $item->getKey();
                 }
+
+                $question->options()->whereKeyNot($keptOptions)->delete();
             }
 
             $model->quizQuestions()->whereKeyNot($kept)->delete();
