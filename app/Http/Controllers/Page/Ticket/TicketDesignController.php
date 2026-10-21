@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
-/** Background e-ticket per event (opsional). Disimpan di settings.ticket.background. */
+/** Background & warna e-ticket per event (opsional). Disimpan di settings.ticket. */
 class TicketDesignController extends Controller
 {
     use ResolvesPage;
@@ -30,17 +30,20 @@ class TicketDesignController extends Controller
     public function update(Request $request, ImageUploader $images, string $page): RedirectResponse
     {
         $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET, Menu::ABILITY_MANAGE);
-        $request->validate(['background' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'], 'remove' => ['boolean']],
-            ['background.max' => 'Ukuran gambar maksimal 5 MB.']);
+        $data = $request->validate([
+            'background' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'remove' => ['boolean'],
+            'color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+        ], ['background.max' => 'Ukuran gambar maksimal 5 MB.', 'color.regex' => 'Pilih warna dari pemilih warna.']);
 
         $old = $model->setting('ticket.background');
         $new = $request->file('background')
             ? $images->store($request->file('background'), 'tickets/'.$model->getKey(), 'background', 1600)
             : ($request->boolean('remove') ? null : $old);
 
-        DB::transaction(function () use ($model, $new) {
+        DB::transaction(function () use ($model, $new, $data) {
             $locked = PageCategory::whereKey($model->getKey())->lockForUpdate()->firstOrFail();
-            $locked->settings = array_replace_recursive($locked->settings ?? [], ['ticket' => ['background' => $new]]);
+            $locked->settings = array_replace_recursive($locked->settings ?? [], ['ticket' => ['background' => $new, 'color' => $data['color'] ?? null]]);
             $locked->save();
         });
 

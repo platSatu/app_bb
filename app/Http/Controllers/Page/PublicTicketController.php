@@ -105,7 +105,7 @@ class PublicTicketController extends Controller
             'ticket' => $ticket,
             'qr' => $qr->dataUri($ticket->token),
             'background' => $background,
-        ])->setPaper('a5')->download('e-ticket-'.$ticket->number.'.pdf');
+        ])->setPaper([0, 0, 660, 242])->download('e-ticket-'.$ticket->number.'.pdf');
     }
 
     /** @return array{0: PageCategory, 1: Ticket} */

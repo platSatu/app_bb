@@ -2,46 +2,54 @@
 <html lang="id">
 <head>
     <meta charset="utf-8">
+    {{-- Versi PDF dari e-ticket landscape (dompdf: tanpa flex/grid, ukuran px tetap 880×322). --}}
+    @php
+        $color = $page->setting('ticket.color') ?: '#e36666';
+        $meta = collect([$page->start_date?->translatedFormat('D, d M Y'), $page->branch?->name])->filter()->join(' · ');
+    @endphp
     <style>
-        body { font-family: DejaVu Sans, sans-serif; color: #111827; margin: 0; }
-        .ticket { border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
-        .banner { height: 170px; background-color: #1f2937; background-size: cover; background-position: center; position: relative; }
-        .event { position: absolute; left: 16px; bottom: 14px; background: rgba(255,255,255,.85); padding: 8px 12px; border-radius: 8px; }
-        .event b { font-size: 15px; }
-        .body { padding: 18px; }
-        .badge { display: inline-block; background: #111827; color: #fff; padding: 3px 10px; border-radius: 6px; font-size: 12px; }
-        .muted { color: #6b7280; font-size: 11px; }
-        .big { font-size: 22px; font-weight: bold; }
-        td { vertical-align: top; }
+        @page { margin: 0; }
+        body { margin: 0; font-family: DejaVu Sans, sans-serif; color: #1f1f2b; }
+        table { border-collapse: collapse; }
+        .main { width: 650px; height: 322px; vertical-align: top; color: #fff; background-color: {{ $color }}; background-size: cover; background-position: center; }
+        .shade { height: 270px; padding: 26px 30px; background-color: {{ $background ? 'rgba(17,17,27,0.55)' : 'transparent' }}; }
+        .badge { display: inline-block; background: #fff; color: {{ $color }}; font-weight: bold; font-size: 12px; padding: 3px 12px; border-radius: 10px; }
+        .kicker { font-size: 10px; letter-spacing: 3px; margin-left: 8px; }
+        .title { font-size: 30px; font-weight: bold; line-height: 1.1; margin-top: 70px; }
+        .meta { font-size: 12px; margin-top: 6px; }
+        .info { margin-top: 18px; border-top: 1px solid rgba(255,255,255,0.4); padding-top: 12px; }
+        .info td { padding-right: 34px; vertical-align: top; }
+        .label { font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; }
+        .value { font-size: 14px; font-weight: bold; }
+        .stub { width: 230px; height: 322px; text-align: center; vertical-align: middle; border-left: 3px dashed {{ $color }}; background: #fff; }
+        .admit { font-size: 9px; letter-spacing: 3px; font-weight: bold; color: {{ $color }}; }
+        .code { font-size: 16px; font-weight: bold; letter-spacing: 2px; margin-top: 6px; }
+        .seq { font-size: 9px; color: #8a8a96; margin-top: 2px; }
     </style>
 </head>
 <body>
-    <div class="ticket">
-        <div class="banner" @if ($background) style="background-image: url('{{ $background }}');" @endif>
-            <div class="event">
-                <b>{{ $page->name }}</b>
-                @if ($page->start_date) <div class="muted">{{ $page->start_date->translatedFormat('l, d F Y') }}</div> @endif
-            </div>
-        </div>
-        <div class="body">
-            <table width="100%">
-                <tr>
-                    <td>
-                        <span class="badge">{{ $ticket->category_name }}</span>
-                        <p class="muted" style="margin: 12px 0 2px;">Nama</p>
-                        <div style="font-weight: bold;">{{ $ticket->holder_name }}</div>
-                        <p class="muted" style="margin: 12px 0 2px;">Kode Booking</p>
-                        <div class="big">{{ $ticket->booking_code }}</div>
-                        <p class="muted" style="margin: 12px 0 2px;">No. Tiket</p>
-                        <div style="font-weight: bold;">{{ $ticket->number }}</div>
-                    </td>
-                    <td width="180" style="text-align: center;">
-                        <img src="{{ $qr }}" width="170" height="170" alt="QR">
-                    </td>
-                </tr>
-            </table>
-            <p class="muted" style="margin-top: 14px;">Tunjukkan QR ini saat registrasi ulang. Satu QR hanya berlaku untuk satu orang.</p>
-        </div>
-    </div>
+    <table>
+        <tr>
+            <td class="main" @if ($background) style="background-image: url('{{ $background }}');" @endif>
+                <div class="shade">
+                    <span class="badge">{{ $ticket->category_name }}</span><span class="kicker">E-TICKET</span>
+                    <div class="title">{{ $page->name }}</div>
+                    @if ($meta) <div class="meta">{{ $meta }}</div> @endif
+                    <table class="info">
+                        <tr>
+                            <td><div class="label">Nama</div><div class="value">{{ $ticket->holder_name }}</div></td>
+                            <td><div class="label">No. Tiket</div><div class="value">{{ $ticket->number }}</div></td>
+                        </tr>
+                    </table>
+                </div>
+            </td>
+            <td class="stub">
+                <div class="admit">ADMIT ONE</div>
+                <img src="{{ $qr }}" width="150" height="150" alt="QR" style="margin-top: 8px;">
+                <div class="code">{{ $ticket->booking_code }}</div>
+                <div class="seq">Tiket {{ $ticket->sequence }}</div>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>

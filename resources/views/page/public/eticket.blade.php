@@ -1,6 +1,7 @@
 @extends('page.public.layout', ['open' => false])
 
 @section('title', 'E-ticket '.$ticket->number)
+@section('width', '920px')
 
 @push('head')
     <meta name="referrer" content="no-referrer">
@@ -10,17 +11,20 @@
     @include('page.public._eticket-card', [
         'background' => $background,
         'eventName' => $page->name,
-        'eventDate' => $page->start_date?->translatedFormat('l, d F Y'),
+        'eventDate' => $page->start_date?->translatedFormat('D, d M Y'),
         'category' => $ticket->category_name,
         'holder' => $ticket->holder_name,
         'booking' => $ticket->booking_code,
         'number' => $ticket->number,
         'sequence' => $ticket->sequence.' dari '.$ticket->order->tickets()->count(),
         'qr' => $qr,
+        'color' => ($page->setting('ticket.color') ?: '#e36666'),
+        'place' => $page->branch?->name,
+        'used' => $ticket->isCheckedIn(),
     ])
 
     @if ($ticket->isCheckedIn())
-        <div class="alert alert-success text-center mt-3 mx-auto" style="max-width: 560px;">Tiket ini sudah dipakai untuk registrasi ulang pada {{ $ticket->checked_in_at->translatedFormat('d M Y H:i') }}.</div>
+        <div class="alert alert-success text-center mt-3 mx-auto" style="max-width: 880px;">Tiket ini sudah dipakai untuk registrasi ulang pada {{ $ticket->checked_in_at->translatedFormat('d M Y H:i') }}.</div>
     @endif
 
     <div class="d-flex justify-content-center gap-2 mt-3 flex-wrap">
