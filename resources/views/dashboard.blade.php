@@ -30,13 +30,14 @@
                 ['Pemasukan bulan ini', $rupiah($stats['income']['value']), $stats['income']['change'], 'ri-money-dollar-circle-line', 'success',
                     collect(['Tiket' => $stats['income']['parts']['ticket'], 'Katalog' => $stats['income']['parts']['catalog'], 'Invoice' => $stats['income']['parts']['invoice']])->filter()->map(fn ($v, $k) => $k.' '.$rupiah($v))->join(' · ') ?: 'Belum ada pemasukan'],
                 ['Pesanan baru', number_format($stats['orders']['value'], 0, ',', '.'), $stats['orders']['change'], 'ri-shopping-cart-2-line', 'primary', 'Tiket lunas & pesanan katalog bulan ini'],
-                ['Invoice belum dibayar', number_format($stats['unpaid']['value'], 0, ',', '.'), null, 'ri-file-warning-line', 'warning', 'Total '.$rupiah($stats['unpaid']['amount'])],
+                $usesInvoice ? ['Invoice belum dibayar', number_format($stats['unpaid']['value'], 0, ',', '.'), null, 'ri-file-warning-line', 'warning', 'Total '.$rupiah($stats['unpaid']['amount'])] : null,
                 ['Kontak baru', number_format($stats['contacts']['value'], 0, ',', '.'), $stats['contacts']['change'], 'ri-contacts-book-3-line', 'info', 'Masuk ke Buku Kontak bulan ini'],
             ];
+            $cards = array_filter($cards);
         @endphp
         <div class="row g-3 mb-3">
             @foreach ($cards as [$label, $value, $change, $icon, $color, $note])
-                <div class="col-sm-6 col-xl-3">
+                <div class="col-sm-6 {{ count($cards) === 4 ? 'col-xl-3' : 'col-xl-4' }}">
                     <div class="card h-100 mb-0">
                         <div class="card-body">
                             <div class="d-flex align-items-start justify-content-between mb-2">
@@ -148,6 +149,39 @@
             <div class="col-xl-8">
                 <div class="card h-100 mb-0">
                     <div class="card-body">
+                        <h6 class="mb-1"><i class="ri-bar-chart-2-line text-primary me-1"></i> Pemasukan 8 Minggu Terakhir</h6>
+                        <p class="small text-muted mb-2">Dikelompokkan per minggu (Senin–Minggu).</p>
+                        @if ($chart['series'])
+                            @include('dashboard._chart', ['id' => 'income-chart', 'chart' => $chart, 'money' => true])
+                        @else
+                            <div class="text-center text-muted py-5">
+                                <i class="ri-bar-chart-2-line fs-1 d-block mb-2 opacity-50"></i>
+                                <div class="small">Grafik muncul setelah ada pemasukan dari tiket, katalog, atau invoice.</div>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-4">
+                <div class="card h-100 mb-0">
+                    <div class="card-body d-flex flex-column">
+                        <h6 class="mb-3"><i class="ri-wallet-3-line text-primary me-1"></i> Saldo Anda</h6>
+                        <h3 class="mb-1">{{ $rupiah($balance) }}</h3>
+                        <p class="small text-muted">Hasil penjualan tiket masuk ke saldo ini dan bisa ditarik ke rekening.</p>
+                        <div class="d-flex flex-wrap gap-2 mt-auto">
+                            <a href="{{ route('account.deposits.create') }}" class="btn btn-sm btn-primary"><i class="ri-add-line"></i> Tambah Saldo</a>
+                            <a href="{{ route('profile.withdrawals') }}" class="btn btn-sm btn-outline-secondary">Tarik Saldo</a>
+                            <a href="{{ route('profile.history') }}" class="btn btn-sm btn-light">Riwayat</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mt-0">
+            <div class="col-12">
+                <div class="card h-100 mb-0">
+                    <div class="card-body">
                         <h6 class="mb-3"><i class="ri-history-line text-primary me-1"></i> Aktivitas Terbaru</h6>
                         @forelse ($recent as $row)
                             <a href="{{ $row['url'] }}" class="d-flex align-items-center gap-3 py-2 text-body text-decoration-none {{ $loop->last ? '' : 'border-bottom' }}">
@@ -167,20 +201,6 @@
                                 <div class="small">Belum ada transaksi. Pembelian tiket, pesanan katalog, dan pembayaran invoice akan muncul di sini.</div>
                             </div>
                         @endforelse
-                    </div>
-                </div>
-            </div>
-            <div class="col-xl-4">
-                <div class="card h-100 mb-0">
-                    <div class="card-body d-flex flex-column">
-                        <h6 class="mb-3"><i class="ri-wallet-3-line text-primary me-1"></i> Saldo Anda</h6>
-                        <h3 class="mb-1">{{ $rupiah($balance) }}</h3>
-                        <p class="small text-muted">Hasil penjualan tiket masuk ke saldo ini dan bisa ditarik ke rekening.</p>
-                        <div class="d-flex flex-wrap gap-2 mt-auto">
-                            <a href="{{ route('account.deposits.create') }}" class="btn btn-sm btn-primary"><i class="ri-add-line"></i> Tambah Saldo</a>
-                            <a href="{{ route('profile.withdrawals') }}" class="btn btn-sm btn-outline-secondary">Tarik Saldo</a>
-                            <a href="{{ route('profile.history') }}" class="btn btn-sm btn-light">Riwayat</a>
-                        </div>
                     </div>
                 </div>
             </div>

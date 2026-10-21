@@ -85,4 +85,14 @@
             </div>
         @endif
     </div>
+
+    @if ($chart)
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="mb-1"><i class="ri-bar-chart-2-line text-primary me-1"></i> Pendaftar Baru 8 Minggu Terakhir</h6>
+                <p class="small text-muted mb-2">Pemilik usaha yang mendaftar, per minggu (Senin–Minggu).</p>
+                @include('dashboard._chart', ['id' => 'signup-chart', 'chart' => $chart, 'money' => false])
+            </div>
+        </div>
+    @endif
 @endsection

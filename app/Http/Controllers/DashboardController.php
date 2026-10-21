@@ -7,6 +7,7 @@ use App\Models\BankAccount;
 use App\Models\Customer;
 use App\Models\Deposit;
 use App\Models\Invoice;
+use App\Models\InvoiceCategory;
 use App\Models\SchedulePortalRequest;
 use App\Models\ScheduleRoutine;
 use App\Models\ScheduleSession;
@@ -19,6 +20,7 @@ use App\Models\WaDevice;
 use App\Models\WalletWithdrawal;
 use App\Models\WebContactMessage;
 use App\Support\Menu;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -53,6 +55,8 @@ class DashboardController extends Controller
             'usesSchedule' => $branchIds->isNotEmpty() && ScheduleRoutine::whereIn('branch_id', $branchIds)->exists(),
             'multiBranch' => $branchIds->count() > 1,
             'stats' => $this->stats($branchIds, $companyIds),
+            'usesInvoice' => $branchIds->isNotEmpty() && InvoiceCategory::whereIn('branch_id', $branchIds)->exists(),
+            'chart' => $this->incomeChart($branchIds, $companyIds),
             'recent' => $this->recent($branchIds, $companyIds),
             'balance' => (int) $user->wallet?->balance,
         ]);
@@ -154,6 +158,48 @@ class DashboardController extends Controller
         ];
     }
 
+    /** Pemasukan 8 minggu terakhir per sumber; sumber yang kosong semua tidak ikut digambar. */
+    private function incomeChart(Collection $branchIds, Collection $companyIds): array
+    {
+        $series = collect([
+            'Tiket' => $this->weekly(TicketOrder::whereIn('company_id', $companyIds)->where('status', TicketOrder::STATUS_PAID), 'paid_at', 'total'),
+            'Katalog' => $this->weekly(CatalogOrder::whereIn('company_id', $companyIds)->whereIn('status', self::CATALOG_SOLD), 'created_at', 'total'),
+            'Invoice' => $this->weekly(Invoice::whereIn('branch_id', $branchIds)->where('status', Invoice::STATUS_PAID), 'paid_at', 'paid_amount'),
+        ])->filter(fn ($data) => array_sum($data) > 0)->map(fn ($data, $name) => ['name' => $name, 'data' => $data])->values();
+
+        return ['labels' => $this->weekLabels(), 'series' => $series->all()];
+    }
+
+    private function weekStart(): Carbon
+    {
+        return now()->startOfWeek()->subWeeks(7);
+    }
+
+    private function weekLabels(): array
+    {
+        return collect(range(0, 7))->map(fn ($i) => $this->weekStart()->addWeeks($i)->translatedFormat('d M'))->all();
+    }
+
+    /** Jumlah (atau total kolom) per minggu, 8 minggu terakhir. Dikelompokkan per tanggal di DB, lalu per minggu di PHP. */
+    private function weekly(Builder $query, string $dateColumn, ?string $sumColumn = null): array
+    {
+        $start = $this->weekStart();
+        $values = array_fill(0, 8, 0);
+
+        $query->where($dateColumn, '>=', $start)
+            ->selectRaw("DATE({$dateColumn}) as day, ".($sumColumn ? "SUM({$sumColumn})" : 'COUNT(*)').' as total')
+            ->groupBy('day')
+            ->pluck('total', 'day')
+            ->each(function ($total, $day) use ($start, &$values) {
+                $week = (int) floor($start->diffInDays(Carbon::parse($day), false) / 7);
+                if ($week >= 0 && $week < 8) {
+                    $values[$week] += (int) $total;
+                }
+            });
+
+        return $values;
+    }
+
     /** Persen naik/turun; null kalau bulan lalu kosong (tidak bisa dibandingkan). */
     private function change(int $now, int $before): ?int
     {
@@ -219,6 +265,9 @@ class DashboardController extends Controller
         ])->filter(fn ($item) => $item && $item[0] > 0)->values();
 
         return view('dashboard.admin', [
+            'chart' => $can('superadmin.users') ? ['labels' => $this->weekLabels(), 'series' => [
+                ['name' => 'Pendaftar baru', 'data' => $this->weekly(User::where('user_type', User::TYPE_USER), 'created_at')],
+            ]] : null,
             'cards' => array_values($cards),
             'actions' => $actions,
             'newUsers' => $can('superadmin.users') ? (clone $owners)->with('company:id,user_id,name')->latest()->limit(6)->get(['id', 'name', 'email', 'created_at']) : null,
