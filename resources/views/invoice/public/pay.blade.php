@@ -90,6 +90,7 @@
                 <div class="small text-muted text-center mt-2 d-none" data-close-note>Jendela ini akan tertutup otomatis.</div>
                 @if ($invoice->return_url)
                     <a href="{{ $invoice->return_url }}" class="btn btn-outline-primary w-100 {{ $origin ? 'd-none' : '' }}" data-return>Kembali ke {{ parse_url($invoice->return_url, PHP_URL_HOST) }}</a>
+                    <div class="small text-muted text-center mt-2 d-none" data-return-note>Anda akan diarahkan kembali otomatis dalam beberapa detik…</div>
                 @endif
             @endif
         </div>
@@ -130,6 +131,15 @@
                 };
                 if (close) close.addEventListener('click', function () { tutup(true); });
                 setTimeout(function () { tutup(false); }, 2500);
+            }
+
+            // Baru selesai bayar (bukan popup): kembali otomatis ke website penagih, satu tab saja.
+            if (!origin && status === 'paid' && @json(request()->boolean('returned'))) {
+                var backLink = document.querySelector('[data-return]'), backNote = document.querySelector('[data-return-note]');
+                if (backLink) {
+                    if (backNote) backNote.classList.remove('d-none');
+                    setTimeout(function () { location.replace(backLink.href); }, 2500);
+                }
             }
 
             // Baru kembali dari Duitku tapi belum terkonfirmasi: cek berkala sampai 5 menit.
