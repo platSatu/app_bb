@@ -137,6 +137,17 @@ class Invoice extends Model
     }
 
     /** Bentuk data untuk API & webhook. Token tidak pernah dikirim selain di checkout_url. */
+    /** Link halaman bayar Duitku yang masih berlaku (null kalau belum ada / sudah lewat / invoice tidak unpaid). */
+    public function openPaymentUrl(): ?string
+    {
+        if (! $this->isUnpaid()) {
+            return null;
+        }
+
+        return $this->payments()->where('status', InvoicePayment::STATUS_PENDING)->where('expires_at', '>', now())
+            ->whereNotNull('payment_url')->latest()->value('payment_url');
+    }
+
     public function toApi(): array
     {
         return [
@@ -153,6 +164,7 @@ class Invoice extends Model
             'net_amount' => $this->net_amount,
             'payment_method' => $this->payment_method,
             'checkout_url' => $this->payUrl(),
+            'payment_url' => $this->openPaymentUrl(),
             'due_date' => $this->due_date?->toDateString(),
             'expires_at' => $this->expires_at?->toIso8601String(),
             'paid_at' => $this->paid_at?->toIso8601String(),

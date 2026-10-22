@@ -11,10 +11,11 @@ lalu mengabari website Anda saat invoice lunas. Anda **tidak perlu** punya akun 
 ```
 Website Anda (server)          bizbos                         Duitku
         |                         |                              |
- 1. POST /api/v1/invoices  ---->  |  buat invoice                |
-        | <---- checkout_url ---- |                              |
- 2. Browser customer membuka checkout_url (popup / redirect)     |
-        |                         |  3. customer klik "Bayar" --> |  VA / QRIS / e-wallet
+ 1. POST /api/v1/invoices  ---->  |  buat invoice  ------------> |  buat tagihan
+        | <-- checkout_url ------ |  <------------ payment_url - |
+        |     + payment_url       |                              |
+ 2. Browser customer membuka checkout_url (popup) / payment_url  |
+        |                         |  3. customer membayar  -----> |  VA / QRIS / e-wallet
         |                         |  <---- callback lunas ------- |
         |                         |  4. saldo Anda bertambah      |
  5. <---- webhook invoice.paid -- |     (dipotong biaya layanan)  |
@@ -200,6 +201,7 @@ Respons `201 Created` (baru dibuat) atau `200 OK` dengan `"created": false` (ext
     "net_amount": 0,
     "payment_method": null,
     "checkout_url": "{{BASE_URL}}/pay/Xy...48karakter",
+    "payment_url": "https://...duitku.com/... (link halaman bayar Duitku)",
     "due_date": null,
     "expires_at": "2026-10-16T14:00:00+07:00",
     "paid_at": null,
@@ -210,6 +212,11 @@ Respons `201 Created` (baru dibuat) atau `200 OK` dengan `"created": false` (ext
 ```
 
 Simpan `data.id` dan `data.checkout_url` di pesanan Anda.
+
+- `checkout_url`: halaman bayar bizbos (popup / redirect). Selalu ada dan selalu bisa dipakai.
+- `payment_url`: halaman bayar Duitku yang langsung dibuat bizbos saat invoice dibuat. Bisa `null` kalau Duitku
+  sedang tidak bisa dihubungi atau tagihannya sudah lewat masa berlaku; pakai `checkout_url` saja, bizbos
+  membuat tagihan Duitku baru otomatis. Memanggil ulang dengan `external_id` yang sama juga memperbarui `payment_url`.
 
 ### 4.2 Cek invoice — `GET /api/v1/invoices/{id}`
 

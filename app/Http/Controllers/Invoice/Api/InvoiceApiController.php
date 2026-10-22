@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\InvoiceApiClient;
 use App\Models\InvoiceSetting;
+use App\Services\Invoice\InvoicePaymentService;
 use App\Services\Invoice\InvoiceService;
 use App\Services\Wallet\WalletService;
 use Illuminate\Http\JsonResponse;
@@ -15,7 +16,7 @@ use RuntimeException;
 /** REST API Invoice untuk website user. Semua data dibatasi ke branch milik API key. */
 class InvoiceApiController extends Controller
 {
-    public function __construct(private readonly InvoiceService $invoices)
+    public function __construct(private readonly InvoiceService $invoices, private readonly InvoicePaymentService $payments)
     {
     }
 
@@ -42,6 +43,16 @@ class InvoiceApiController extends Controller
 
         if ($created && $request->boolean('send_email')) {
             $this->invoices->email($invoice, 'issued');
+        }
+
+        // Order Duitku langsung dibuat (atau dipakai ulang kalau masih berlaku) supaya payment_url siap.
+        // Gagal ke Duitku tidak menggagalkan API: dicoba lagi saat customer menekan "Bayar".
+        if ($invoice->isUnpaid()) {
+            try {
+                $this->payments->checkout($invoice, route('invoice.pay.return', $invoice->token));
+            } catch (RuntimeException $e) {
+                report($e);
+            }
         }
 
         return response()->json(['success' => true, 'created' => $created, 'data' => $invoice->refresh()->toApi()], $created ? 201 : 200);

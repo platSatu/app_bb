@@ -97,6 +97,9 @@
     <script>
         (function () {
             var origin = @json($origin), status = @json($invoice->status), final = @json($final);
+            // Order Duitku bisa dibuat lewat API (tanpa origin di return URL): ingat origin popup di tab ini.
+            var key = 'bizbos-pay-origin:' + @json($invoice->id);
+            try { origin ? sessionStorage.setItem(key, origin) : (origin = sessionStorage.getItem(key)); } catch (e) {}
             var payload = { source: 'bizbos-pay', status: status, invoice_id: @json($invoice->id), external_id: @json($invoice->external_id), number: @json($invoice->number) };
 
             // Kabar ke website yang membuka popup; hanya ke origin terdaftar.
