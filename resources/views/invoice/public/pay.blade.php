@@ -84,8 +84,13 @@
                         <a href="{{ route('invoice.pay', array_filter(['token' => $invoice->token, 'returned' => 1, 'popup' => $origin ? 1 : null, 'origin' => $origin])) }}" class="small">Sudah bayar? Cek status pembayaran</a>
                     </div>
                 @endif
-            @elseif ($invoice->isPaid() && $invoice->return_url && ! $origin)
-                <a href="{{ $invoice->return_url }}" class="btn btn-outline-primary w-100" data-return>Kembali ke {{ parse_url($invoice->return_url, PHP_URL_HOST) }}</a>
+            @elseif ($invoice->isPaid())
+                {{-- Dibuka sebagai popup: tutup jendela ini (dimunculkan lewat JS). Selain itu: kembali ke website penagih. --}}
+                <button type="button" class="btn btn-primary w-100 d-none" data-close>Selesai, tutup jendela ini</button>
+                <div class="small text-muted text-center mt-2 d-none" data-close-note>Jendela ini akan tertutup otomatis.</div>
+                @if ($invoice->return_url)
+                    <a href="{{ $invoice->return_url }}" class="btn btn-outline-primary w-100 {{ $origin ? 'd-none' : '' }}" data-return>Kembali ke {{ parse_url($invoice->return_url, PHP_URL_HOST) }}</a>
+                @endif
             @endif
         </div>
     </div>
@@ -93,7 +98,7 @@
     <p class="text-center small text-muted mt-3 mb-0"><i class="ri-lock-line"></i> Pembayaran aman diproses oleh bizbos & Duitku.</p>
 </main>
 
-@if ($origin || ($invoice->isUnpaid() && request()->boolean('returned')))
+@if ($origin || $final || request()->boolean('returned'))
     <script>
         (function () {
             var origin = @json($origin), status = @json($invoice->status), final = @json($final);
@@ -103,9 +108,28 @@
             var payload = { source: 'bizbos-pay', status: status, invoice_id: @json($invoice->id), external_id: @json($invoice->external_id), number: @json($invoice->number) };
 
             // Kabar ke website yang membuka popup; hanya ke origin terdaftar.
+            // Catatan: setelah pindah ke Duitku, browser bisa memutus window.opener — jadi website
+            // tetap wajib mengecek status ke servernya sendiri, dan popup tetap menutup sendiri.
             if (origin && final && window.opener) {
-                window.opener.postMessage(payload, origin);
-                if (status === 'paid') setTimeout(function () { window.close(); }, 2500);
+                try { window.opener.postMessage(payload, origin); } catch (e) {}
+            }
+
+            // Lunas & dibuka sebagai popup: tutup rapi, jangan buka website penagih di dalam popup.
+            if (origin && status === 'paid') {
+                var close = document.querySelector('[data-close]'), note = document.querySelector('[data-close-note]'), back = document.querySelector('[data-return]');
+                if (close) close.classList.remove('d-none');
+                if (note) note.classList.remove('d-none');
+                if (back) back.classList.add('d-none');
+                var tutup = function (manual) {
+                    window.close();
+                    setTimeout(function () {
+                        if (window.closed || !manual) return;
+                        // Browser menolak menutup jendela: pakai jalur biasa.
+                        if (back) { location.href = back.href; } else if (note) { note.textContent = 'Silakan tutup jendela ini secara manual.'; }
+                    }, 400);
+                };
+                if (close) close.addEventListener('click', function () { tutup(true); });
+                setTimeout(function () { tutup(false); }, 2500);
             }
 
             // Baru kembali dari Duitku tapi belum terkonfirmasi: cek berkala sampai 5 menit.
