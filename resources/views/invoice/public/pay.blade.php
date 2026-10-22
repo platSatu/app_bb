@@ -69,7 +69,7 @@
             </table>
 
             @if ($invoice->isUnpaid())
-                <form method="POST" action="{{ route('invoice.pay.checkout', array_filter(['token' => $invoice->token, 'origin' => $origin])) }}" onsubmit="this.querySelector('button').disabled = true;">
+                <form method="POST" action="{{ route('invoice.pay.checkout', array_filter(['token' => $invoice->token, 'origin' => $origin])) }}" id="pay-form" onsubmit="this.querySelector('button').disabled = true;">
                     @csrf
                     <button type="submit" class="btn btn-primary btn-lg w-100"><i class="ri-secure-payment-line me-1"></i>Bayar Sekarang</button>
                 </form>
@@ -117,6 +117,22 @@
                         .then(function (data) { if (data.status !== 'unpaid') location.reload(); });
                 }, 5000);
             }
+        })();
+    </script>
+@endif
+@if ($autoPay)
+    <script>
+        // Satu popup: langsung ke halaman bayar Duitku. Sekali per tab, supaya tombol "kembali" tidak memantul.
+        (function () {
+            var id = @json($invoice->id), origin = @json($origin), url = @json($autoPayUrl);
+            try {
+                if (sessionStorage.getItem('bizbos-pay-auto:' + id)) return;
+                sessionStorage.setItem('bizbos-pay-auto:' + id, '1');
+                if (origin) sessionStorage.setItem('bizbos-pay-origin:' + id, origin);
+            } catch (e) {}
+            var form = document.getElementById('pay-form'), button = form && form.querySelector('button');
+            if (button) { button.disabled = true; button.textContent = 'Membuka halaman pembayaran...'; }
+            if (url) { location.replace(url); } else if (form) { form.submit(); }
         })();
     </script>
 @endif

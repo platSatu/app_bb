@@ -31,9 +31,14 @@ class PublicInvoiceController extends Controller
             $this->refresh($invoice);
         }
 
+        $invoice->refresh()->load(['company', 'category', 'branch']);
+
         return response()->view('invoice.public.pay', [
-            'invoice' => $invoice->refresh()->load(['company', 'category', 'branch']),
+            'invoice' => $invoice,
             'origin' => $this->origin($request, $invoice),
+            // Langsung ke Duitku (tanpa klik "Bayar"), kecuali baru kembali dari Duitku atau ada error.
+            'autoPay' => $invoice->isUnpaid() && ! $request->boolean('returned') && ! session()->has('error'),
+            'autoPayUrl' => $invoice->openPaymentUrl(),
         ])->withHeaders($this->headers());
     }
 
