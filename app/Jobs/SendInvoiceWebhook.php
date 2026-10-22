@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\Disbursement;
 use App\Models\Invoice;
 use App\Models\InvoiceApiClient;
 use App\Models\InvoiceWebhookLog;
@@ -13,7 +14,7 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Kabar ke server website user (invoice.paid / invoice.expired / invoice.cancelled / ping).
+ * Kabar ke server website user (invoice.paid / invoice.expired / invoice.cancelled / payout.* / ping).
  * Ditandatangani dengan webhook secret, dicoba ulang bertahap, setiap percobaan dicatat.
  * URL hanya https & bukan alamat jaringan internal (kecuali APP_ENV=local untuk uji coba).
  */
@@ -23,7 +24,7 @@ class SendInvoiceWebhook implements ShouldQueue
 
     public int $tries = 6;
 
-    public function __construct(public string $clientId, public ?string $invoiceId, public string $event)
+    public function __construct(public string $clientId, public ?string $invoiceId, public string $event, public ?string $disbursementId = null)
     {
         $this->afterCommit();
     }
@@ -32,6 +33,14 @@ class SendInvoiceWebhook implements ShouldQueue
     {
         if ($invoice?->api_client_id && InvoiceApiClient::whereKey($invoice->api_client_id)->whereNotNull('webhook_url')->exists()) {
             dispatch(new self($invoice->api_client_id, $invoice->getKey(), $event));
+        }
+    }
+
+    /** Hanya kiriman lewat API (punya api_client_id) yang dikabari. */
+    public static function forDisbursement(Disbursement $disbursement, string $event): void
+    {
+        if ($disbursement->api_client_id && InvoiceApiClient::whereKey($disbursement->api_client_id)->whereNotNull('webhook_url')->exists()) {
+            dispatch(new self($disbursement->api_client_id, null, $event, $disbursement->getKey()));
         }
     }
 
@@ -44,8 +53,9 @@ class SendInvoiceWebhook implements ShouldQueue
     {
         $client = InvoiceApiClient::find($this->clientId);
         $invoice = $this->invoiceId ? Invoice::find($this->invoiceId) : null;
+        $disbursement = $this->disbursementId ? Disbursement::with('recipient')->find($this->disbursementId) : null;
 
-        if (! $client?->webhook_url || ($this->invoiceId && ! $invoice)) {
+        if (! $client?->webhook_url || ($this->invoiceId && ! $invoice) || ($this->disbursementId && ! $disbursement)) {
             return;
         }
 
@@ -53,7 +63,7 @@ class SendInvoiceWebhook implements ShouldQueue
             'id' => (string) Str::uuid(),
             'event' => $this->event,
             'created_at' => now()->toIso8601String(),
-            'data' => $invoice?->toApi() ?? ['message' => 'Webhook bizbos berhasil tersambung.'],
+            'data' => $invoice?->toApi() ?? $disbursement?->toApi() ?? ['message' => 'Webhook bizbos berhasil tersambung.'],
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         $timestamp = (string) time();
@@ -84,6 +94,7 @@ class SendInvoiceWebhook implements ShouldQueue
         $log->forceFill([
             'api_client_id' => $client->getKey(),
             'invoice_id' => $invoice?->getKey(),
+            'disbursement_id' => $disbursement?->getKey(),
             'event' => $this->event,
             'attempt' => $this->attempts(),
             'http_status' => $status,

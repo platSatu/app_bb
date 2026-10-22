@@ -95,7 +95,7 @@
                             <label for="webhook_url" class="form-label small mb-1">URL Webhook</label>
                             <input type="url" id="webhook_url" name="webhook_url" maxlength="500" class="form-control mb-1 @error('webhook_url') is-invalid @enderror" value="{{ old('webhook_url', $client->webhook_url) }}" placeholder="https://tokosaya.com/bizbos/webhook">
                             @error('webhook_url') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            <div class="form-text mb-3">bizbos mengirim invoice.paid, invoice.expired, dan invoice.cancelled ke URL ini.</div>
+                            <div class="form-text mb-3">bizbos mengirim invoice.paid, invoice.expired, invoice.cancelled, dan payout.* (Disbursement) ke URL ini.</div>
 
                             <label for="allowed_origins" class="form-label small mb-1">Website yang boleh membuka popup bayar</label>
                             <textarea id="allowed_origins" name="allowed_origins" rows="3" class="form-control font-monospace small @error('allowed_origins.*') is-invalid @enderror" placeholder="https://tokosaya.com&#10;http://localhost">{{ implode("\n", (array) old('allowed_origins', $client->allowed_origins ?? [])) }}</textarea>

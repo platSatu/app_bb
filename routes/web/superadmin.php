@@ -16,6 +16,7 @@ use App\Http\Controllers\Superadmin\User\UserController;
 use App\Http\Controllers\Superadmin\Voucher\VoucherController;
 use App\Http\Controllers\Superadmin\Withdrawal\BankAccountController;
 use App\Http\Controllers\Superadmin\Withdrawal\DisbursementController;
+use App\Http\Controllers\Superadmin\Withdrawal\PayoutController;
 use App\Http\Controllers\Superadmin\Withdrawal\WithdrawalController;
 use App\Models\Role;
 use Illuminate\Support\Facades\Route;
@@ -86,6 +87,13 @@ Route::middleware(['auth', 'superadmin'])
                 Route::post('{withdrawal}/reject', 'reject')->name('reject');
                 Route::post('{withdrawal}/check', 'check')->middleware('throttle:20,1')->name('check');
                 Route::post('{withdrawal}/resolve', 'resolve')->name('resolve');
+            });
+
+            // Disbursement owner (menu Invoice › Disbursement): pantau & selesaikan transfer yang belum pasti.
+            Route::controller(PayoutController::class)->prefix('payouts')->name('payouts.')->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('{disbursement}/check', 'check')->middleware('throttle:20,1')->name('check');
+                Route::post('{disbursement}/resolve', 'resolve')->name('resolve');
             });
 
             Route::get('bank-accounts', [BankAccountController::class, 'index'])->name('bank-accounts.index');

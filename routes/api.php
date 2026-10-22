@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\Frontend\TermConditionController as FrontendTermCon
 use App\Http\Controllers\Api\Frontend\VideoController as FrontendVideoController;
 use App\Http\Controllers\Api\Frontend\VisitorLogController as FrontendVisitorLogController;
 use App\Http\Controllers\Api\Frontend\WebSettingController as FrontendWebSettingController;
+use App\Http\Controllers\Invoice\Api\DisbursementApiController;
 use App\Http\Controllers\Invoice\Api\InvoiceApiController;
 use App\Http\Controllers\WhatsApp\Api\WaApiController;
 use App\Http\Controllers\WhatsApp\WaWebhookController;
@@ -31,6 +32,13 @@ Route::prefix('v1')->middleware('invoice.api')->group(function () {
     Route::get('invoices/{invoice}', [InvoiceApiController::class, 'show']);
     Route::post('invoices/{invoice}/cancel', [InvoiceApiController::class, 'cancel']);
     Route::get('balance', [InvoiceApiController::class, 'balance']);
+
+    // Disbursement: kirim dana dari saldo ke rekening penerima (wajib diaktifkan pemilik akun).
+    Route::get('banks', [DisbursementApiController::class, 'banks']);
+    Route::post('payout-accounts', [DisbursementApiController::class, 'storeAccount'])->middleware('throttle:30,1');
+    Route::get('payout-accounts/{account}', [DisbursementApiController::class, 'showAccount']);
+    Route::post('payouts', [DisbursementApiController::class, 'store'])->middleware('throttle:30,1');
+    Route::get('payouts/{payout}', [DisbursementApiController::class, 'show']);
 });
 
 // Webhook dari service WhatsApp (go_bizbos), ditandatangani WA_WEBHOOK_SECRET.

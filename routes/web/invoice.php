@@ -3,6 +3,7 @@
 use App\Http\Controllers\Invoice\ApiClientController;
 use App\Http\Controllers\Invoice\BatchController;
 use App\Http\Controllers\Invoice\CategoryController;
+use App\Http\Controllers\Invoice\DisbursementController;
 use App\Http\Controllers\Invoice\DocsController;
 use App\Http\Controllers\Invoice\InvoiceController;
 use App\Http\Controllers\Invoice\PublicInvoiceController;
@@ -56,6 +57,18 @@ Route::middleware('auth')->prefix('invoices')->name('invoices.')->group(function
         Route::put('{client}', 'update')->name('update');
         Route::post('{client}/regenerate', 'regenerate')->middleware('throttle:10,1')->name('regenerate');
         Route::post('{client}/test', 'test')->middleware('throttle:10,1')->name('test');
+    });
+
+    // Kirim dana dari saldo ke banyak rekening penerima (dashboard atau API). Tab: Riwayat, Rekening, Pengaturan.
+    Route::middleware('permission:invoices.disbursements')->prefix('disbursements')->name('disbursements.')->controller(DisbursementController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'send')->middleware('throttle:20,1')->name('send');
+        Route::post('{disbursement}/check', 'check')->whereUuid('disbursement')->middleware('throttle:20,1')->name('check');
+        Route::get('recipients', 'recipients')->name('recipients');
+        Route::post('recipients', 'storeRecipient')->middleware('throttle:20,1')->name('recipients.store');
+        Route::post('recipients/{recipient}/toggle', 'toggleRecipient')->whereUuid('recipient')->name('recipients.toggle');
+        Route::get('settings', 'settings')->name('settings');
+        Route::put('settings/{client}', 'updateSettings')->whereUuid('client')->name('settings.update');
     });
 });
 

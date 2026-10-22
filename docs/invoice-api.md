@@ -298,6 +298,9 @@ bizbos mengirim `POST` JSON ke URL Webhook Anda setiap ada perubahan:
 | `invoice.paid` | Pembayaran terkonfirmasi Duitku. |
 | `invoice.expired` | Invoice lewat `expires_at` tanpa pembayaran. |
 | `invoice.cancelled` | Invoice dibatalkan. |
+| `payout.success` | Disbursement berhasil ditransfer (lihat bagian 13). |
+| `payout.failed` | Disbursement gagal, saldo sudah dikembalikan. |
+| `payout.needs_review` | Transfer terkirim tapi hasilnya belum pasti, sedang dicek tim bizbos. |
 | `ping` | Tombol **Kirim Webhook Test**. |
 
 Header:
@@ -448,3 +451,86 @@ Skenario: website Anda (mis. `http://localhost/nama-project/public`) membuat inv
 **Bisa ubah nominal invoice?** Tidak. Batalkan lalu buat invoice baru dengan `external_id` baru.
 
 **Bisa dipakai tanpa website?** Bisa. Buat invoice dari dashboard (**Invoice › Kategori › Invoice Periode**), lalu bagikan link bayarnya ke customer. Email tagihan & pengingat dikirim otomatis kalau diaktifkan.
+
+## 13. Disbursement (kirim dana ke rekening)
+
+Dengan Disbursement, website Anda bisa mengirim dana dari **saldo bizbos branch Anda** ke rekening siapa pun
+(mis. pengajar, admin cabang, vendor). bizbos yang meneruskan ke Duitku Disbursement; persetujuan tetap di website Anda.
+
+```
+Website Anda                 bizbos                              Duitku
+ 1. POST /payout-accounts ->  cek nama pemilik ke bank  ------>  inquiry
+        <- data rekening ---  simpan sebagai Rekening Penerima
+ 2. POST /payouts --------->  tahan saldo, antre transfer
+        <- status pending --  inquiry + cocokkan nama + transfer -> rekening penerima
+ 3. <- webhook payout.success / payout.failed
+```
+
+### 13.1 Persiapan
+
+1. Buka **Invoice › Disbursement › Pengaturan & API**, nyalakan **Izinkan website mengirim dana lewat API**.
+2. Isi **batas per transaksi** dan **batas per hari** (sangat disarankan).
+3. Memakai API key, Secret Key, dan Webhook Secret yang sama dengan Invoice (bagian 3 & 7).
+
+Biaya per transfer dan minimal kirim mengikuti pengaturan tarik saldo bizbos, tampil di tab Pengaturan & API.
+Biaya **dipotong dari jumlah yang dikirim**: `net_amount = amount - fee`.
+
+### 13.2 Daftar bank — `GET /api/v1/banks`
+
+```json
+{ "success": true, "data": [ { "bank_code": "014", "bank_name": "BANK CENTRAL ASIA" } ] }
+```
+
+### 13.3 Daftarkan rekening — `POST /api/v1/payout-accounts`
+
+```json
+{
+  "external_id": "USER-123",
+  "bank_code": "014",
+  "account_number": "1234567890",
+  "account_name": "Andi Saputra",
+  "label": "Admin Cabang Bekasi"
+}
+```
+
+- `external_id` (opsional): ID penerima di sistem Anda. Mengirim ulang dengan `external_id` yang sama **memperbarui** rekeningnya.
+- `account_name` (opsional): kalau diisi, harus sama dengan nama pemilik di bank. Kalau berbeda, rekening ditolak.
+- Nama yang disimpan selalu nama dari bank (`data.account_name`).
+
+Respons: `{ "success": true, "data": { "id": "...", "external_id": "USER-123", "bank_name": "...", "account_last4": "7890", "account_name": "ANDI SAPUTRA", "status": "active" } }`.
+Cek ulang: `GET /api/v1/payout-accounts/{id}` (`{id}` boleh id bizbos atau `external_id`).
+
+### 13.4 Kirim dana — `POST /api/v1/payouts`
+
+```json
+{
+  "external_id": "TARIK-2026-0001",
+  "payout_account_id": "USER-123",
+  "amount": 500000,
+  "description": "Tarik saldo kelas KOM 100 Oktober"
+}
+```
+
+- `external_id` **wajib** dan unik. Mengirim ulang dengan `external_id` yang sama **tidak mengirim dana lagi**, hanya mengembalikan kiriman yang sudah ada (`created: false`). Aman di-retry.
+- `payout_account_id`: id bizbos atau `external_id` rekening penerima.
+- Saldo langsung ditahan. Respons `201` dengan `status: "pending"`, transfer diproses di antrean beberapa detik kemudian.
+
+### 13.5 Cek kiriman — `GET /api/v1/payouts/{id}`
+
+`{id}` boleh id bizbos atau `external_id` Anda.
+
+| Status | Arti |
+|---|---|
+| `pending` | Menunggu diproses. |
+| `processing` | Sedang ditransfer. |
+| `success` | Dana sudah terkirim ke rekening penerima. |
+| `failed` | Gagal; saldo sudah dikembalikan. Alasan di `failure_reason`. |
+| `needs_review` | Transfer terkirim tapi hasilnya belum pasti. Saldo **tidak** dikembalikan otomatis; tim bizbos mengecek lalu statusnya berubah menjadi `success` atau `failed` (Anda menerima webhook). |
+
+### 13.6 Aturan penting
+
+1. Jadikan status final **hanya dari webhook `payout.*` atau `GET /api/v1/payouts/{id}`**.
+2. Jangan menandai `failed` sendiri untuk kiriman `needs_review`. Tunggu keputusan akhir dari bizbos.
+3. Error `422` berisi pesan yang bisa ditampilkan, mis. saldo tidak cukup, melebihi batas harian, atau rekening nonaktif.
+4. Error `403` berarti Disbursement lewat API belum diaktifkan pemilik akun.
+

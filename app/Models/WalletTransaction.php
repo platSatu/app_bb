@@ -24,6 +24,9 @@ class WalletTransaction extends Model
     public const TYPE_WITHDRAWAL = 'withdrawal';
     public const TYPE_WITHDRAWAL_FEE = 'withdrawal_fee';
     public const TYPE_WITHDRAWAL_REFUND = 'withdrawal_refund';
+    public const TYPE_DISBURSEMENT = 'disbursement';
+    public const TYPE_DISBURSEMENT_FEE = 'disbursement_fee';
+    public const TYPE_DISBURSEMENT_REFUND = 'disbursement_refund';
 
     public const TYPE_LABELS = [
         self::TYPE_DEPOSIT => 'Top Up',
@@ -36,6 +39,9 @@ class WalletTransaction extends Model
         self::TYPE_WITHDRAWAL => 'Tarik Saldo',
         self::TYPE_WITHDRAWAL_FEE => 'Biaya Tarik Saldo',
         self::TYPE_WITHDRAWAL_REFUND => 'Pengembalian Tarik Saldo',
+        self::TYPE_DISBURSEMENT => 'Disbursement',
+        self::TYPE_DISBURSEMENT_FEE => 'Biaya Disbursement',
+        self::TYPE_DISBURSEMENT_REFUND => 'Pengembalian Disbursement',
     ];
 
     protected $fillable = [];

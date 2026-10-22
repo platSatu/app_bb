@@ -17,6 +17,11 @@ class InvoiceWebhookLog extends Model
         return $this->belongsTo(Invoice::class);
     }
 
+    public function disbursement(): BelongsTo
+    {
+        return $this->belongsTo(Disbursement::class);
+    }
+
     public function isSuccessful(): bool
     {
         return $this->http_status !== null && $this->http_status >= 200 && $this->http_status < 300;

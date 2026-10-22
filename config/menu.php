@@ -90,6 +90,8 @@ return [
                     'invoices.batches' => ['label' => 'Invoice Periode', 'route' => 'invoices.batches.index', 'active' => 'invoices.batches.*'],
                     'invoices.categories' => ['label' => 'Kategori', 'route' => 'invoices.categories.index', 'active' => 'invoices.categories.*'],
                     'invoices.api' => ['label' => 'API & Integrasi', 'route' => 'invoices.api.index', 'active' => ['invoices.api.*', 'invoices.docs']],
+                    // Kirim dana dari saldo ke banyak rekening (dashboard / API). Tab di dalam halaman.
+                    'invoices.disbursements' => ['label' => 'Disbursement', 'route' => 'invoices.disbursements.index', 'active' => 'invoices.disbursements.*'],
                 ],
             ],
             // Nomor WhatsApp per branch, inbox realtime, dan Phone Book (Buku Kontak + Group).
@@ -270,7 +272,7 @@ return [
                     'superadmin.withdrawals' => [
                         'label' => 'Penarikan Saldo',
                         'route' => 'superadmin.withdrawals.index',
-                        'active' => ['superadmin.withdrawals.*', 'superadmin.bank-accounts.*', 'superadmin.disbursement.*'],
+                        'active' => ['superadmin.withdrawals.*', 'superadmin.bank-accounts.*', 'superadmin.disbursement.*', 'superadmin.payouts.*'],
                         'superadmin_only' => true,
                     ],
                     'superadmin.wallet-adjustment' => [

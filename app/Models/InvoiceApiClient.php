@@ -29,6 +29,9 @@ class InvoiceApiClient extends Model
             'webhook_secret' => 'encrypted',
             'allowed_origins' => 'array',
             'is_active' => 'boolean',
+            'payout_enabled' => 'boolean',
+            'payout_max_amount' => 'integer',
+            'payout_daily_limit' => 'integer',
             'last_used_at' => 'datetime',
         ];
     }

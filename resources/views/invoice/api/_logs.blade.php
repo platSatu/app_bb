@@ -1,11 +1,11 @@
 <div class="table-responsive">
     <table class="table table-sm mb-0">
-        <thead class="table-light"><tr><th>Event</th><th>Invoice</th><th>Percobaan</th><th>Hasil</th><th>Waktu</th></tr></thead>
+        <thead class="table-light"><tr><th>Event</th><th>Invoice / Disbursement</th><th>Percobaan</th><th>Hasil</th><th>Waktu</th></tr></thead>
         <tbody>
             @forelse ($logs as $log)
                 <tr>
                     <td><code>{{ $log->event }}</code></td>
-                    <td class="small">{{ $log->invoice?->number ?? '-' }}</td>
+                    <td class="small">{{ $log->invoice?->number ?? $log->disbursement?->reference ?? '-' }}</td>
                     <td class="small">ke-{{ $log->attempt }}</td>
                     <td class="small">
                         @if ($log->isSuccessful())

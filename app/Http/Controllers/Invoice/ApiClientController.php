@@ -33,7 +33,7 @@ class ApiClientController extends Controller
             'branches' => $branches,
             'branch' => $branch,
             'client' => $client,
-            'logs' => $client ? $client->webhookLogs()->with('invoice:id,number')->latest()->limit(20)->get() : collect(),
+            'logs' => $client ? $client->webhookLogs()->with(['invoice:id,number', 'disbursement:id,reference'])->latest()->limit(20)->get() : collect(),
         ]);
     }
 
