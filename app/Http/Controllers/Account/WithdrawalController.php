@@ -7,9 +7,11 @@ use App\Http\Requests\Account\BankAccountRequest;
 use App\Http\Requests\Account\WithdrawalRequest;
 use App\Models\BankAccount;
 use App\Models\DisbursementSetting;
+use App\Models\PaymentGatewaySetting;
 use App\Models\WalletWithdrawal;
 use App\Services\Payment\DuitkuDisbursementClient;
 use App\Services\Withdrawal\BankAccountService;
+use App\Services\Wallet\WalletService;
 use App\Services\Withdrawal\WithdrawalService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,9 +21,10 @@ use Throwable;
 
 class WithdrawalController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, WalletService $wallets): View
     {
         $user = $request->user();
+        $summary = $wallets->summary($user);
         $setting = DisbursementSetting::current();
         $accounts = BankAccount::where('user_id', $user->getKey())->whereIn('status', [BankAccount::STATUS_APPROVED, BankAccount::STATUS_PENDING, BankAccount::STATUS_REJECTED])->latest()->get();
         $available = $setting->is_active && $setting->isConfigured();
@@ -40,7 +43,10 @@ class WithdrawalController extends Controller
         return view('profile.withdrawal.index', [
             'setting' => $setting,
             'available' => $available,
-            'balance' => (int) $user->wallet?->balance,
+            'balance' => $summary['balance'],
+            'withdrawable' => $summary['available'],
+            'pendingItems' => $summary['pending'] > 0 ? $wallets->pendingItems($user) : collect(),
+            'gateway' => PaymentGatewaySetting::duitku(),
             'approved' => $accounts->firstWhere('status', BankAccount::STATUS_APPROVED),
             'pending' => $accounts->firstWhere('status', BankAccount::STATUS_PENDING),
             'rejected' => $accounts->where('status', BankAccount::STATUS_REJECTED)->first(),

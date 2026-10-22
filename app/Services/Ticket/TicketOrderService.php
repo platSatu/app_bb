@@ -17,6 +17,7 @@ use App\Models\WalletTransaction;
 use App\Services\Customer\CustomerService;
 use App\Services\Page\PageSubmissionService;
 use App\Services\Payment\DuitkuClient;
+use App\Services\Wallet\SettlementCalendar;
 use App\Services\Wallet\WalletService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -310,6 +311,8 @@ class TicketOrderService
                     'ticket:'.$locked->getKey(),
                     $locked,
                     'Penjualan tiket '.$locked->reference,
+                    paymentMethod: $locked->payment_method,
+                    availableAt: SettlementCalendar::availableAt($locked->payment_method),
                 );
             }
 

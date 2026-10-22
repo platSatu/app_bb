@@ -159,7 +159,7 @@ class DisbursementService
             try {
                 $this->hold($disbursement, $branch->user, $actor);
             } catch (InsufficientBalanceException $e) {
-                throw new RuntimeException('Saldo tidak cukup. Saldo saat ini '.$this->rupiah($e->balance).'.');
+                throw new RuntimeException($e->getMessage().' Yang bisa dikirim saat ini '.$this->rupiah($e->usable()).'.');
             }
 
             return [$disbursement->refresh(), true];
@@ -278,6 +278,9 @@ class DisbursementService
 
     private function hold(Disbursement $disbursement, User $owner, ?User $actor): void
     {
+        // Duitku hanya bisa mengirim dana yang sudah settlement; cek & kunci wallet sebelum memotong.
+        $this->wallets->assertSettled($owner, $disbursement->amount);
+
         $target = $disbursement->bank_name.' ••••'.$disbursement->account_last4.' a.n. '.$disbursement->account_name;
         $this->wallets->debit($owner, $disbursement->net_amount, WalletTransaction::TYPE_DISBURSEMENT, 'disbursement:'.$disbursement->getKey(), $disbursement, "Disbursement {$disbursement->reference} ke {$target}", $actor);
 

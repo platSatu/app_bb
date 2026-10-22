@@ -1,3 +1,4 @@
+@php($gateway = \App\Models\PaymentGatewaySetting::duitku())
 <div class="table-responsive">
     <table class="table table-hover align-middle mb-0 text-nowrap">
         <thead class="table-light">
@@ -32,7 +33,17 @@
                     </td>
                     <td class="text-end text-muted">Rp {{ number_format($transaction->balance_before, 0, ',', '.') }}</td>
                     <td class="text-end">Rp {{ number_format($transaction->balance_after, 0, ',', '.') }}</td>
-                    <td class="text-muted">{{ $transaction->description ?: '-' }}</td>
+                    <td class="text-muted">
+                        {{ $transaction->description ?: '-' }}
+                        @if ($transaction->payment_method || $transaction->isPendingSettlement())
+                            <div class="small">
+                                @if ($transaction->payment_method)<span class="badge bg-light text-dark border">{{ $gateway->methodName($transaction->payment_method) }}</span>@endif
+                                @if ($transaction->isPendingSettlement())
+                                    <span class="text-warning">Dalam proses pencairan · bisa ditarik {{ $transaction->available_at->translatedFormat('d M, H:i') }}</span>
+                                @endif
+                            </div>
+                        @endif
+                    </td>
                     <td class="text-muted">{{ $transaction->created_at->translatedFormat('d M Y H:i') }}</td>
                 </tr>
             @empty

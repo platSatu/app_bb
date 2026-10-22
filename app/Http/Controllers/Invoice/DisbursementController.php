@@ -55,11 +55,15 @@ class DisbursementController extends Controller
                 ]));
         }
 
+        // Saldo pemilik branch (yang dipotong saat kirim) dan bagian yang sudah settlement.
+        $summary = $wallets->summary($branch->user ?? $request->user());
+
         return view('invoice.disbursements.index', [
             ...$this->page($request, 'history', $branches, $branch),
             'disbursements' => $query->with('recipient:id,label')->paginate(20)->withQueryString(),
             'recipients' => DisbursementRecipient::where('branch_id', $branch->id)->where('status', DisbursementRecipient::STATUS_ACTIVE)->orderBy('label')->orderBy('account_name')->get(),
-            'balance' => $wallets->balanceOf($request->user()),
+            'balance' => $summary['balance'],
+            'sendable' => $summary['available'],
             'sentThisMonth' => (int) Disbursement::where('branch_id', $branch->id)->where('status', Disbursement::STATUS_SUCCESS)->where('created_at', '>=', now()->startOfMonth())->sum('amount'),
         ]);
     }

@@ -234,8 +234,12 @@ Invoice yang sudah `paid` mengembalikan `409`.
 ### 4.4 Cek saldo — `GET /api/v1/balance`
 
 ```json
-{ "success": true, "data": { "balance": 1250000, "currency": "IDR" } }
+{ "success": true, "data": { "balance": 1250000, "available_balance": 900000, "pending_balance": 350000, "currency": "IDR" } }
 ```
+
+- `balance`: total saldo.
+- `available_balance`: yang **bisa ditarik / dikirim saat ini** (pembayaran sudah settlement Duitku). Payout lebih besar dari ini ditolak `422`.
+- `pending_balance`: pembayaran yang masih dalam proses pencairan (tergantung metode bayar, mis. QRIS / e-wallet / retail).
 
 ## 5. Status invoice
 

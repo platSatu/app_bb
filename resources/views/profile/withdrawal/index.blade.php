@@ -75,12 +75,22 @@
         <div class="col-lg-7">
             <div class="card h-100 mb-0">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between mb-3">
-                        <h6 class="mb-0">Tarik Saldo</h6>
-                        <div class="text-end">
-                            <div class="text-muted small">Saldo tersedia</div>
-                            <div class="fw-bold text-primary">{{ $rupiah($balance) }}</div>
-                        </div>
+                    <h6 class="mb-3">Tarik Saldo</h6>
+                    <div class="bg-light rounded p-3 mb-3">
+                        <div class="d-flex justify-content-between"><span class="text-muted">Saldo Anda</span><span class="fw-semibold">{{ $rupiah($balance) }}</span></div>
+                        <div class="d-flex justify-content-between mt-1"><span class="text-muted">Yang bisa ditarik saat ini</span><span class="fw-bold text-primary">{{ $rupiah($withdrawable) }}</span></div>
+                        @if ($pendingItems->isNotEmpty())
+                            <a class="small d-inline-block mt-2" data-bs-toggle="collapse" href="#pending-settlement" role="button" aria-expanded="false">Kenapa belum bisa ditarik semua?</a>
+                            <div class="collapse" id="pending-settlement">
+                                <div class="small text-muted mt-2 mb-1">Sebagian pembayaran masih dalam proses pencairan dari bank / e-wallet:</div>
+                                @foreach ($pendingItems as $item)
+                                    <div class="d-flex justify-content-between small">
+                                        <span>{{ $gateway->methodName($item->payment_method) ?? 'Pembayaran' }} · {{ $rupiah($item->amount) }}</span>
+                                        <span class="text-muted">bisa ditarik {{ $item->available_at->translatedFormat('d M, H:i') }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
 
                     @if (! $available)
@@ -96,7 +106,7 @@
                             <label class="form-label">Jumlah yang ditarik</label>
                             <div class="input-group mb-1">
                                 <span class="input-group-text">Rp</span>
-                                <input type="number" name="amount" min="{{ $setting->min_amount }}" max="{{ $balance }}" step="1" value="{{ old('amount') }}"
+                                <input type="number" name="amount" min="{{ $setting->min_amount }}" max="{{ $withdrawable }}" step="1" value="{{ old('amount') }}"
                                     class="form-control @error('amount') is-invalid @enderror" required>
                                 @error('amount') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
@@ -108,9 +118,9 @@
                                 <div class="d-flex justify-content-between fw-bold border-top pt-1 mt-1"><span>Diterima di rekening</span><span data-out="net">Rp 0</span></div>
                             </div>
 
-                            <button type="submit" class="btn btn-primary w-100" @disabled($balance < $setting->min_amount)>Ajukan Tarik Saldo</button>
-                            @if ($balance < $setting->min_amount)
-                                <div class="form-text text-center">Saldo Anda belum mencapai minimal penarikan.</div>
+                            <button type="submit" class="btn btn-primary w-100" @disabled($withdrawable < $setting->min_amount)>Ajukan Tarik Saldo</button>
+                            @if ($withdrawable < $setting->min_amount)
+                                <div class="form-text text-center">{{ $balance >= $setting->min_amount ? 'Saldo yang sudah cair belum mencapai minimal penarikan. Tunggu sebentar, ya.' : 'Saldo Anda belum mencapai minimal penarikan.' }}</div>
                             @endif
                         </form>
                     @endif

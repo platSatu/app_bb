@@ -10,7 +10,8 @@
             <div class="card h-100 mb-0">
                 <div class="card-body d-flex flex-column">
                     <div class="text-muted small">Saldo Anda</div>
-                    <div class="fs-2 fw-bold text-primary mb-3">Rp {{ number_format($balance, 0, ',', '.') }}</div>
+                    <div class="fs-2 fw-bold text-primary">Rp {{ number_format($balance, 0, ',', '.') }}</div>
+                    <div class="small text-muted mb-3">Yang bisa ditarik saat ini <span class="fw-semibold text-body">Rp {{ number_format($withdrawable, 0, ',', '.') }}</span></div>
                     <div class="d-flex gap-2 mt-auto">
                         <a href="{{ route('account.deposits.create') }}" class="btn btn-primary flex-grow-1">
                             <i class="ri-add-line"></i> Tambah Saldo

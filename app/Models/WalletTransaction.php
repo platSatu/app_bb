@@ -48,7 +48,7 @@ class WalletTransaction extends Model
 
     protected function casts(): array
     {
-        return ['amount' => 'integer', 'balance_before' => 'integer', 'balance_after' => 'integer'];
+        return ['amount' => 'integer', 'balance_before' => 'integer', 'balance_after' => 'integer', 'available_at' => 'datetime'];
     }
 
     protected static function booted(): void
@@ -61,6 +61,12 @@ class WalletTransaction extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** Uang masuk yang belum settlement (belum bisa ditarik). */
+    public function isPendingSettlement(): bool
+    {
+        return $this->isCredit() && $this->available_at?->isFuture();
     }
 
     public function isCredit(): bool

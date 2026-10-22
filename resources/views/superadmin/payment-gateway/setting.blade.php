@@ -78,6 +78,36 @@
                     @endforeach
                 </div>
 
+                <div class="card border mt-4 mb-0">
+                    <div class="card-body">
+                        <h6 class="mb-1">Masa Settlement (uang bisa ditarik)</h6>
+                        <p class="small text-muted mb-3">Uang dari pembayaran langsung masuk saldo owner, tapi baru bisa ditarik / dikirim lewat disbursement setelah settlement Duitku. Dihitung dalam hari kerja (Sabtu, Minggu & tanggal libur dilewati), mulai pukul 12.00. Sesuaikan dengan aturan di akun Duitku. Perubahan berlaku untuk pembayaran berikutnya.</p>
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label for="settlement_default_days" class="form-label">Default (hari kerja)</label>
+                                <input type="number" id="settlement_default_days" name="settlement_default_days" min="0" max="14"
+                                    class="form-control @error('settlement_default_days') is-invalid @enderror" value="{{ old('settlement_default_days', $setting->settlement_default_days ?? 2) }}">
+                                <div class="form-text">Untuk metode yang tidak ada di daftar.</div>
+                                @error('settlement_default_days') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="col-md-5">
+                                <label for="settlement_methods" class="form-label">Per metode bayar</label>
+                                <textarea id="settlement_methods" name="settlement_methods" rows="8" class="form-control font-monospace small @error('settlement_methods') is-invalid @enderror"
+                                    placeholder="SP | ShopeePay QRIS | 2">{{ old('settlement_methods', collect($setting->settlementMethods())->map(fn ($m, $code) => $code.' | '.$m['name'].' | '.($m['days'] ?? ''))->implode("\n")) }}</textarea>
+                                <div class="form-text">Satu baris: <code>KODE | Nama | hari kerja</code>. Hari kosong = ikut default. Kode sesuai <code>paymentCode</code> Duitku.</div>
+                                @error('settlement_methods') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="col-md-4">
+                                <label for="settlement_holidays" class="form-label">Tanggal libur</label>
+                                <textarea id="settlement_holidays" name="settlement_holidays" rows="8" class="form-control font-monospace small @error('settlement_holidays') is-invalid @enderror"
+                                    placeholder="2026-12-25">{{ old('settlement_holidays', implode("\n", $setting->settlement_holidays ?? [])) }}</textarea>
+                                <div class="form-text">Satu tanggal per baris (YYYY-MM-DD).</div>
+                                @error('settlement_holidays') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="alert alert-info mt-4 mb-0">
                     URL callback untuk didaftarkan di dashboard Duitku:
                     <code>{{ route('payment.duitku.callback') }}</code>

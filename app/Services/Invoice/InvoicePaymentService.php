@@ -10,6 +10,7 @@ use App\Models\PaymentCallback;
 use App\Models\PaymentGatewaySetting;
 use App\Models\WalletTransaction;
 use App\Services\Payment\DuitkuClient;
+use App\Services\Wallet\SettlementCalendar;
 use App\Services\Wallet\WalletService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -260,6 +261,8 @@ class InvoicePaymentService
                     $invoice,
                     'Invoice '.$invoice->number.' dibayar Rp '.number_format($lockedPayment->amount, 0, ',', '.')
                         .' (biaya layanan Rp '.number_format($fee, 0, ',', '.').')'.($accepted ? '' : ' · PEMBAYARAN GANDA, mohon refund ke customer'),
+                    paymentMethod: $method,
+                    availableAt: SettlementCalendar::availableAt($method),
                 );
             }
 

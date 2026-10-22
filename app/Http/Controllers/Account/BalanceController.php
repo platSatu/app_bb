@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Account\TopUpRequest;
 use App\Models\PaymentGatewaySetting;
 use App\Services\Deposit\DepositService;
+use App\Services\Wallet\WalletService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -14,12 +15,14 @@ use RuntimeException;
 /** Semua data di sini selalu milik user yang login (lewat relasi $request->user()). */
 class BalanceController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, WalletService $wallets): View
     {
         $user = $request->user();
+        $summary = $wallets->summary($user);
 
         return view('profile.balance.index', [
-            'balance' => (int) $user->wallet?->balance,
+            'balance' => $summary['balance'],
+            'withdrawable' => $summary['available'],
             'transactions' => $user->walletTransactions()->latest()->limit(10)->get(),
             'deposits' => $user->deposits()->latest()->limit(5)->get(),
         ]);

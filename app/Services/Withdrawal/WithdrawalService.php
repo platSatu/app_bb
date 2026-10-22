@@ -75,7 +75,7 @@ class WithdrawalService
             try {
                 $this->hold($withdrawal, $user);
             } catch (InsufficientBalanceException $e) {
-                throw new RuntimeException('Saldo tidak cukup. Saldo Anda '.$this->rupiah($e->balance).'.');
+                throw new RuntimeException($e->getMessage().' Yang bisa ditarik saat ini '.$this->rupiah($e->usable()).'.');
             }
 
             return $withdrawal->refresh();
@@ -197,6 +197,9 @@ class WithdrawalService
 
     private function hold(WalletWithdrawal $withdrawal, User $user): void
     {
+        // Hanya saldo yang sudah settlement Duitku (sekaligus mengunci wallet sampai transaksi selesai).
+        $this->wallets->assertSettled($user, $withdrawal->amount);
+
         $target = $withdrawal->bank_name.' ••••'.$withdrawal->account_last4;
         $this->wallets->debit($user, $withdrawal->net_amount, WalletTransaction::TYPE_WITHDRAWAL, 'withdrawal:'.$withdrawal->getKey(), $withdrawal, "Tarik saldo {$withdrawal->reference} ke {$target}", $user);
 

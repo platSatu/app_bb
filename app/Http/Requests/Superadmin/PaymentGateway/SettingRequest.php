@@ -26,6 +26,9 @@ class SettingRequest extends FormRequest
             'expiry_minutes' => ['required', 'integer', 'min:5', 'max:1440'],
             'min_deposit' => ['required', 'integer', 'min:1000'],
             'max_deposit' => ['required', 'integer', 'gte:min_deposit'],
+            'settlement_default_days' => ['required', 'integer', 'min:0', 'max:14'],
+            'settlement_methods' => ['nullable', 'string', 'max:5000'],
+            'settlement_holidays' => ['nullable', 'string', 'max:3000'],
         ];
     }
 
@@ -35,6 +38,9 @@ class SettingRequest extends FormRequest
             'expiry_minutes' => 'batas waktu bayar',
             'min_deposit' => 'minimal top up',
             'max_deposit' => 'maksimal top up',
+            'settlement_default_days' => 'masa settlement default',
+            'settlement_methods' => 'masa settlement per metode',
+            'settlement_holidays' => 'tanggal libur',
         ];
     }
 }

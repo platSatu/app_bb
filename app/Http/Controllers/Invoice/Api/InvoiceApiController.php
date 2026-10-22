@@ -85,7 +85,15 @@ class InvoiceApiController extends Controller
 
     public function balance(Request $request, WalletService $wallets): JsonResponse
     {
-        return response()->json(['success' => true, 'data' => ['balance' => $wallets->balanceOf($this->client($request)->branch->user), 'currency' => 'IDR']]);
+        $summary = $wallets->summary($this->client($request)->branch->user);
+
+        // available_balance = yang sudah settlement Duitku, batas maksimal untuk payout.
+        return response()->json(['success' => true, 'data' => [
+            'balance' => $summary['balance'],
+            'available_balance' => $summary['available'],
+            'pending_balance' => $summary['pending'],
+            'currency' => 'IDR',
+        ]]);
     }
 
     /** {invoice} boleh id bizbos atau external_id milik Anda. */

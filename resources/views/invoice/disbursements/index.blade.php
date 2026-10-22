@@ -11,8 +11,13 @@
     <div class="row g-3 mb-3">
         <div class="col-md-4">
             <div class="card mb-0 h-100"><div class="card-body">
-                <div class="text-muted small">Saldo tersedia</div>
-                <div class="fs-4 fw-semibold">{{ $rupiah($balance) }}</div>
+                <div class="text-muted small">Yang bisa dikirim saat ini</div>
+                <div class="fs-4 fw-semibold">{{ $rupiah($sendable) }}</div>
+                <div class="small text-muted">Saldo Anda {{ $rupiah($balance) }}
+                    @if ($sendable < $balance)
+                        · sebagian masih dalam proses pencairan
+                    @endif
+                </div>
             </div></div>
         </div>
         <div class="col-md-4">
