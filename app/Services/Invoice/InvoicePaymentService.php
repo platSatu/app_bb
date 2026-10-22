@@ -30,7 +30,8 @@ class InvoicePaymentService
     {
     }
 
-    public function checkout(Invoice $invoice, string $returnUrl): InvoicePayment
+    /** $timeout: batas tunggu Duitku (detik). API memakai batas pendek supaya website pemanggil tidak ikut timeout. */
+    public function checkout(Invoice $invoice, string $returnUrl, int $timeout = 20): InvoicePayment
     {
         $client = DuitkuClient::make(forCallback: true);
 
@@ -97,7 +98,7 @@ class InvoicePaymentService
                     $payment->late_fee > 0 ? ['name' => 'Denda keterlambatan', 'price' => $payment->late_fee, 'quantity' => 1] : null,
                 ])),
                 'returnUrl' => $returnUrl,
-            ]);
+            ], $timeout);
         } catch (Throwable $e) {
             report($e);
             $result = ['paymentUrl' => null, 'reference' => null, 'message' => 'Duitku tidak bisa dihubungi'];

@@ -33,7 +33,7 @@ class DuitkuClient
      * @param  array{amount: int, orderId: string, product: string, customer: array{name: string, email: string, phone: ?string}, items: array, returnUrl: string, userInfo?: string}  $invoice
      * @return array{paymentUrl: ?string, reference: ?string, message: ?string}
      */
-    public function createInvoice(array $invoice): array
+    public function createInvoice(array $invoice, int $timeout = 20): array
     {
         $customer = $invoice['customer'];
         [$firstName, $lastName] = array_pad(explode(' ', trim($customer['name'] ?: 'Customer'), 2), 2, '');
@@ -56,7 +56,7 @@ class DuitkuClient
 
         $timestamp = (string) round(microtime(true) * 1000);
 
-        $response = Http::timeout(20)->withHeaders([
+        $response = Http::connectTimeout(min(5, $timeout))->timeout($timeout)->withHeaders([
             'x-duitku-signature' => hash_hmac('sha256', $this->setting->merchantCode().$timestamp, $this->setting->apiKey()),
             'x-duitku-timestamp' => $timestamp,
             'x-duitku-merchantcode' => $this->setting->merchantCode(),

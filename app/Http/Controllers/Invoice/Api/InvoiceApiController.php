@@ -16,6 +16,9 @@ use RuntimeException;
 /** REST API Invoice untuk website user. Semua data dibatasi ke branch milik API key. */
 class InvoiceApiController extends Controller
 {
+    // Website pemanggil biasanya menunggu 20-30 detik; bizbos harus sudah membalas jauh sebelum itu.
+    private const DUITKU_TIMEOUT = 8;
+
     public function __construct(private readonly InvoiceService $invoices, private readonly InvoicePaymentService $payments)
     {
     }
@@ -49,9 +52,9 @@ class InvoiceApiController extends Controller
         // Gagal ke Duitku tidak menggagalkan API: dicoba lagi saat customer menekan "Bayar".
         if ($invoice->isUnpaid()) {
             try {
-                $this->payments->checkout($invoice, route('invoice.pay.return', $invoice->token));
-            } catch (RuntimeException $e) {
-                report($e);
+                $this->payments->checkout($invoice, route('invoice.pay.return', $invoice->token), self::DUITKU_TIMEOUT);
+            } catch (RuntimeException) {
+                // Sudah dicatat di log oleh InvoicePaymentService; payment_url = null, checkout_url tetap bisa dipakai.
             }
         }
 
