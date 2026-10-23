@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Frontend\ArticleController as FrontendArticleController;
 use App\Http\Controllers\Api\Frontend\CategoryApplicationController as FrontendCategoryApplicationController;
 use App\Http\Controllers\Api\Frontend\CategoryVideoController as FrontendCategoryVideoController;
+use App\Http\Controllers\Api\Frontend\ChatController as FrontendChatController;
 use App\Http\Controllers\Api\Frontend\ContactMessageController as FrontendContactMessageController;
 use App\Http\Controllers\Api\Frontend\FaqController as FrontendFaqController;
 use App\Http\Controllers\Api\Frontend\FeatureController as FrontendFeatureController;
@@ -59,6 +60,8 @@ Route::post('v1/wa/google-form/{token}', FormWebhookController::class)->where('t
 // Alamat & bentuk JSON sama persis dengan API teleios.
 Route::prefix('frontend')->middleware('frontend.api-key')->group(function () {
     Route::get('category-applications', [FrontendCategoryApplicationController::class, 'index']);
+    // Live chat bizbos.id: jawaban dari konten website (FAQ, fitur, paket) lewat AI aktif.
+    Route::post('chat', FrontendChatController::class)->middleware('throttle:120,1');
     Route::get('packages', [FrontendPackageController::class, 'index']);
     Route::get('articles', [FrontendArticleController::class, 'index']);
     Route::get('articles/{slug}', [FrontendArticleController::class, 'show'])->where('slug', '[a-z0-9-]+');

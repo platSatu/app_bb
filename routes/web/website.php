@@ -10,6 +10,7 @@ use App\Http\Controllers\Superadmin\Web\FooterController;
 use App\Http\Controllers\Superadmin\Web\HeaderController;
 use App\Http\Controllers\Superadmin\Web\HomeSectionController;
 use App\Http\Controllers\Superadmin\Web\HomeSectionItemController;
+use App\Http\Controllers\Superadmin\Web\LiveChatController;
 use App\Http\Controllers\Superadmin\Web\MetaTagController;
 use App\Http\Controllers\Superadmin\Web\PageController;
 use App\Http\Controllers\Superadmin\Web\SettingController;
@@ -71,6 +72,12 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin/web')->name('super
         Route::get('{id}', 'show')->middleware('permission:superadmin.web.contact-messages,view')->name('show');
         Route::patch('{id}/status', 'updateStatus')->middleware('permission:superadmin.web.contact-messages,manage')->name('status');
         Route::delete('{id}', 'destroy')->middleware('permission:superadmin.web.contact-messages,manage')->name('destroy');
+    });
+
+    Route::controller(LiveChatController::class)->prefix('live-chat')->name('live-chat.')->group(function () {
+        Route::get('/', 'edit')->middleware('permission:superadmin.web.live-chat,view')->name('edit');
+        Route::put('/', 'update')->middleware('permission:superadmin.web.live-chat,manage')->name('update');
+        Route::post('test', 'test')->middleware(['permission:superadmin.web.live-chat,manage', 'throttle:10,1'])->name('test');
     });
 
     Route::controller(SettingController::class)->prefix('setting')->name('setting.')->group(function () {

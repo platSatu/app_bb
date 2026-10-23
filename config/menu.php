@@ -307,6 +307,12 @@ return [
                         'active' => 'superadmin.ai.*',
                         'superadmin_only' => true,
                     ],
+                    // Widget tanya-jawab di header bizbos.id (jawaban dari AI + konten Website).
+                    'superadmin.web.live-chat' => [
+                        'label' => 'Live Chat',
+                        'route' => 'superadmin.web.live-chat.edit',
+                        'active' => 'superadmin.web.live-chat.*',
+                    ],
                     // Antrean email/job, job gagal, pembayaran & transfer yang tertahan.
                     'superadmin.monitor' => [
                         'label' => 'Antrean & Tugas',
