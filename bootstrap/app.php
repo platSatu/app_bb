@@ -25,6 +25,35 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // "419 Page Expired" (form/halaman terlalu lama dibiarkan): jangan tampilkan halaman error.
+        // Sesi sudah habis -> ke halaman login; masih login -> kembali ke halaman tadi dengan isian yang sama.
+        // Laravel mengubah TokenMismatchException menjadi HttpException 419 sebelum callback ini dipanggil.
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, \Illuminate\Http\Request $request) {
+            if (! $e->getPrevious() instanceof \Illuminate\Session\TokenMismatchException) {
+                return null;
+            }
+
+            $loggedIn = $request->user() !== null && ! $request->routeIs('logout');
+            $message = $loggedIn
+                ? 'Halaman ini sudah terlalu lama dibuka. Silakan kirim ulang ya.'
+                : 'Sesi Anda sudah berakhir karena terlalu lama tidak aktif. Silakan login kembali.';
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message, 'redirect' => $loggedIn ? null : route('login')], 419);
+            }
+
+            if (! $loggedIn) {
+                if ($request->routeIs('logout')) {
+                    \Illuminate\Support\Facades\Auth::guard('web')->logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+                }
+
+                return redirect()->route('login')->withInput($request->only('email'))->with('warning', $message);
+            }
+
+            return back()->withInput($request->except(['_token', 'password', 'password_confirmation', 'current_password', 'pin']))->with('warning', $message);
+        });
         // API Invoice selalu menjawab JSON dengan bentuk {success, message, errors}.
         $exceptions->render(function (\Illuminate\Validation\ValidationException $e, \Illuminate\Http\Request $request) {
             if ($request->is('api/v1/*')) {

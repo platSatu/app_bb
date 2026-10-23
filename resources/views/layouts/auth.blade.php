@@ -33,6 +33,9 @@
                 @if (session('status') && session('status') !== 'verification-link-sent')
                     <div class="alert alert-success" role="alert">{{ session('status') }}</div>
                 @endif
+                @if (session('warning'))
+                    <div class="alert alert-warning" role="alert">{{ session('warning') }}</div>
+                @endif
 
                 @yield('content')
             </div>
