@@ -76,7 +76,10 @@ Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function
         Route::get('/', 'index')->name('index');
         Route::post('/', 'store')->middleware('throttle:60,1')->name('store');
         Route::post('import', 'import')->middleware('throttle:5,1')->name('import');
+        Route::get('contoh-excel', 'template')->name('template');
         Route::put('{customer}', 'update')->whereUuid('customer')->name('update');
+        Route::delete('{customer}', 'destroy')->whereUuid('customer')->name('destroy');
+        Route::post('{customer}/akun', 'account')->whereUuid('customer')->middleware('throttle:20,1')->name('account');
     });
 
     Route::middleware('permission:whatsapp.groups')->controller(ContactGroupController::class)->prefix('groups')->name('groups.')->group(function () {

@@ -12,13 +12,21 @@
     <div class="card">
         <div class="card-body">
             @unless ($isAdmin)
-                <div class="text-muted small mb-3">
-                    @if ($app === 'pages')
-                        Orang yang membeli tiket, memesan katalog, atau mengikuti kuis di page Anda. Masuk otomatis.
-                    @else
-                        Orang yang Anda tagih lewat Invoice. Tambahkan dari menu Kategori &rsaquo; Customer.
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                    <div class="text-muted small">
+                        @if ($app === 'pages')
+                            Orang yang membeli tiket, memesan katalog, atau mengikuti kuis di page Anda. Masuk otomatis, bisa juga ditambah manual.
+                        @else
+                            Orang yang Anda tagih lewat Invoice. Bisa ditambah di sini atau dari menu Kategori &rsaquo; Customer.
+                        @endif
+                        Customer aplikasi lain tidak ikut tampil di sini.
+                    </div>
+                    @if ($writable->isNotEmpty())
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#customer-import-modal"><i class="ri-file-excel-2-line"></i> Impor Excel</button>
+                            <button type="button" class="btn btn-primary btn-sm" data-customer-new><i class="ri-add-line"></i> Tambah Customer</button>
+                        </div>
                     @endif
-                    Customer aplikasi lain tidak ikut tampil di sini.
                 </div>
             @endunless
 
@@ -89,8 +97,17 @@
                                     @endif
                                 </td>
                                 <td class="text-nowrap small">{{ $customer->last_seen_at->translatedFormat('d M Y H:i') }}</td>
-                                <td class="text-end">
-                                    <a href="{{ route($base.'.show', $customer) }}" class="btn btn-sm rounded-pill btn-outline-secondary"><i class="ri-eye-line"></i> Detail</a>
+                                <td class="text-end text-nowrap">
+                                    <div class="d-inline-flex gap-1 align-items-center">
+                                        <a href="{{ route($base.'.show', $customer) }}" class="btn btn-sm rounded-pill btn-outline-secondary" title="Detail"><i class="ri-eye-line"></i></a>
+                                        @unless ($isAdmin)
+                                            @include('contact.customer._actions', [
+                                                'routes' => $base,
+                                                'hasAccount' => $customer->email && isset($accounts[strtolower($customer->email)]),
+                                                'editData' => ['name' => $customer->name, 'phone' => $customer->phone, 'email' => $customer->email],
+                                            ])
+                                        @endunless
+                                    </div>
                                 </td>
                             </tr>
                         @empty
@@ -115,4 +132,31 @@
             <div class="mt-3">{{ $customers->links() }}</div>
         </div>
     </div>
+
+    @if (! $isAdmin && $writable->isNotEmpty())
+        {{-- Tambah / ubah customer --}}
+        <div class="modal fade" id="customer-modal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form method="POST" action="{{ route($base.'.store') }}" class="modal-content" data-customer-form data-store="{{ route($base.'.store') }}">
+                    @csrf
+                    <input type="hidden" name="_method" value="POST">
+                    <div class="modal-header">
+                        <h5 class="modal-title" data-customer-title>Tambah Customer</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div data-branch-field>@include('contact.customer._branch-field', ['branches' => $writable])</div>
+                        @include('contact.customer._fields')
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                        <button class="btn btn-primary">Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        @include('contact.customer._import-modal', ['action' => route($base.'.import'), 'template' => route($base.'.template'), 'branches' => $writable])
+        @include('contact.customer._modal-script')
+    @endif
 @endsection

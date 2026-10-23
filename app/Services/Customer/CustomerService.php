@@ -5,6 +5,8 @@ namespace App\Services\Customer;
 use App\Models\Customer;
 use App\Models\User;
 use App\Models\UserBranch;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CustomerService
 {
@@ -43,6 +45,31 @@ class CustomerService
         ])->save();
 
         return $customer;
+    }
+
+    /**
+     * Validasi form tambah/ubah customer satu aplikasi. Nomor dirapikan ke 62..., email huruf kecil.
+     * Nomor/email boleh sama dengan customer aplikasi lain, tapi tidak dengan customer lain di aplikasi yang sama.
+     */
+    public static function validate(Request $request, string $branchId, string $app, ?Customer $self = null, array $extra = []): array
+    {
+        $request->merge([
+            'phone' => User::normalizePhone($request->input('phone')) ?: null,
+            'email' => $request->filled('email') ? strtolower(trim($request->input('email'))) : null,
+        ]);
+        $unique = fn () => Rule::unique('customers')->where('branch_id', $branchId)->where('app_key', $app)->ignore($self?->id);
+
+        return $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'phone' => ['nullable', 'required_without:email', 'string', 'min:10', 'max:20', $unique()],
+            'email' => ['nullable', 'required_without:phone', 'email', 'max:255', $unique()],
+            ...$extra,
+        ], [
+            'phone.unique' => 'Nomor WhatsApp ini sudah dipakai customer lain di aplikasi ini.',
+            'email.unique' => 'Email ini sudah dipakai customer lain di aplikasi ini.',
+            'phone.required_without' => 'Isi nomor WhatsApp atau email.',
+            'email.required_without' => 'Isi nomor WhatsApp atau email.',
+        ], ['phone' => 'nomor WhatsApp']);
     }
 
     private function find(UserBranch $branch, string $app, string $column, ?string $value): ?Customer

@@ -6,15 +6,19 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\WhatsApp\Concerns\InWhatsAppArea;
 use App\Models\ContactGroup;
 use App\Models\Customer;
-use App\Models\User;
 use App\Models\UserBranch;
 use App\Services\Contact\ContactBookService;
+use App\Services\Customer\CustomerAccount;
+use App\Services\Customer\CustomerService;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
-/** Phone Book > Customers: customer WhatsApp per branch, bisa tambah, ubah, atur group, dan impor CSV. */
+/** Phone Book > Customers: customer WhatsApp per branch, bisa tambah, ubah, hapus, atur group, impor Excel/CSV, dan dijadikan user. */
 class ContactController extends Controller
 {
     use InWhatsAppArea;
@@ -39,49 +43,82 @@ class ContactController extends Controller
             'branch' => $branch,
             'groups' => $groups,
             'customers' => $customers,
+            'accounts' => CustomerAccount::emailsWithAccount($customers->items()),
         ]);
     }
 
-    public function store(Request $request, ContactBookService $book): RedirectResponse
+    public function store(Request $request, CustomerService $customers): RedirectResponse
     {
         $branch = $this->branchFromInput($request);
         $data = $this->validated($request, $branch);
 
-        $book->addMany($branch, [$data], null, 'manual');
-        Customer::where('branch_id', $branch->id)->forApp('whatsapp')->where('phone', $data['phone'])->firstOrFail()
-            ->groups()->syncWithPivotValues($data['group_ids'] ?? [], ['created_at' => now()]);
+        DB::transaction(function () use ($branch, $data, $customers) {
+            $locked = UserBranch::whereKey($branch->id)->lockForUpdate()->firstOrFail();
+            $customers->resolve($locked, 'whatsapp', $data['name'], $data['phone'], $data['email'], 'manual')
+                ->groups()->syncWithPivotValues($data['group_ids'] ?? [], ['created_at' => now()]);
+        });
 
         return back()->with('success', 'Kontak ditambahkan.');
     }
 
     public function update(Request $request, string $customer): RedirectResponse
     {
-        $model = Customer::whereIn('branch_id', $this->ownerBranches($request)->pluck('id'))->forApp('whatsapp')->findOrFail($customer);
-        $branch = $this->ownerBranches($request)->firstWhere('id', $model->branch_id);
-        $data = $this->validated($request, $branch, $model);
+        $model = $this->owned($request, $customer);
+        $data = $this->validated($request, $this->ownerBranches($request)->firstWhere('id', $model->branch_id), $model);
 
-        $model->forceFill(['name' => $data['name'], 'phone' => $data['phone'], 'email' => $data['email'] ?? null])->save();
+        $model->forceFill(['name' => $data['name'], 'phone' => $data['phone'], 'email' => $data['email']])->save();
         $model->groups()->syncWithPivotValues($data['group_ids'] ?? [], ['created_at' => now()]);
 
         return back()->with('success', 'Kontak diperbarui.');
+    }
+
+    public function destroy(Request $request, string $customer): RedirectResponse
+    {
+        $model = $this->owned($request, $customer);
+        $model->delete();
+
+        return back()->with('success', "{$model->displayName()} dihapus dari Phone Book.");
+    }
+
+    public function account(Request $request, string $customer, CustomerAccount $accounts): RedirectResponse
+    {
+        try {
+            [$user, $created] = $accounts->grant($this->owned($request, $customer));
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with($created ? 'success' : 'info', $created
+            ? "Akun login untuk {$user->email} sudah dibuat. Link untuk membuat password dikirim ke email tersebut."
+            : "{$user->email} sudah punya akun, jadi bisa langsung login.");
     }
 
     public function import(Request $request, ContactBookService $book): RedirectResponse
     {
         $branch = $this->branchFromInput($request);
         $data = $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'],
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:5120'],
             'group_id' => ['nullable', Rule::exists('contact_groups', 'id')->where('branch_id', $branch->id)],
-        ], ['file.mimes' => 'File harus berformat CSV.', 'file.max' => 'Ukuran file maksimal 2 MB.']);
+        ], ['file.mimes' => 'File harus Excel (.xlsx/.xls) atau CSV.', 'file.max' => 'Ukuran file maksimal 5 MB.']);
 
-        [$rows, $valid] = $book->readCsv($request->file('file'));
+        [$rows, $valid] = $book->read($request->file('file'));
         if (! $valid) {
-            return back()->with('error', 'Kolom WhatsApp/email tidak ditemukan. Baris pertama CSV harus berisi judul kolom, mis. nama,whatsapp,email.');
+            return back()->with('error', 'Kolom WhatsApp/email tidak ditemukan. Baris pertama harus berisi judul kolom: nama, whatsapp, email. Pakai file contoh supaya pas.');
         }
 
         $result = $book->addMany($branch, $rows, ! empty($data['group_id']) ? ContactGroup::find($data['group_id']) : null, 'import');
 
         return back()->with('success', "Impor selesai: {$result['saved']} kontak tersimpan".($result['skipped'] ? ", {$result['skipped']} baris dilewati karena tanpa nomor/email." : '.'));
+    }
+
+    public function template(ContactBookService $book): StreamedResponse
+    {
+        return $book->template('contoh-customers-whatsapp.xlsx');
+    }
+
+    private function owned(Request $request, string $id): Customer
+    {
+        return Customer::whereIn('branch_id', $this->ownerBranches($request)->pluck('id'))->forApp('whatsapp')->findOrFail($id);
     }
 
     private function branchFromInput(Request $request): UserBranch
@@ -94,14 +131,9 @@ class ContactController extends Controller
 
     private function validated(Request $request, UserBranch $branch, ?Customer $self = null): array
     {
-        $request->merge(['phone' => User::normalizePhone($request->input('phone')) ?: null, 'email' => $request->filled('email') ? strtolower(trim($request->input('email'))) : null]);
-
-        return $request->validate([
-            'name' => ['required', 'string', 'max:150'],
-            'phone' => ['required', 'string', 'min:10', 'max:20', Rule::unique('customers')->where('branch_id', $branch->id)->where('app_key', 'whatsapp')->ignore($self?->id)],
-            'email' => ['nullable', 'email', 'max:255', Rule::unique('customers')->where('branch_id', $branch->id)->where('app_key', 'whatsapp')->ignore($self?->id)],
+        return CustomerService::validate($request, $branch->id, 'whatsapp', $self, [
             'group_ids' => ['nullable', 'array'],
             'group_ids.*' => [Rule::exists('contact_groups', 'id')->where('branch_id', $branch->id)],
-        ], ['phone.unique' => 'Nomor WhatsApp ini sudah ada di Phone Book.', 'email.unique' => 'Email ini sudah dipakai kontak lain.'], ['phone' => 'nomor WhatsApp']);
+        ]);
     }
 }
