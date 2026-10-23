@@ -74,7 +74,7 @@ class DashboardController extends Controller
         $teacherIds = $this->teachers($user)->modelKeys();
 
         return [
-            'roles' => ['student' => $studentIds !== [], 'teacher' => $teacherIds !== []],
+            'roles' => ['student' => $studentIds !== [], 'teacher' => $teacherIds !== [], 'payer' => $user->portalRoles()['payer']],
             'requests' => SchedulePortalRequest::with('branch:id,name')->where('user_id', $user->getKey())
                 ->where(fn ($q) => $q->where('status', SchedulePortalRequest::STATUS_PENDING)
                     ->orWhere(fn ($r) => $r->where('status', SchedulePortalRequest::STATUS_REJECTED)->where('reviewed_at', '>=', now()->subDays(14))))

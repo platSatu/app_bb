@@ -106,12 +106,14 @@ class User extends Authenticatable
         return $this->hasMany(ScheduleTeacher::class);
     }
 
-    /** Peran selain owner, dibaca dari data: murid/orang tua dan/atau pengajar (bisa lintas perusahaan). */
+    /** Peran selain owner, dibaca dari data: murid/orang tua, pengajar, dan/atau pembayar tagihan (bisa lintas perusahaan). */
     public function portalRoles(): array
     {
         return $this->portalRolesCache ??= [
             'student' => $this->scheduleStudents()->exists(),
             'teacher' => $this->scheduleTeachers()->exists(),
+            // Pembayar: ada tagihan (dari dashboard penagih) yang ditujukan ke email akun ini.
+            'payer' => \App\Services\Invoice\PayerInvoices::has($this),
         ];
     }
 

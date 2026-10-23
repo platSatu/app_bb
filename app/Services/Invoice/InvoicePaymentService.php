@@ -51,6 +51,11 @@ class InvoicePaymentService
                 throw new RuntimeException('Batas waktu pembayaran invoice ini sudah lewat. Silakan minta invoice baru ke penagih.');
             }
 
+            // Sedang dibayar bersama tagihan lain di dashboard Tagihan: jangan sampai terbayar dua kali.
+            if ($group = InvoiceCheckoutService::openCheckoutFor($locked->getKey())) {
+                throw new RuntimeException('Tagihan ini sedang dalam proses pembayaran di menu Tagihan sampai pukul '.$group->expires_at->format('H:i').'. Selesaikan pembayaran di sana ya.');
+            }
+
             $total = $locked->totalDue();
             $setting = InvoiceSetting::current();
 

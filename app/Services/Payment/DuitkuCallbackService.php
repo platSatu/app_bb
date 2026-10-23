@@ -4,12 +4,13 @@ namespace App\Services\Payment;
 
 use App\Models\PaymentCallback;
 use App\Services\Deposit\DepositService;
+use App\Services\Invoice\InvoiceCheckoutService;
 use App\Services\Invoice\InvoicePaymentService;
 use App\Services\Ticket\TicketOrderService;
 
 /**
  * Satu pintu callback Duitku: dicatat, tanda tangan dicek, lalu diteruskan
- * ke pemilik nomor transaksinya berdasarkan awalan (TIX = tiket, INV = invoice, selain itu top up).
+ * ke pemilik nomor transaksinya berdasarkan awalan (TIX = tiket, INV = invoice, TGH = bayar beberapa tagihan sekaligus, selain itu top up).
  */
 class DuitkuCallbackService
 {
@@ -17,6 +18,7 @@ class DuitkuCallbackService
         private readonly DepositService $deposits,
         private readonly TicketOrderService $tickets,
         private readonly InvoicePaymentService $invoices,
+        private readonly InvoiceCheckoutService $checkouts,
     ) {
     }
 
@@ -45,6 +47,7 @@ class DuitkuCallbackService
         return match (true) {
             str_starts_with($orderId, TicketOrderService::PREFIX) => $this->tickets->handleCallback($payload, $log, $client),
             str_starts_with($orderId, InvoicePaymentService::PREFIX) => $this->invoices->handleCallback($payload, $log, $client),
+            str_starts_with($orderId, InvoiceCheckoutService::PREFIX) => $this->checkouts->handleCallback($payload, $log, $client),
             default => $this->deposits->handleCallback($payload, $log, $client),
         };
     }

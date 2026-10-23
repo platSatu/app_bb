@@ -25,7 +25,7 @@
     @if ($owner && ! $hasBranch)
         <div class="alert alert-info d-flex align-items-center gap-2">
             <i class="ri-store-2-line fs-5"></i>
-            <div class="flex-grow-1">{{ $portal['roles']['teacher'] || $portal['roles']['student'] ? 'Mau punya usaha sendiri juga? Buat branch pertama Anda, lalu coba paket gratis.' : 'Mulai dengan membuat branch pertama Anda. Semua aplikasi (jadwal, invoice, WhatsApp) tercatat per branch.' }}</div>
+            <div class="flex-grow-1">{{ $portal['roles']['teacher'] || $portal['roles']['student'] || $portal['roles']['payer'] ? 'Mau punya usaha sendiri juga? Buat branch pertama Anda, lalu coba paket gratis.' : 'Mulai dengan membuat branch pertama Anda. Semua aplikasi (jadwal, invoice, WhatsApp) tercatat per branch.' }}</div>
             <a href="{{ route('settings.branches.index') }}" class="btn btn-sm btn-primary">Buat Branch</a>
         </div>
     @elseif ($owner)
