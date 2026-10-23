@@ -16,6 +16,8 @@ class Invoice extends Model
 
     public const SOURCE_DASHBOARD = 'dashboard';
     public const SOURCE_API = 'api';
+    // Pendaftaran Google Form berbayar (WhatsApp > Third Party > Google Form).
+    public const SOURCE_FORM = 'form';
 
     public const STATUS_UNPAID = 'unpaid';
     public const STATUS_PAID = 'paid';
@@ -39,6 +41,17 @@ class Invoice extends Model
     protected $fillable = [];
 
     protected $hidden = ['token'];
+
+    protected static function booted(): void
+    {
+        // Pendaftaran Google Form lunas: kirim QR registrasi ulang lewat WhatsApp (setelah transaksi selesai).
+        static::updated(function (self $invoice) {
+            if ($invoice->source === self::SOURCE_FORM && $invoice->wasChanged('status') && $invoice->status === self::STATUS_PAID) {
+                $id = $invoice->getKey();
+                dispatch(fn () => app(\App\Services\WhatsApp\FormRelay::class)->paid($id))->afterCommit();
+            }
+        });
+    }
 
     protected function casts(): array
     {
@@ -119,6 +132,15 @@ class Invoice extends Model
     public function isOverdue(): bool
     {
         return $this->isUnpaid() && $this->due_date && $this->due_date->lt(today());
+    }
+
+    public function sourceLabel(): string
+    {
+        return match ($this->source) {
+            self::SOURCE_API => 'API',
+            self::SOURCE_FORM => 'Google Form',
+            default => 'Dashboard',
+        };
     }
 
     public function payUrl(): string

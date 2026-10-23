@@ -132,12 +132,12 @@ return [
                             'whatsapp.wa-groups' => ['label' => 'Group WhatsApp', 'route' => 'whatsapp.wa-groups.index', 'active' => 'whatsapp.wa-groups.*'],
                         ],
                     ],
-                    // Aplikasi lain yang memakai WhatsApp bizbos: API Key per nomor, Google Form, dokumentasi.
+                    // Aplikasi lain yang memakai WhatsApp bizbos: Integrasi Web (API Key + dokumentasi) dan Google Form.
                     'third-party' => [
                         'label' => 'Third Party',
                         'items' => [
-                            'whatsapp.third-party' => ['label' => 'Integrasi', 'route' => 'whatsapp.third-party.index', 'active' => ['whatsapp.third-party.*', 'whatsapp.api-key.*']],
-                            'whatsapp.api-docs' => ['label' => 'Dokumentasi API', 'route' => 'whatsapp.api-docs', 'active' => 'whatsapp.api-docs'],
+                            'whatsapp.third-party' => ['label' => 'Integrasi Web', 'route' => 'whatsapp.third-party.index', 'active' => ['whatsapp.third-party.*', 'whatsapp.api-key.*']],
+                            'whatsapp.google-forms' => ['label' => 'Google Form', 'route' => 'whatsapp.google-forms.index', 'active' => 'whatsapp.google-forms.*'],
                         ],
                     ],
                 ],

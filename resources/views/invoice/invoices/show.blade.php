@@ -26,7 +26,7 @@
                     <dl class="row small mb-0">
                         <dt class="col-5">Customer</dt><dd class="col-7">{{ $invoice->customer_name }}<div class="text-muted">{{ $invoice->customer_email }} {{ $invoice->customer_phone ? '+'.$invoice->customer_phone : '' }}</div></dd>
                         @if ($isAdmin) <dt class="col-5">Perusahaan</dt><dd class="col-7">{{ $invoice->branch?->company?->name }} · {{ $invoice->branch?->name }}</dd> @endif
-                        <dt class="col-5">Sumber</dt><dd class="col-7">{{ $invoice->source === 'api' ? 'API' : 'Dashboard' }}{{ $invoice->external_id ? ' · '.$invoice->external_id : '' }}</dd>
+                        <dt class="col-5">Sumber</dt><dd class="col-7">{{ $invoice->sourceLabel() }}{{ $invoice->external_id ? ' · '.$invoice->external_id : '' }}</dd>
                         @if ($invoice->batch) <dt class="col-5">Periode</dt><dd class="col-7"><a href="{{ $isAdmin ? '#' : route('invoices.batches.show', $invoice->batch) }}">{{ $invoice->batch->name }}</a></dd> @endif
                         <dt class="col-5">Tagihan</dt><dd class="col-7">{{ $rp($invoice->amount) }}</dd>
                         <dt class="col-5">Denda</dt><dd class="col-7">{{ $rp($invoice->currentLateFee()) }}{{ $invoice->isUnpaid() && $invoice->apply_late_fee ? ' (per hari ini)' : '' }}</dd>

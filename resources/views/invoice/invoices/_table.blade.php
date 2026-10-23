@@ -17,7 +17,7 @@
                 <tr>
                     <td class="text-nowrap">
                         <div class="fw-semibold">{{ $item->number }}</div>
-                        <span class="badge bg-light text-dark border">{{ $item->source === 'api' ? 'API' : 'Dashboard' }}</span>
+                        <span class="badge bg-light text-dark border">{{ $item->sourceLabel() }}</span>
                         @if ($isAdmin) <div class="text-muted small">{{ $item->branch?->company?->name }} · {{ $item->branch?->name }}</div> @endif
                     </td>
                     <td>

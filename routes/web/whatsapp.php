@@ -9,6 +9,8 @@ use App\Http\Controllers\WhatsApp\ChatDetailController;
 use App\Http\Controllers\WhatsApp\ContactController;
 use App\Http\Controllers\WhatsApp\ContactGroupController;
 use App\Http\Controllers\WhatsApp\DeviceController;
+use App\Http\Controllers\WhatsApp\FormCheckinController;
+use App\Http\Controllers\WhatsApp\GoogleFormController;
 use App\Http\Controllers\WhatsApp\InboxController;
 use App\Http\Controllers\WhatsApp\LabelController;
 use App\Http\Controllers\WhatsApp\QuickReplyController;
@@ -83,18 +85,22 @@ Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function
         Route::post('{customer}/akun', 'account')->whereUuid('customer')->middleware('throttle:20,1')->name('account');
     });
 
-    // Third Party: API Key per nomor, Google Form, dan dokumentasi API.
-    Route::middleware('permission:whatsapp.third-party')->controller(ThirdPartyController::class)->prefix('third-party')->name('third-party.')->group(function () {
+    // Third Party > Integrasi Web: API Key per nomor + dokumentasi (tab).
+    Route::get('third-party', [ThirdPartyController::class, 'index'])->middleware('permission:whatsapp.third-party')->name('third-party.index');
+
+    // Third Party > Google Form: daftar, pengaturan, laporan & export.
+    Route::middleware('permission:whatsapp.google-forms')->controller(GoogleFormController::class)->prefix('google-form')->name('google-forms.')->group(function () {
         Route::get('/', 'index')->name('index');
-        Route::get('google-form/create', 'create')->name('forms.create');
-        Route::post('google-form', 'store')->middleware('throttle:20,1')->name('forms.store');
-        Route::get('google-form/{form}', 'show')->whereUuid('form')->name('forms.show');
-        Route::get('google-form/{form}/edit', 'edit')->whereUuid('form')->name('forms.edit');
-        Route::put('google-form/{form}', 'update')->whereUuid('form')->name('forms.update');
-        Route::delete('google-form/{form}', 'destroy')->whereUuid('form')->name('forms.destroy');
-        Route::post('google-form/{form}/regenerate', 'regenerate')->whereUuid('form')->middleware('throttle:10,1')->name('forms.regenerate');
+        Route::get('create', 'create')->name('create');
+        Route::post('/', 'store')->middleware('throttle:20,1')->name('store');
+        Route::get('{form}', 'show')->whereUuid('form')->name('show');
+        Route::get('{form}/edit', 'edit')->whereUuid('form')->name('edit');
+        Route::put('{form}', 'update')->whereUuid('form')->name('update');
+        Route::delete('{form}', 'destroy')->whereUuid('form')->name('destroy');
+        Route::post('{form}/regenerate', 'regenerate')->whereUuid('form')->middleware('throttle:10,1')->name('regenerate');
+        Route::get('{form}/export', 'export')->whereUuid('form')->middleware('throttle:10,1')->name('export');
+        Route::post('{form}/pendaftar/{submission}/kirim-qr', 'resend')->whereUuid(['form', 'submission'])->middleware('throttle:20,1')->name('resend');
     });
-    Route::get('api-docs', [ThirdPartyController::class, 'docs'])->middleware('permission:whatsapp.api-docs')->name('api-docs');
 
     Route::middleware('permission:whatsapp.groups')->controller(ContactGroupController::class)->prefix('groups')->name('groups.')->group(function () {
         Route::get('/', 'index')->name('index');
@@ -175,3 +181,12 @@ Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function
 
 // Dokumentasi API WhatsApp versi publik: link aman dibagikan ke developer (tanpa data akun).
 Route::get('docs/api-whatsapp', [ThirdPartyController::class, 'publicDocs'])->middleware('throttle:60,1')->name('docs.whatsapp-api');
+
+// Google Form: QR pendaftar dan aplikasi registrasi ulang petugas (tanpa login, kunci = kode/token + PIN).
+Route::get('r/{code}', [FormCheckinController::class, 'ticket'])->where('code', '[A-Za-z0-9]{10}')->middleware('throttle:60,1')->name('form-ticket.show');
+Route::controller(FormCheckinController::class)->prefix('registrasi-ulang/{token}')->where(['token' => '[A-Za-z0-9]{48}'])->name('form-checkin.')->group(function () {
+    Route::get('/', 'show')->middleware('throttle:60,1')->name('show');
+    Route::post('login', 'login')->middleware('throttle:20,1')->name('login');
+    Route::post('logout', 'logout')->name('logout');
+    Route::post('check', 'check')->middleware('throttle:120,1')->name('check');
+});

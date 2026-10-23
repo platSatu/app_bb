@@ -11,8 +11,8 @@ dari pembatasan WhatsApp. Anda tidak perlu mengatur jeda sendiri.
 
 ## 1. Persiapan
 
-1. Login bizbos, buka **WhatsApp › Third Party › Integrasi**.
-2. Di bagian **API Key per Nomor**, klik **Buat API Key** pada nomor WhatsApp yang akan dipakai mengirim.
+1. Login bizbos, buka **WhatsApp › Third Party › Integrasi Web**.
+2. Di tab **API Key per Nomor**, klik **Buat API Key** pada nomor WhatsApp yang akan dipakai mengirim.
 3. Anda mendapat dua kunci:
    - **API Key** (`wa_live_...`): boleh terlihat, dikirim di header.
    - **Secret Key** (`wsk_...`): rahasia, untuk tanda tangan request. **Hanya ditampilkan sekali.**
@@ -183,7 +183,7 @@ Status yang mungkin: `queued` (menunggu giliran), `sent` (terkirim ke WhatsApp),
 |---|---|---|
 | 202 | Pesan diterima & masuk antrean | Simpan `data.outbox_id` |
 | 401 | Header kurang, signature salah, atau timestamp lewat 5 menit | Cek Secret Key, path, body, dan jam server |
-| 403 | API dinonaktifkan pemilik, atau paket WhatsApp habis | Aktifkan di menu Third Party / perpanjang paket |
+| 403 | API dinonaktifkan pemilik, atau paket WhatsApp habis | Aktifkan di menu Integrasi Web / perpanjang paket |
 | 422 | Data tidak valid (mis. nomor salah) | Baca `message` dan `errors` |
 | 429 | Terlalu banyak request | Tunggu sesuai pesan, lalu ulangi |
 | 502 / 503 | Layanan WhatsApp sedang tidak bisa dihubungi | Ulangi beberapa saat lagi dengan `ref` yang sama |
@@ -195,12 +195,14 @@ Semua jawaban berbentuk JSON: `{"success": false, "message": "..."}`.
 Kalau Anda hanya ingin **membalas otomatis orang yang mengisi Google Form** (mis. konfirmasi pendaftaran),
 tidak perlu menulis kode sama sekali:
 
-1. Buka **WhatsApp › Third Party › Integrasi**, klik **Hubungkan Google Form**.
+1. Buka **WhatsApp › Third Party › Google Form**, klik **Hubungkan Google Form**.
 2. Pilih nomor pengirim, isi judul pertanyaan yang berisi nomor WhatsApp, dan tulis pesannya.
    Jawaban form bisa dipakai di pesan dengan `{{Judul Pertanyaan}}`, mis. `Halo {{Nama Lengkap}}!`.
 3. Salin script yang disediakan ke Google Form (**Extensions › Apps Script**), lalu pasang trigger **On form submit**.
 
-Setiap form yang masuk tercatat di halaman integrasinya, lengkap dengan status terkirim atau alasan gagalnya.
+Bisa juga mengaktifkan **pembayaran** (pendaftar menerima link bayar) dan **registrasi ulang** (pendaftar menerima QR,
+petugas memindainya lewat aplikasi registrasi ulang). Laporan pendaftar, pesan terkirim, pembayaran, dan kehadiran
+bisa diunduh ke Excel.
 
 ## 7. Keamanan
 

@@ -5,7 +5,7 @@
 
 @section('content')
     <div class="mb-3">
-        <a href="{{ route('whatsapp.third-party.index', ['branch' => $device->branch_id]) }}" class="small"><i class="ri-arrow-left-line"></i> Kembali ke Third Party</a>
+        <a href="{{ route('whatsapp.third-party.index', ['branch' => $device->branch_id]) }}" class="small"><i class="ri-arrow-left-line"></i> Kembali ke Integrasi Web</a>
     </div>
 
     @if ($secret = session('secret'))
@@ -77,7 +77,7 @@
                             <li><code>GET /api/v1/wa/messages/{id}</code> &rarr; status: queued, sent, failed, skipped</li>
                         </ul>
                         <p class="text-muted mb-2">Path dihitung dari <code>/api/...</code>. <code>ref</code> opsional; ref yang sama tidak akan dikirim dua kali. Maksimal 20 pesan per menit supaya nomor aman dari pembatasan WhatsApp.</p>
-                        <a href="{{ route('whatsapp.api-docs') }}" class="btn btn-sm btn-outline-primary"><i class="ri-book-open-line"></i> Dokumentasi lengkap &amp; contoh kode</a>
+                        <a href="{{ route('whatsapp.third-party.index', ['branch' => $device->branch_id, 'tab' => 'docs']) }}" class="btn btn-sm btn-outline-primary"><i class="ri-book-open-line"></i> Dokumentasi lengkap &amp; contoh kode</a>
                     </div>
                 </div>
             </div>

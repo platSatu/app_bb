@@ -138,6 +138,18 @@ class InvoiceService
         });
     }
 
+    /** Tagihan pendaftaran Google Form (satu per pendaftar). Lunas -> QR registrasi ulang dikirim lewat WhatsApp. */
+    public function createForForm(UserBranch $branch, string $description, string $name, string $phone, int $amount): Invoice
+    {
+        return $this->newInvoice($branch, 'REG', [
+            'source' => Invoice::SOURCE_FORM,
+            'description' => Str::limit($description, 250, ''),
+            'customer_name' => Str::limit($name, 150, ''),
+            'customer_phone' => $phone,
+            'amount' => $amount,
+        ]);
+    }
+
     public function cancel(Invoice $invoice, string $reason): void
     {
         $cancelled = DB::transaction(function () use ($invoice, $reason) {
