@@ -29,10 +29,10 @@ class AppAccess
         return self::PERMISSION_APPS[$permission] ?? null;
     }
 
-    /** Subquery id branch yang layanan $app-nya masih aktif. */
+    /** Subquery id branch yang layanan $app-nya masih aktif ('any' = layanan apa saja). */
     public static function activeBranches(string $app): Builder
     {
-        return BranchSubscription::query()->select('branch_id')->where('app_key', $app)->where('ends_at', '>', now());
+        return BranchSubscription::query()->select('branch_id')->when($app !== \App\Support\Apps::ANY, fn ($q) => $q->where('app_key', $app))->where('ends_at', '>', now());
     }
 
     public function branchActive(?string $branchId, string $app): bool

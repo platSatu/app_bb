@@ -234,3 +234,14 @@ it('menu Tagihan Saya muncul untuk pembayar', function () {
 
     $this->actingAs(parent())->get(route('dashboard'))->assertOk()->assertSee('Tagihan Saya')->assertSee('Mau punya usaha sendiri juga?');
 });
+
+it('menu Kontak hanya untuk akun yang punya aplikasi aktif, tidak untuk pembayar saja', function () {
+    $sd = billBranch();
+    bill($sd, sppCategory($sd), 'ortu@mail.test', 'SPP Januari', 500000, now()->subDays(3)->toDateString());
+
+    $this->actingAs(parent())->get(route('dashboard'))->assertOk()->assertDontSee('Buku Kontak');
+    $this->get(route('contacts.index'))->assertRedirect(route('profile.packages'));
+
+    $this->actingAs($sd->user)->get(route('dashboard'))->assertOk()->assertSee('Buku Kontak');
+    $this->get(route('contacts.index'))->assertOk();
+});

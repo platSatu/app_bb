@@ -125,8 +125,11 @@ return [
                     ],
                 ],
             ],
+            // Buku Kontak dipakai bersama semua aplikasi: tampil kalau minimal satu aplikasi aktif
+            // (akun yang hanya murid/pengajar/pembayar tidak melihatnya).
             'contacts' => [
                 'label' => 'Kontak',
+                'app' => 'any',
                 'icon' => 'ri-contacts-book-line',
                 'items' => [
                     'contacts.list' => [

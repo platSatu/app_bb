@@ -8,6 +8,9 @@ namespace App\Support;
  */
 class Apps
 {
+    /** Dipakai menu bersama (mis. Kontak): terbuka kalau layanan apa pun aktif. */
+    public const ANY = 'any';
+
     public const LIST = [
         'pages' => ['label' => 'Pages', 'hint' => 'Tiket, katalog, kuis, landing & biolink', 'icon' => 'ri-pages-line'],
         'schedules' => ['label' => 'Jadwal', 'hint' => 'Jadwal, absensi & portal murid/pengajar', 'icon' => 'ri-calendar-2-line'],
@@ -22,6 +25,6 @@ class Apps
 
     public static function label(string $key): string
     {
-        return self::LIST[$key]['label'] ?? $key;
+        return $key === self::ANY ? 'aplikasi' : (self::LIST[$key]['label'] ?? $key);
     }
 }
