@@ -35,6 +35,8 @@ return [
             'ticket-design' => ['Desain E-ticket', 'ri-palette-line', 'ticket.design.edit'],
             'ticket-terms' => ['Syarat & Ketentuan', 'ri-file-shield-2-line', 'ticket.terms.edit'],
             'ticket-scanners' => ['Registrasi Ulang', 'ri-qr-scan-2-line', 'ticket.scanners.index'],
+            'ticket-cards' => ['ID Card', 'ri-id-card-line', 'ticket.cards.index'],
+            'ticket-sessions' => ['Sesi & Absensi', 'ri-calendar-check-line', 'ticket.sessions.index'],
             'ticket-reports' => ['Laporan', 'ri-file-chart-line', 'ticket.reports.index'],
         ],
         'quick' => ['Pesanan', 'ri-coupon-3-line', 'ticket.orders.index', 'ticket_orders_count'],

@@ -19,8 +19,12 @@ use App\Services\Page\PageSubmissionService;
 use App\Services\Payment\DuitkuClient;
 use App\Services\Wallet\SettlementCalendar;
 use App\Services\Wallet\WalletService;
+use Illuminate\Database\DetectsConcurrencyErrors;
+use Illuminate\Database\QueryException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
@@ -29,12 +33,17 @@ use Throwable;
 /**
  * Alur uang tiket: checkout (kuota DITAHAN) -> Duitku -> callback lunas
  * (tahanan jadi terjual, e-ticket dibuat, saldo owner bertambah, email dikirim).
- * Lewat batas bayar = tahanan dilepas. Semua perubahan kuota memakai lockForUpdate.
+ * Lewat batas bayar = tahanan dilepas. Kuota hanya berubah lewat UPDATE bersyarat / lockForUpdate,
+ * jadi aman walau ribuan checkout terjadi bersamaan (war ticket).
  */
 class TicketOrderService
 {
+    use DetectsConcurrencyErrors;
+
     public const PREFIX = 'TIX';
     private const EXPIRY_GRACE_MINUTES = 10;
+    private const TRANSACTION_ATTEMPTS = 3;
+    private const LOCK_WAIT_SECONDS = 5;
 
     public function __construct(
         private readonly WalletService $wallets,
@@ -56,78 +65,20 @@ class TicketOrderService
             throw ValidationException::withMessages(['tickets' => 'Pilih minimal 1 tiket dulu ya.']);
         }
 
-        $order = DB::transaction(function () use ($page, $quantities, $buyer, $answers, $ip, $userAgent) {
-            $branch = UserBranch::whereKey($page->branch_id)->lockForUpdate()->firstOrFail();
-            $categories = TicketCategory::where('page_id', $page->getKey())->whereKey(array_keys($quantities))->lockForUpdate()->get()->keyBy('id');
-            $errors = [];
+        // Tolak cepat TANPA kunci: saat war ticket, pembeli yang datang setelah tiket habis
+        // langsung dapat jawaban, tidak ikut mengantre kunci database.
+        $this->assertAvailable(TicketCategory::where('page_id', $page->getKey())->whereKey(array_keys($quantities))->get()->keyBy('id'), $quantities);
 
-            foreach ($quantities as $id => $qty) {
-                $category = $categories->get($id);
+        $this->tuneConnection(true);
 
-                $errors[] = match (true) {
-                    ! $category => 'Ada kategori tiket yang sudah tidak tersedia, silakan muat ulang halaman.',
-                    (bool) $category->unavailableReason() => "Tiket {$category->name}: {$category->unavailableReason()}.",
-                    $qty > $category->max_per_order => "Tiket {$category->name} maksimal {$category->max_per_order} per pembelian.",
-                    $qty > $category->remaining() => "Tiket {$category->name} tinggal {$category->remaining()}.",
-                    default => null,
-                };
-            }
-
-            if ($errors = array_filter($errors)) {
-                throw ValidationException::withMessages(['tickets' => array_values($errors)]);
-            }
-
-            $customer = $this->customers->resolve($branch, $buyer['name'], $buyer['phone'], $buyer['email'], 'Tiket: '.Str::limit($page->name, 200, ''));
-            $total = array_sum(array_map(fn ($id, $qty) => $qty * $categories[$id]->price, array_keys($quantities), $quantities));
-
-            // Tiket gratis: 1 orang (email/WA yang sama = customer yang sama) cukup sekali per page, supaya tidak diborong.
-            if ($total === 0 && TicketOrder::where('page_id', $page->getKey())->where('customer_id', $customer->getKey())
-                ->where('total', 0)->whereIn('status', [TicketOrder::STATUS_PENDING, TicketOrder::STATUS_PAID])->exists()) {
-                throw ValidationException::withMessages(['tickets' => 'Email atau nomor WhatsApp ini sudah pernah mendaftar tiket gratis di acara ini.']);
-            }
-
-            $order = new TicketOrder();
-            $order->forceFill([
-                'page_id' => $page->getKey(),
-                'company_id' => $branch->company_id,
-                'customer_id' => $customer->getKey(),
-                'reference' => $this->uniqueValue(TicketOrder::class, 'reference', fn () => self::PREFIX.now()->format('ymd').Str::upper(Str::random(6))),
-                'access_token' => Str::random(48),
-                'name' => $buyer['name'],
-                'email' => $buyer['email'],
-                'phone' => $buyer['phone'],
-                'total' => $total,
-                'status' => TicketOrder::STATUS_PENDING,
-                'expires_at' => now()->addMinutes(PaymentGatewaySetting::duitku()->expiry_minutes),
-                // Checkout sudah menolak pesanan tanpa centang S&K, jadi di sini cukup dicatat waktunya.
-                'terms_accepted_at' => filled($page->setting('ticket.terms')) ? now() : null,
-                'ip_address' => $ip,
-                'user_agent' => Str::limit((string) $userAgent, 250, ''),
-            ])->save();
-
-            foreach ($quantities as $id => $qty) {
-                $category = $categories[$id];
-                $before = TicketStockLog::snapshot($category);
-                $category->forceFill(['reserved' => $category->reserved + $qty])->save();
-                TicketStockLog::record($category, $before, TicketStockLog::ACTION_RESERVE, $order->getKey());
-
-                $item = new TicketOrderItem();
-                $item->forceFill([
-                    'order_id' => $order->getKey(),
-                    'category_id' => $id,
-                    'name' => $category->name,
-                    'price' => $category->price,
-                    'quantity' => $qty,
-                    'subtotal' => $category->price * $qty,
-                ])->save();
-            }
-
-            if ($page->fields->isNotEmpty()) {
-                $order->forceFill(['submission_id' => $this->submissions->submit($page, $customer, $answers, $ip, $userAgent)->getKey()])->save();
-            }
-
-            return $order;
-        });
+        try {
+            $order = $this->withRetry(fn () => DB::transaction(
+                fn () => $this->reserve($page, $quantities, $buyer, $answers, $ip, $userAgent),
+                self::TRANSACTION_ATTEMPTS,
+            ));
+        } finally {
+            $this->tuneConnection(false);
+        }
 
         if ($order->total === 0) {
             $this->markPaid($order, 'free', null);
@@ -252,6 +203,187 @@ class TicketOrderService
 
             return false;
         }
+    }
+
+    /**
+     * Buat pesanan + tahan kuota dalam 1 transaksi.
+     * Urutan sengaja: data pembeli & pesanan disiapkan dulu, kuota dipotong PALING AKHIR dengan 1 UPDATE
+     * bersyarat (sisa >= jumlah). Baris kategori hanya terkunci beberapa milidetik sampai commit,
+     * jadi ribuan checkout bersamaan tetap antre cepat dan kuota mustahil terjual lebih.
+     */
+    private function reserve(PageCategory $page, array $quantities, array $buyer, array $answers, ?string $ip, ?string $userAgent): TicketOrder
+    {
+        // Tidak mengunci baris branch: kontak kembar sudah dicegah unique index (branch_id + phone/email),
+        // tabrakan langka ditangani withRetry().
+        $branch = UserBranch::whereKey($page->branch_id)->firstOrFail();
+        $categories = TicketCategory::where('page_id', $page->getKey())->whereKey(array_keys($quantities))->get()->keyBy('id');
+        $this->assertAvailable($categories, $quantities);
+
+        $customer = $this->customers->resolve($branch, $buyer['name'], $buyer['phone'], $buyer['email'], 'Tiket: '.Str::limit($page->name, 200, ''));
+        $total = array_sum(array_map(fn ($id, $qty) => $qty * $categories[$id]->price, array_keys($quantities), $quantities));
+
+        // Tiket gratis: 1 orang (email/WA yang sama = customer yang sama) cukup sekali per page, supaya tidak diborong.
+        // Baris customer sudah terkunci oleh resolve(), jadi 2 klik bersamaan dari orang yang sama antre di sini,
+        // dan (READ COMMITTED) yang kedua melihat pesanan yang pertama.
+        if ($total === 0 && TicketOrder::where('page_id', $page->getKey())->where('customer_id', $customer->getKey())
+            ->where('total', 0)->whereIn('status', [TicketOrder::STATUS_PENDING, TicketOrder::STATUS_PAID])->exists()) {
+            throw ValidationException::withMessages(['tickets' => 'Email atau nomor WhatsApp ini sudah pernah mendaftar tiket gratis di acara ini.']);
+        }
+
+        $order = new TicketOrder();
+        $order->forceFill([
+            'page_id' => $page->getKey(),
+            'company_id' => $branch->company_id,
+            'customer_id' => $customer->getKey(),
+            'reference' => $this->uniqueValue(TicketOrder::class, 'reference', fn () => self::PREFIX.now()->format('ymd').Str::upper(Str::random(6))),
+            'access_token' => Str::random(48),
+            'name' => $buyer['name'],
+            'email' => $buyer['email'],
+            'phone' => $buyer['phone'],
+            'total' => $total,
+            'status' => TicketOrder::STATUS_PENDING,
+            'expires_at' => now()->addMinutes(PaymentGatewaySetting::duitku()->expiry_minutes),
+            // Checkout sudah menolak pesanan tanpa centang S&K, jadi di sini cukup dicatat waktunya.
+            'terms_accepted_at' => filled($page->setting('ticket.terms')) ? now() : null,
+            'ip_address' => $ip,
+            'user_agent' => Str::limit((string) $userAgent, 250, ''),
+        ])->save();
+
+        foreach ($quantities as $id => $qty) {
+            $category = $categories[$id];
+            $item = new TicketOrderItem();
+            $item->forceFill([
+                'order_id' => $order->getKey(),
+                'category_id' => $id,
+                'name' => $category->name,
+                'price' => $category->price,
+                'quantity' => $qty,
+                'subtotal' => $category->price * $qty,
+            ])->save();
+        }
+
+        $submission = $page->fields->isNotEmpty() ? $this->submissions->submit($page, $customer, $answers, $ip, $userAgent) : null;
+
+        if ($submission) {
+            $order->forceFill(['submission_id' => $submission->getKey()])->save();
+        }
+
+        try {
+            // Urut id: 2 pesanan berisi kategori yang sama selalu mengunci dengan urutan sama (tidak deadlock).
+            $ids = array_keys($quantities);
+            sort($ids);
+
+            foreach ($ids as $id) {
+                $this->holdQuota($categories[$id], $quantities[$id], $order);
+            }
+        } catch (Throwable $e) {
+            // File Form Pembeli sudah tersimpan di disk; transaksi dibatalkan, jadi file-nya ikut dibuang.
+            if ($submission) {
+                Storage::disk(PageSubmissionService::DISK)->deleteDirectory(PageSubmissionService::directory($page).'/'.$submission->getKey());
+            }
+
+            throw $e;
+        }
+
+        return $order;
+    }
+
+    /**
+     * Potong kuota secara atomik. Harga & jadwal jual ikut dicek di UPDATE yang sama,
+     * jadi pesanan tidak bisa lolos dengan harga lama atau setelah penjualan ditutup.
+     */
+    private function holdQuota(TicketCategory $category, int $qty, TicketOrder $order): void
+    {
+        $now = now();
+        $held = TicketCategory::whereKey($category->getKey())
+            ->where('status', TicketCategory::STATUS_ACTIVE)
+            ->where('price', $category->price)
+            ->where(fn ($q) => $q->whereNull('sale_starts_at')->orWhere('sale_starts_at', '<=', $now))
+            ->where(fn ($q) => $q->whereNull('sale_ends_at')->orWhere('sale_ends_at', '>=', $now))
+            ->whereRaw('quota - sold - reserved >= ?', [$qty])
+            ->update(['reserved' => DB::raw('reserved + '.(int) $qty), 'updated_at' => $now]);
+
+        // Baca ulang dengan kunci (kita sudah memegang kuncinya kalau berhasil), untuk riwayat stok / alasan gagal.
+        $fresh = TicketCategory::whereKey($category->getKey())->lockForUpdate()->firstOrFail();
+
+        if ($held !== 1) {
+            $reason = $fresh->unavailableReason();
+
+            throw ValidationException::withMessages(['tickets' => match (true) {
+                (bool) $reason => "Tiket {$fresh->name}: {$reason}.",
+                $fresh->price !== $category->price => "Harga tiket {$fresh->name} baru saja berubah. Silakan muat ulang halaman ya.",
+                default => "Yah, tiket {$fresh->name} baru saja diambil pembeli lain dan tinggal {$fresh->remaining()}. Coba kurangi jumlahnya ya.",
+            }]);
+        }
+
+        $before = TicketStockLog::snapshot($fresh);
+        $before['reserved'] -= $qty;
+        TicketStockLog::record($fresh, $before, TicketStockLog::ACTION_RESERVE, $order->getKey());
+    }
+
+    /** @param  \Illuminate\Support\Collection<string, TicketCategory>  $categories */
+    private function assertAvailable($categories, array $quantities): void
+    {
+        $errors = [];
+
+        foreach ($quantities as $id => $qty) {
+            $category = $categories->get($id);
+
+            $errors[] = match (true) {
+                ! $category => 'Ada kategori tiket yang sudah tidak tersedia, silakan muat ulang halaman.',
+                (bool) $category->unavailableReason() => "Tiket {$category->name}: {$category->unavailableReason()}.",
+                $qty > $category->max_per_order => "Tiket {$category->name} maksimal {$category->max_per_order} per pembelian.",
+                $qty > $category->remaining() => "Tiket {$category->name} tinggal {$category->remaining()}.",
+                default => null,
+            };
+        }
+
+        if ($errors = array_filter($errors)) {
+            throw ValidationException::withMessages(['tickets' => array_values($errors)]);
+        }
+    }
+
+    /**
+     * Deadlock / antre kunci terlalu lama dicoba ulang oleh DB::transaction. Kontak kembar
+     * (2 checkout pertama dari orang yang sama di detik yang sama) dicoba ulang di sini:
+     * percobaan berikutnya akan menemukan kontak yang sudah tersimpan.
+     */
+    private function withRetry(callable $callback): TicketOrder
+    {
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                return $callback();
+            } catch (UniqueConstraintViolationException $e) {
+                if ($attempt >= self::TRANSACTION_ATTEMPTS) {
+                    throw $this->busy($e);
+                }
+            } catch (QueryException $e) {
+                throw $this->causedByConcurrencyError($e) ? $this->busy($e) : $e;
+            }
+        }
+    }
+
+    private function busy(Throwable $e): RuntimeException
+    {
+        report($e);
+
+        return new RuntimeException('Wah, sedang banyak sekali yang membeli bersamaan. Tiket Anda belum tertahan, silakan tekan tombol beli sekali lagi ya.');
+    }
+
+    /**
+     * MySQL, khusus selama checkout:
+     * - tidak menunggu kunci sampai 50 detik (default); lebih baik cepat gagal lalu dicoba ulang,
+     * - READ COMMITTED: tanpa gap lock (sumber deadlock saat ribuan insert bersamaan) dan
+     *   setiap baca melihat data terbaru yang sudah di-commit.
+     */
+    private function tuneConnection(bool $checkout): void
+    {
+        if (! in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
+        DB::statement('SET SESSION innodb_lock_wait_timeout = '.($checkout ? self::LOCK_WAIT_SECONDS : 'DEFAULT'));
+        DB::statement('SET SESSION TRANSACTION ISOLATION LEVEL '.($checkout ? 'READ COMMITTED' : 'REPEATABLE READ'));
     }
 
     /** Satu-satunya jalur order -> lunas: tiket dibuat & saldo owner dikreditkan sekali saja. */

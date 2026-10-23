@@ -8,7 +8,7 @@ use App\Models\TicketScanner;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Registrasi ulang. QR berisi token 48 karakter -> langsung hadir.
+ * Registrasi ulang. QR e-ticket / QR ID card (48 karakter) -> langsung hadir.
  * Kode booking / no. tiket (diketik manual) -> petugas mencocokkan nama dulu, baru konfirmasi.
  */
 class TicketCheckinService
@@ -31,8 +31,11 @@ class TicketCheckinService
 
         return DB::transaction(function () use ($page, $scanner, $code, $column, $byQr, $confirmed) {
             // Dikunci: dua petugas yang scan tiket yang sama bersamaan, hanya satu yang berhasil.
+            // QR bisa dari e-ticket atau dari ID card; dua-duanya milik tiket yang sama.
             $ticket = Ticket::where('page_id', $page->getKey())
-                ->where($column, $column === 'number' ? strtoupper($code) : $code)
+                ->when($byQr,
+                    fn ($q) => $q->where(fn ($w) => $w->where('token', $code)->orWhere('card_token', $code)),
+                    fn ($q) => $q->where($column, $column === 'number' ? strtoupper($code) : $code))
                 ->with('scanner:id,name')
                 ->lockForUpdate()
                 ->first();
@@ -83,6 +86,7 @@ class TicketCheckinService
             'category' => $ticket->category_name,
             'booking_code' => $ticket->booking_code,
             'number' => $ticket->number,
+            'has_card' => $ticket->hasCard(),
         ];
     }
 }

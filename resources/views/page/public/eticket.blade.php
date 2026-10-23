@@ -23,6 +23,16 @@
         'used' => $ticket->isCheckedIn(),
     ])
 
+    @if (\App\Services\Ticket\TicketCardService::enabled($page))
+        <div class="alert {{ $ticket->hasCard() ? 'alert-success' : 'alert-info' }} text-center mt-3 mx-auto" style="max-width: 880px;">
+            @if ($ticket->hasCard())
+                <i class="ri-id-card-line me-1"></i>E-ticket ini sudah ditukar jadi ID card. Untuk absen di setiap kelas, pakai QR di ID card ya.
+            @else
+                <i class="ri-id-card-line me-1"></i>Sesampainya di lokasi, tukarkan e-ticket ini jadi ID card di kiosk. Cukup scan QR di atas, kartunya langsung tercetak.
+            @endif
+        </div>
+    @endif
+
     @if ($ticket->isCheckedIn())
         <div class="alert alert-success text-center mt-3 mx-auto" style="max-width: 880px;">Tiket ini sudah dipakai untuk registrasi ulang pada {{ $ticket->checked_in_at->translatedFormat('d M Y H:i') }}.</div>
     @endif

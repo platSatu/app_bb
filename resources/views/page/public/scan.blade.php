@@ -6,6 +6,10 @@
 @push('head')
     <meta name="referrer" content="no-referrer">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- Warna halaman mengikuti warna tiket, supaya serasi dengan e-ticket & ID card. --}}
+    @if ($page->setting('ticket.color'))
+        <style>:root:root { --brand: {{ $page->setting('ticket.color') }}; }</style>
+    @endif
     <style>
         .scan-card { border: 0; border-radius: 1rem; }
         .scan-input-wrap { position: relative; }
@@ -44,7 +48,7 @@
             <div class="card scan-card shadow-sm mb-4">
                 <div class="card-body p-4">
                     <h2 class="h6 fw-semibold mb-1">Registrasi Ulang</h2>
-                    <p class="small text-muted mb-3">Arahkan scanner ke QR e-ticket, atau ketik kode booking 6 angka lalu tekan Enter.</p>
+                    <p class="small text-muted mb-3">Arahkan scanner ke QR e-ticket atau QR ID card, atau ketik kode booking 6 angka lalu tekan Enter.</p>
                     <form id="scan-form" autocomplete="off">
                         <div class="scan-input-wrap">
                             <i class="ri-qr-code-line"></i>
@@ -60,6 +64,16 @@
                     <div id="result-message" class="fs-4 fw-bold mt-2"></div>
                     <div id="result-detail" class="mt-2"></div>
                     <button type="button" id="confirm-button" class="btn btn-success btn-lg px-5 mt-4 d-none"><i class="ri-check-line me-1"></i>Konfirmasi Hadir</button>
+                    @if ($cardEnabled)
+                        <div id="card-actions" class="d-none mt-4 pt-3 border-top">
+                            <div class="small text-muted mb-2" id="card-hint"></div>
+                            <div class="d-flex flex-wrap gap-2 justify-content-center">
+                                <button type="button" class="btn btn-outline-dark" data-card="0"><i class="ri-printer-line me-1"></i><span>Cetak ID card</span></button>
+                                <button type="button" class="btn btn-outline-danger d-none" data-card="1"><i class="ri-refresh-line me-1"></i>Kartu hilang, buat QR baru</button>
+                            </div>
+                            <div class="small mt-2" id="card-message"></div>
+                        </div>
+                    @endif
                 </div>
             </div>
             <div id="result-empty" class="card scan-card shadow-sm">
@@ -91,6 +105,8 @@
             </div>
         </div>
     </div>
+
+    <iframe id="print-frame" title="Cetak ID card" style="position: absolute; width: 0; height: 0; border: 0; visibility: hidden;"></iframe>
 
     @push('scripts')
         <script>
@@ -172,6 +188,7 @@
                         detail.appendChild(el('div', 'text-muted', data.ticket.category + ' · Kode booking ' + data.ticket.booking_code + ' · ' + data.ticket.number));
                     }
                     confirmButton.classList.toggle('d-none', data.status !== 'confirm');
+                    showCardActions(data);
                     if (data.stats) renderStats(data.stats);
                     addHistory(data);
                     if (data.status !== 'confirm') beep(data.status === 'ok');
@@ -200,6 +217,46 @@
                     });
                 }
 
+                // Cetak / cetak ulang ID card oleh petugas (hanya untuk peserta yang sudah hadir).
+                var cardBox = document.getElementById('card-actions'), cardNumber = null;
+                function showCardActions(data) {
+                    if (!cardBox) return;
+                    var ready = data.ticket && (data.status === 'ok' || data.status === 'already');
+                    cardBox.classList.toggle('d-none', !ready);
+                    document.getElementById('card-message').textContent = '';
+                    if (!ready) { cardNumber = null; return; }
+                    cardNumber = data.ticket.number;
+                    var has = !!data.ticket.has_card;
+                    document.getElementById('card-hint').textContent = has ? 'Peserta ini sudah punya ID card. Cetak ulang hanya kalau kartunya rusak atau hilang.' : 'Peserta ini belum punya ID card.';
+                    cardBox.querySelector('[data-card="0"] span').textContent = has ? 'Cetak ulang (QR sama)' : 'Cetak ID card';
+                    cardBox.querySelector('[data-card="1"]').classList.toggle('d-none', !has);
+                }
+                if (cardBox) cardBox.querySelectorAll('[data-card]').forEach(function (button) {
+                    button.addEventListener('click', function () {
+                        var replace = button.dataset.card === '1';
+                        if (!cardNumber || (replace && !confirm('Buat QR baru? Kartu lama peserta ini langsung tidak bisa dipakai absen.'))) return;
+                        var message = document.getElementById('card-message');
+                        message.className = 'small mt-2 text-muted'; message.textContent = 'Menyiapkan ID card…';
+                        fetch({{ \Illuminate\Support\Js::from(route('scan.card', request()->route('token'))) }}, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content },
+                            body: JSON.stringify({ number: cardNumber, replace: replace })
+                        }).then(function (r) { if (r.status === 401 || r.status === 419) { location.reload(); return null; } return r.json(); })
+                        .then(function (data) {
+                            if (!data) return;
+                            message.className = 'small mt-2 ' + (data.status === 'ok' ? 'text-success' : 'text-danger');
+                            message.textContent = data.message;
+                            if (data.print) {
+                                var frame = document.getElementById('print-frame');
+                                frame.onload = function () { setTimeout(function () { frame.contentWindow.focus(); frame.contentWindow.print(); }, 300); };
+                                frame.srcdoc = data.print;
+                                cardBox.querySelector('[data-card="0"] span').textContent = 'Cetak ulang (QR sama)';
+                                cardBox.querySelector('[data-card="1"]').classList.remove('d-none');
+                            }
+                        }).catch(function () { message.className = 'small mt-2 text-danger'; message.textContent = 'Koneksi terputus, coba lagi.'; });
+                    });
+                });
+
                 renderStats(@json($stats));
                 document.getElementById('scan-form').addEventListener('submit', function (event) {
                     event.preventDefault();
@@ -208,7 +265,7 @@
                 });
                 confirmButton.addEventListener('click', function () { if (pendingCode) send(pendingCode, true); });
                 // Scanner USB/Bluetooth "mengetik" ke kotak input; fokus selalu dikembalikan.
-                document.addEventListener('click', function (event) { if (event.target !== confirmButton && !event.target.closest('form[method=POST]')) input.focus(); });
+                document.addEventListener('click', function (event) { if (event.target !== confirmButton && !event.target.closest('form[method=POST]') && !event.target.closest('#card-actions')) input.focus(); });
             })();
         </script>
     @endpush

@@ -10,8 +10,9 @@ class CustomerService
 {
     /**
      * Cari kontak di branch lewat WhatsApp, lalu email; kalau tidak ada, buat baru.
-     * WAJIB dipanggil di dalam transaksi yang sudah mengunci baris branch,
-     * supaya 2 kiriman bersamaan tidak membuat kontak kembar.
+     * WAJIB dipanggil di dalam transaksi. Kontak kembar dicegah unique index (branch_id + phone/email):
+     * pemanggil boleh mengunci baris branch dulu, atau (checkout tiket, demi war ticket) mencoba ulang
+     * saat terjadi UniqueConstraintViolationException.
      */
     public function resolve(UserBranch $branch, ?string $name, ?string $phone, ?string $email, string $source): Customer
     {

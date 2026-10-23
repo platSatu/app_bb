@@ -74,6 +74,11 @@ class PageCategory extends Model
         return $this->hasMany(TicketOrder::class, 'page_id');
     }
 
+    public function ticketSessions(): HasMany
+    {
+        return $this->hasMany(TicketSession::class, 'page_id')->orderBy('starts_at');
+    }
+
     public function setting(string $key, mixed $default = null): mixed
     {
         return data_get($this->settings, $key, $default);

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Ticket extends Model
 {
@@ -12,12 +13,12 @@ class Ticket extends Model
 
     protected $fillable = [];
 
-    // Token = isi QR & kunci link; tidak boleh ikut ter-serialize.
-    protected $hidden = ['token'];
+    // Token e-ticket & token ID card = isi QR & kunci link; tidak boleh ikut ter-serialize.
+    protected $hidden = ['token', 'card_token'];
 
     protected function casts(): array
     {
-        return ['sequence' => 'integer', 'checked_in_at' => 'datetime'];
+        return ['sequence' => 'integer', 'checked_in_at' => 'datetime', 'card_printed_at' => 'datetime', 'card_print_count' => 'integer'];
     }
 
     public function order(): BelongsTo
@@ -40,8 +41,18 @@ class Ticket extends Model
         return $this->belongsTo(TicketScanner::class, 'checked_in_scanner_id');
     }
 
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(TicketSessionAttendance::class, 'ticket_id');
+    }
+
     public function isCheckedIn(): bool
     {
         return $this->checked_in_at !== null;
+    }
+
+    public function hasCard(): bool
+    {
+        return $this->card_printed_at !== null;
     }
 }

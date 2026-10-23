@@ -1,6 +1,14 @@
 @extends('page.public.layout', ['page' => $scanner->page, 'open' => false])
 
-@section('title', 'Registrasi Ulang · '.$scanner->page->name)
+@php
+    $heading = match ($scanner->type) {
+        \App\Models\TicketScanner::TYPE_KIOSK => ['Kiosk Cetak ID Card', 'ri-printer-line', 'Kiosk'],
+        \App\Models\TicketScanner::TYPE_ATTENDANCE => ['Absensi Kelas', 'ri-calendar-check-line', 'Petugas'],
+        default => ['Registrasi Ulang', 'ri-qr-scan-2-line', 'Petugas'],
+    };
+@endphp
+
+@section('title', $heading[0].' · '.$scanner->page->name)
 @section('width', '440px')
 
 @push('head')
@@ -15,10 +23,10 @@
 @section('content')
     <div class="card border-0 shadow-sm rounded-4">
         <div class="card-body p-4 p-md-5 text-center">
-            <span class="login-icon mb-3"><i class="ri-qr-scan-2-line"></i></span>
-            <h1 class="h4 fw-bold mb-1">Registrasi Ulang</h1>
+            <span class="login-icon mb-3"><i class="{{ $heading[1] }}"></i></span>
+            <h1 class="h4 fw-bold mb-1">{{ $heading[0] }}</h1>
             <p class="text-muted mb-1">{{ $scanner->page->name }}</p>
-            <span class="badge rounded-pill bg-light text-dark mb-4"><i class="ri-user-location-line me-1"></i>Petugas {{ $scanner->name }}</span>
+            <span class="badge rounded-pill bg-light text-dark mb-4"><i class="ri-user-location-line me-1"></i>{{ $heading[2] }} {{ $scanner->name }}</span>
             <form method="POST" action="{{ route('scan.login', request()->route('token')) }}" onsubmit="this.querySelector('[type=submit]').disabled = true">
                 @csrf
                 <label for="pin" class="form-label small text-muted">Masukkan PIN 6 angka</label>

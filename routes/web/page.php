@@ -12,11 +12,13 @@ use App\Http\Controllers\Page\Landing\LandingSettingController;
 use App\Http\Controllers\Page\PublicPageController;
 use App\Http\Controllers\Page\PublicQuizController;
 use App\Http\Controllers\Page\PublicTicketController;
+use App\Http\Controllers\Page\Ticket\TicketCardController;
 use App\Http\Controllers\Page\Ticket\TicketCategoryController;
 use App\Http\Controllers\Page\Ticket\TicketDesignController;
 use App\Http\Controllers\Page\Ticket\TicketOrderController;
 use App\Http\Controllers\Page\Ticket\TicketReportController;
 use App\Http\Controllers\Page\Ticket\TicketScannerController;
+use App\Http\Controllers\Page\Ticket\TicketSessionController;
 use App\Http\Controllers\Page\Ticket\TicketTermsController;
 use App\Http\Controllers\Page\TicketScanController;
 use App\Http\Controllers\Page\Quiz\QuizAttemptController;
@@ -48,6 +50,9 @@ $read = function () {
     Route::get('{page}/tickets/design', [TicketDesignController::class, 'edit'])->name('ticket.design.edit');
     Route::get('{page}/tickets/terms', [TicketTermsController::class, 'edit'])->name('ticket.terms.edit');
     Route::get('{page}/tickets/scanners', [TicketScannerController::class, 'index'])->name('ticket.scanners.index');
+    Route::get('{page}/tickets/cards', [TicketCardController::class, 'index'])->name('ticket.cards.index');
+    Route::get('{page}/tickets/sessions', [TicketSessionController::class, 'index'])->name('ticket.sessions.index');
+    Route::get('{page}/tickets/sessions/{session}', [TicketSessionController::class, 'show'])->name('ticket.sessions.show');
 
     Route::get('{page}/landing/sections', [LandingSectionController::class, 'index'])->name('landing.sections.index');
     Route::post('{page}/landing/preview', [LandingSectionController::class, 'preview'])->middleware('throttle:60,1')->name('landing.preview');
@@ -77,6 +82,11 @@ $write = function () {
     Route::post('{page}/tickets/scanners', [TicketScannerController::class, 'store'])->name('ticket.scanners.store');
     Route::patch('{page}/tickets/scanners/{scanner}', [TicketScannerController::class, 'update'])->name('ticket.scanners.update');
     Route::delete('{page}/tickets/scanners/{scanner}', [TicketScannerController::class, 'destroy'])->name('ticket.scanners.destroy');
+    Route::put('{page}/tickets/cards', [TicketCardController::class, 'update'])->name('ticket.cards.update');
+    Route::post('{page}/tickets/cards/{ticket}/print', [TicketCardController::class, 'print'])->middleware('throttle:60,1')->name('ticket.cards.print');
+    Route::post('{page}/tickets/sessions', [TicketSessionController::class, 'store'])->name('ticket.sessions.store');
+    Route::put('{page}/tickets/sessions/{session}', [TicketSessionController::class, 'update'])->name('ticket.sessions.update');
+    Route::delete('{page}/tickets/sessions/{session}', [TicketSessionController::class, 'destroy'])->name('ticket.sessions.destroy');
 
     Route::put('{page}/landing/sections', [LandingSectionController::class, 'sync'])->middleware('throttle:30,1')->name('landing.sections.sync');
     Route::post('{page}/landing/generate', [LandingSectionController::class, 'generate'])->middleware('throttle:10,1')->name('landing.generate');
@@ -145,5 +155,7 @@ Route::prefix('scan/{token}')->middleware('public.app:pages')->where(['token' =>
     Route::get('/', [TicketScanController::class, 'show'])->middleware('throttle:60,1')->name('show');
     Route::post('login', [TicketScanController::class, 'login'])->middleware('throttle:20,1')->name('login');
     Route::post('check', [TicketScanController::class, 'check'])->middleware('throttle:240,1')->name('check');
+    Route::post('redeem', [TicketScanController::class, 'redeem'])->middleware('throttle:120,1')->name('redeem');
+    Route::post('card', [TicketScanController::class, 'card'])->middleware('throttle:60,1')->name('card');
     Route::post('logout', [TicketScanController::class, 'logout'])->name('logout');
 });
