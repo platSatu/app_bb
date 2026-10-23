@@ -100,3 +100,21 @@ it('Phone Book WhatsApp: impor Excel ke group, hapus, dan jadikan user', functio
     $this->delete(route('whatsapp.contacts.destroy', $eka))->assertSessionHas('success');
     expect(Customer::forApp('whatsapp')->count())->toBe(0)->and(User::where('email', 'eka@mail.test')->exists())->toBeTrue();
 });
+
+it('Jadikan User pada customer tanpa email: isi email di form Ubah lalu akun langsung dibuat', function () {
+    Notification::fake();
+    $branch = appBranch();
+    $customer = customerIn($branch, 'pages', 'Fani', '086666666666');
+    $this->actingAs($branch->user);
+
+    $this->get(route('pages.customers.index'))->assertSee('make_user', false);
+
+    $this->put(route('pages.customers.update', $customer), ['name' => 'Fani', 'phone' => '086666666666', 'email' => 'fani@mail.test', 'make_user' => '1'])
+        ->assertSessionHas('success', fn ($m) => str_contains($m, 'Akun login untuk fani@mail.test'));
+    expect($customer->fresh()->email)->toBe('fani@mail.test')->and(User::where('email', 'fani@mail.test')->exists())->toBeTrue();
+
+    // Ubah biasa tidak membuat akun.
+    $other = customerIn($branch, 'pages', 'Gita', '087777777777');
+    $this->put(route('pages.customers.update', $other), ['name' => 'Gita', 'phone' => '087777777777', 'email' => 'gita@mail.test', 'make_user' => '0']);
+    expect(User::where('email', 'gita@mail.test')->exists())->toBeFalse();
+});

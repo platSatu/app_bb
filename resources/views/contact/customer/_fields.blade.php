@@ -1,4 +1,8 @@
 {{-- Isian nama, WhatsApp, email untuk modal tambah/ubah customer. --}}
+<input type="hidden" name="make_user" value="0">
+<div class="alert alert-info small py-2" data-make-user-note hidden>
+    <i class="ri-user-add-line me-1"></i>Isi email customer ini. Setelah disimpan, akun login langsung dibuat dan link untuk membuat password dikirim ke email tersebut.
+</div>
 <label class="form-label">Nama</label>
 <input type="text" name="name" maxlength="150" required class="form-control mb-3 @error('name') is-invalid @enderror" value="{{ old('name') }}">
 <label class="form-label">Nomor WhatsApp</label>

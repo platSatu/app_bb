@@ -61,7 +61,7 @@ class ContactController extends Controller
         return back()->with('success', 'Kontak ditambahkan.');
     }
 
-    public function update(Request $request, string $customer): RedirectResponse
+    public function update(Request $request, string $customer, CustomerAccount $accounts): RedirectResponse
     {
         $model = $this->owned($request, $customer);
         $data = $this->validated($request, $this->ownerBranches($request)->firstWhere('id', $model->branch_id), $model);
@@ -69,7 +69,8 @@ class ContactController extends Controller
         $model->forceFill(['name' => $data['name'], 'phone' => $data['phone'], 'email' => $data['email']])->save();
         $model->groups()->syncWithPivotValues($data['group_ids'] ?? [], ['created_at' => now()]);
 
-        return back()->with('success', 'Kontak diperbarui.');
+        // Dari tombol "Jadikan User" pada kontak yang belum punya email.
+        return $request->boolean('make_user') ? $this->grantAccount($model, $accounts) : back()->with('success', 'Kontak diperbarui.');
     }
 
     public function destroy(Request $request, string $customer): RedirectResponse
@@ -82,8 +83,13 @@ class ContactController extends Controller
 
     public function account(Request $request, string $customer, CustomerAccount $accounts): RedirectResponse
     {
+        return $this->grantAccount($this->owned($request, $customer), $accounts);
+    }
+
+    private function grantAccount(Customer $customer, CustomerAccount $accounts): RedirectResponse
+    {
         try {
-            [$user, $created] = $accounts->grant($this->owned($request, $customer));
+            [$user, $created] = $accounts->grant($customer);
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }

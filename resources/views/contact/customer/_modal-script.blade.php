@@ -10,6 +10,12 @@
                 form.elements.namedItem('_method').value = method;
                 modalEl.querySelector('[data-customer-title]').textContent = title;
                 ['name', 'phone', 'email'].forEach(function (key) { form.elements.namedItem(key).value = data[key] || ''; });
+                // Dari tombol "Jadikan User" untuk customer tanpa email: email wajib, akun dibuat setelah disimpan.
+                var makeUser = !!data.make_user;
+                form.elements.namedItem('make_user').value = makeUser ? '1' : '0';
+                form.elements.namedItem('email').required = makeUser;
+                modalEl.querySelector('[data-make-user-note]').hidden = !makeUser;
+                if (makeUser) modalEl.addEventListener('shown.bs.modal', function () { form.elements.namedItem('email').focus(); }, { once: true });
                 form.querySelectorAll('[name="group_ids[]"]').forEach(function (c) { c.checked = (data.groups || []).indexOf(c.value) > -1; });
                 // Saat mengubah, branch tidak dipindah.
                 var branch = modalEl.querySelector('[data-branch-field]');

@@ -98,7 +98,7 @@
                                 </td>
                                 <td class="text-nowrap small">{{ $customer->last_seen_at->translatedFormat('d M Y H:i') }}</td>
                                 <td class="text-end text-nowrap">
-                                    <div class="d-inline-flex gap-1 align-items-center">
+                                    <div class="d-inline-flex flex-nowrap gap-1 align-items-center">
                                         <a href="{{ route($base.'.show', $customer) }}" class="btn btn-sm rounded-pill btn-outline-secondary" title="Detail"><i class="ri-eye-line"></i></a>
                                         @unless ($isAdmin)
                                             @include('contact.customer._actions', [
