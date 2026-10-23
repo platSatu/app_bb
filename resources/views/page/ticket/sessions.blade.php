@@ -7,7 +7,7 @@
     <style>
         .session-card { border: 1px solid #edf0f3; border-radius: 1rem; transition: box-shadow .15s; }
         .session-card:hover { box-shadow: 0 8px 24px -12px rgba(16,24,40,.18); }
-        .session-date { width: 64px; flex-shrink: 0; text-align: center; border-radius: .875rem; background: rgba(var(--bs-primary-rgb), .08); color: var(--bs-primary); padding: .5rem 0; line-height: 1.1; }
+        .session-date { width: 64px; flex-shrink: 0; text-align: center; border-radius: .875rem; background: rgba(var(--pe-primary-rgb), .08); color: var(--pe-primary); padding: .5rem 0; line-height: 1.1; }
         .session-date b { display: block; font-size: 1.5rem; }
         .session-date small { text-transform: uppercase; font-size: .7rem; letter-spacing: .08em; }
         .chip { display: inline-flex; align-items: center; gap: .25rem; background: #f3f5f7; border-radius: 99px; padding: .15rem .6rem; font-size: .78rem; color: #4b5563; }

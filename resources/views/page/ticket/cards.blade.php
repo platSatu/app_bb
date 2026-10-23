@@ -8,11 +8,15 @@
     <style>
         .size-option { cursor: pointer; border: 2px solid #e9ecef; border-radius: .875rem; padding: .875rem 1rem; transition: border-color .15s, background .15s; height: 100%; }
         .size-option:hover { border-color: #cfd4da; }
-        .btn-check:checked + .size-option { border-color: var(--bs-primary); background: rgba(var(--bs-primary-rgb), .05); }
+        .btn-check:checked + .size-option { border-color: var(--pe-primary); background: rgba(var(--pe-primary-rgb), .06); }
         .size-option i { font-size: 1.6rem; }
         .idc-stage { background: repeating-linear-gradient(45deg, #f6f7f9, #f6f7f9 12px, #f1f3f5 12px, #f1f3f5 24px); border-radius: 1rem; padding: 2rem 1rem; display: flex; justify-content: center; }
         .idc-stage-inner { width: 100%; transition: max-width .2s; }
-        .step-num { width: 28px; height: 28px; border-radius: 50%; background: rgba(var(--bs-primary-rgb), .1); color: var(--bs-primary); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        /* Switch & radio di dalam kotak: tanpa margin negatif bawaan .form-check, supaya tidak keluar kotak. */
+        .inline-check { float: none; margin: .2rem 0 0 0 !important; cursor: pointer; }
+        .form-switch .inline-check { width: 2.5em; height: 1.35em; }
+        label[for] { cursor: pointer; }
+        .step-num { width: 28px; height: 28px; border-radius: 50%; background: rgba(var(--pe-primary-rgb), .1); color: var(--pe-primary); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
     </style>
 @endpush
 
@@ -48,10 +52,12 @@
                     </div>
                     <div class="card-body p-3 p-md-4">
                         <fieldset @disabled(! $canManage)>
-                            <div class="form-check form-switch mb-4 p-3 rounded-3 bg-light ps-5">
-                                <input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="enabled" @checked(old('enabled', $settings['enabled']))>
-                                <label class="form-check-label fw-semibold" for="enabled">Buka cetak ID card di kiosk</label>
-                                <div class="small text-muted">Matikan dulu kalau desainnya belum siap. Peserta yang scan akan diminta menunggu.</div>
+                            <div class="form-switch d-flex align-items-start gap-3 mb-4 p-3 rounded-3 bg-light">
+                                <input class="form-check-input inline-check flex-shrink-0" type="checkbox" role="switch" name="enabled" value="1" id="enabled" @checked(old('enabled', $settings['enabled']))>
+                                <label class="mb-0" for="enabled">
+                                    <span class="d-block fw-semibold">Buka cetak ID card di kiosk</span>
+                                    <span class="d-block small text-muted">Matikan dulu kalau desainnya belum siap. Peserta yang scan akan diminta menunggu.</span>
+                                </label>
                             </div>
 
                             <label class="form-label fw-semibold">Ukuran kertas</label>
@@ -244,13 +250,13 @@
                     <div class="modal-body">
                         <p class="text-muted mb-3" id="print-text"></p>
                         <div id="print-options">
-                            <div class="form-check border rounded-3 p-3 ps-5 mb-2">
-                                <input class="form-check-input" type="radio" name="replace" value="0" id="replace-0" checked>
-                                <label class="form-check-label" for="replace-0"><span class="fw-semibold">Kartunya rusak / kurang jelas</span><div class="small text-muted">QR tetap sama. Kartu lama masih bisa dipakai.</div></label>
+                            <div class="d-flex align-items-start gap-3 border rounded-3 p-3 mb-2">
+                                <input class="form-check-input inline-check flex-shrink-0" type="radio" name="replace" value="0" id="replace-0" checked>
+                                <label class="mb-0" for="replace-0"><span class="fw-semibold">Kartunya rusak / kurang jelas</span><div class="small text-muted">QR tetap sama. Kartu lama masih bisa dipakai.</div></label>
                             </div>
-                            <div class="form-check border rounded-3 p-3 ps-5">
-                                <input class="form-check-input" type="radio" name="replace" value="1" id="replace-1">
-                                <label class="form-check-label" for="replace-1"><span class="fw-semibold">Kartunya hilang</span><div class="small text-muted">Dibuatkan QR baru. Kartu lama otomatis tidak bisa dipakai absen lagi.</div></label>
+                            <div class="d-flex align-items-start gap-3 border rounded-3 p-3">
+                                <input class="form-check-input inline-check flex-shrink-0" type="radio" name="replace" value="1" id="replace-1">
+                                <label class="mb-0" for="replace-1"><span class="fw-semibold">Kartunya hilang</span><div class="small text-muted">Dibuatkan QR baru. Kartu lama otomatis tidak bisa dipakai absen lagi.</div></label>
                             </div>
                         </div>
                     </div>
