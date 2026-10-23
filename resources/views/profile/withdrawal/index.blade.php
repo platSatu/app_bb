@@ -106,7 +106,7 @@
                             <label class="form-label">Jumlah yang ditarik</label>
                             <div class="input-group mb-1">
                                 <span class="input-group-text">Rp</span>
-                                <input type="number" name="amount" min="{{ $setting->min_amount }}" max="{{ $withdrawable }}" step="1" value="{{ old('amount') }}"
+                                <input type="text" name="amount" data-rupiah value="{{ old('amount') }}"
                                     class="form-control @error('amount') is-invalid @enderror" required>
                                 @error('amount') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
@@ -189,7 +189,7 @@
             const fee = Number(form.dataset.fee), input = form.querySelector('[name=amount]');
             const fmt = v => 'Rp ' + Math.max(0, v).toLocaleString('id-ID');
             const update = () => {
-                const amount = Number(input.value) || 0;
+                const amount = window.rupiahValue(input);
                 form.querySelector('[data-out=amount]').textContent = fmt(amount);
                 form.querySelector('[data-out=net]').textContent = fmt(amount - fee);
             };

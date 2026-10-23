@@ -102,6 +102,36 @@
         }
     });
 
+    // Input nominal rupiah: <input data-rupiah>. Saat mengetik tampil 1.500.000, yang dikirim ke server tetap 1500000.
+    (function () {
+        var digits = function (v) { return String(v).replace(/\D/g, '').replace(/^0+(?=\d)/, ''); };
+        var format = function (v) { return digits(v).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
+        var paint = function (input) {
+            // Kursor tetap di posisi angka yang sama walau titik bertambah/berkurang.
+            var before = digits(input.value.slice(0, input.selectionStart || 0)).length;
+            input.value = format(input.value);
+            if (document.activeElement !== input) return;
+            var pos = 0;
+            for (var seen = 0; pos < input.value.length && seen < before; pos++) if (/\d/.test(input.value[pos])) seen++;
+            input.setSelectionRange(pos, pos);
+        };
+        window.rupiahValue = function (input) { return Number(digits(input.value)) || 0; };
+
+        document.querySelectorAll('input[data-rupiah]').forEach(function (input) {
+            input.type = 'text';
+            input.inputMode = 'numeric';
+            input.autocomplete = 'off';
+            input.value = format(input.value);
+            input.addEventListener('input', function () { paint(input); });
+        });
+        // Sebelum terkirim titiknya dibuang; kalau batal (mis. konfirmasi ditolak) tampil berformat lagi.
+        document.addEventListener('submit', function (event) {
+            var inputs = event.target.querySelectorAll('input[data-rupiah]');
+            inputs.forEach(function (input) { input.value = digits(input.value); });
+            setTimeout(function () { if (event.defaultPrevented) inputs.forEach(function (input) { input.value = format(input.value); }); });
+        }, true);
+    })();
+
     // Halaman dari back/forward cache dimuat ulang supaya tetap melewati cek login.
     window.addEventListener('pageshow', function (event) {
         if (event.persisted) {

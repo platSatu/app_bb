@@ -29,8 +29,8 @@
                             <label for="amount" class="form-label">Nominal</label>
                             <div class="input-group mb-1">
                                 <span class="input-group-text">Rp</span>
-                                <input type="text" inputmode="numeric" id="amount" name="amount" required
-                                    class="form-control @error('amount') is-invalid @enderror" value="{{ old('amount') }}" placeholder="50000">
+                                <input type="text" inputmode="numeric" id="amount" name="amount" required data-rupiah
+                                    class="form-control @error('amount') is-invalid @enderror" value="{{ old('amount') }}" placeholder="50.000">
                             </div>
                             @error('amount') <div class="text-danger fs-13 mb-2">{{ $message }}</div> @enderror
                             <div class="form-text mb-4">
@@ -48,7 +48,9 @@
                         <script>
                             document.querySelectorAll('[data-amount]').forEach(function (button) {
                                 button.addEventListener('click', function () {
-                                    document.getElementById('amount').value = button.dataset.amount;
+                                    var input = document.getElementById('amount');
+                                    input.value = button.dataset.amount;
+                                    input.dispatchEvent(new Event('input'));
                                 });
                             });
                         </script>
