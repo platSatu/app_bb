@@ -304,6 +304,13 @@ return [
                         'active' => 'superadmin.ai.*',
                         'superadmin_only' => true,
                     ],
+                    // Berisi seluruh data, jadi khusus superadmin.
+                    'superadmin.backups' => [
+                        'label' => 'Backup Database',
+                        'route' => 'superadmin.backups.index',
+                        'active' => 'superadmin.backups.*',
+                        'superadmin_only' => true,
+                    ],
                 ],
                 // Konten website bizbos yang dibaca fe-konexa lewat API.
                 'submenus' => [

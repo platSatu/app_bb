@@ -66,4 +66,9 @@ return [
         'id' => env('GOOGLE_ANALYTICS_ID'),
     ],
 
+    // Lokasi mysqldump untuk Backup Database (XAMPP Windows: C:\xampp\mysql\bin\mysqldump.exe).
+    'backup' => [
+        'mysqldump' => env('BACKUP_MYSQLDUMP', 'mysqldump'),
+    ],
+
 ];

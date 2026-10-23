@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Superadmin\Ai\AiController;
+use App\Http\Controllers\Superadmin\Backup\BackupController;
 use App\Http\Controllers\Superadmin\Branch\BranchController;
 use App\Http\Controllers\Superadmin\CategoryApplication\CategoryApplicationController;
 use App\Http\Controllers\Superadmin\Company\CompanyController;
@@ -126,6 +127,16 @@ Route::middleware(['auth', 'superadmin'])
                 Route::post('{provider}/activate', 'activate')->name('activate');
                 Route::post('{provider}/test', 'test')->middleware('throttle:10,1')->name('test');
                 Route::delete('{provider}', 'destroy')->name('destroy');
+            });
+
+        Route::controller(BackupController::class)
+            ->prefix('backups')
+            ->name('backups.')
+            ->middleware('permission:superadmin.backups,manage')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->middleware('throttle:5,1')->name('store');
+                Route::get('{file}', 'download')->where('file', '[A-Za-z0-9_.\-]+')->name('download');
             });
 
         Route::resource('roles', RoleController::class)
