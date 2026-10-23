@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\Frontend\VisitorLogController as FrontendVisitorLog
 use App\Http\Controllers\Api\Frontend\WebSettingController as FrontendWebSettingController;
 use App\Http\Controllers\Invoice\Api\DisbursementApiController;
 use App\Http\Controllers\Invoice\Api\InvoiceApiController;
+use App\Http\Controllers\WhatsApp\Api\FormWebhookController;
 use App\Http\Controllers\WhatsApp\Api\WaApiController;
 use App\Http\Controllers\WhatsApp\WaWebhookController;
 use Illuminate\Http\Request;
@@ -50,6 +51,9 @@ Route::prefix('v1/wa')->middleware('wa.api')->group(function () {
     Route::post('messages/media', [WaApiController::class, 'sendMedia']);
     Route::get('messages/{id}', [WaApiController::class, 'status'])->whereUuid('id');
 });
+
+// Google Form (Apps Script) -> balasan WhatsApp. Token di URL adalah kuncinya (menu WhatsApp > Third Party).
+Route::post('v1/wa/google-form/{token}', FormWebhookController::class)->where('token', 'gf_[A-Za-z0-9]{48}')->middleware('throttle:120,1')->name('wa.google-form.receive');
 
 // Konten website untuk fe-konexa (bizbos.id), server-to-server dengan header X-API-KEY.
 // Alamat & bentuk JSON sama persis dengan API teleios.

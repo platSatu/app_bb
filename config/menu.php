@@ -108,7 +108,7 @@ return [
                 'app' => 'whatsapp',
                 'icon' => 'ri-whatsapp-line',
                 'items' => [
-                    'whatsapp.devices' => ['label' => 'Device & Inbox', 'route' => 'whatsapp.devices.index', 'active' => ['whatsapp.devices.*', 'whatsapp.inbox.*', 'whatsapp.api-key.*']],
+                    'whatsapp.devices' => ['label' => 'Device & Inbox', 'route' => 'whatsapp.devices.index', 'active' => ['whatsapp.devices.*', 'whatsapp.inbox.*']],
                 ],
                 'submenus' => [
                     'settings' => [
@@ -130,6 +130,14 @@ return [
                             'whatsapp.contacts' => ['label' => 'Customers', 'route' => 'whatsapp.contacts.index', 'active' => 'whatsapp.contacts.*'],
                             'whatsapp.groups' => ['label' => 'Group', 'route' => 'whatsapp.groups.index', 'active' => 'whatsapp.groups.*'],
                             'whatsapp.wa-groups' => ['label' => 'Group WhatsApp', 'route' => 'whatsapp.wa-groups.index', 'active' => 'whatsapp.wa-groups.*'],
+                        ],
+                    ],
+                    // Aplikasi lain yang memakai WhatsApp bizbos: API Key per nomor, Google Form, dokumentasi.
+                    'third-party' => [
+                        'label' => 'Third Party',
+                        'items' => [
+                            'whatsapp.third-party' => ['label' => 'Integrasi', 'route' => 'whatsapp.third-party.index', 'active' => ['whatsapp.third-party.*', 'whatsapp.api-key.*']],
+                            'whatsapp.api-docs' => ['label' => 'Dokumentasi API', 'route' => 'whatsapp.api-docs', 'active' => 'whatsapp.api-docs'],
                         ],
                     ],
                 ],

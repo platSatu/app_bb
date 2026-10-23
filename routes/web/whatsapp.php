@@ -13,6 +13,7 @@ use App\Http\Controllers\WhatsApp\InboxController;
 use App\Http\Controllers\WhatsApp\LabelController;
 use App\Http\Controllers\WhatsApp\QuickReplyController;
 use App\Http\Controllers\WhatsApp\TemplateController;
+use App\Http\Controllers\WhatsApp\ThirdPartyController;
 use App\Http\Controllers\WhatsApp\WaGroupController;
 use Illuminate\Support\Facades\Route;
 
@@ -81,6 +82,19 @@ Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function
         Route::delete('{customer}', 'destroy')->whereUuid('customer')->name('destroy');
         Route::post('{customer}/akun', 'account')->whereUuid('customer')->middleware('throttle:20,1')->name('account');
     });
+
+    // Third Party: API Key per nomor, Google Form, dan dokumentasi API.
+    Route::middleware('permission:whatsapp.third-party')->controller(ThirdPartyController::class)->prefix('third-party')->name('third-party.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('google-form/create', 'create')->name('forms.create');
+        Route::post('google-form', 'store')->middleware('throttle:20,1')->name('forms.store');
+        Route::get('google-form/{form}', 'show')->whereUuid('form')->name('forms.show');
+        Route::get('google-form/{form}/edit', 'edit')->whereUuid('form')->name('forms.edit');
+        Route::put('google-form/{form}', 'update')->whereUuid('form')->name('forms.update');
+        Route::delete('google-form/{form}', 'destroy')->whereUuid('form')->name('forms.destroy');
+        Route::post('google-form/{form}/regenerate', 'regenerate')->whereUuid('form')->middleware('throttle:10,1')->name('forms.regenerate');
+    });
+    Route::get('api-docs', [ThirdPartyController::class, 'docs'])->middleware('permission:whatsapp.api-docs')->name('api-docs');
 
     Route::middleware('permission:whatsapp.groups')->controller(ContactGroupController::class)->prefix('groups')->name('groups.')->group(function () {
         Route::get('/', 'index')->name('index');
@@ -158,3 +172,6 @@ Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function
         Route::delete('{device}', 'destroy')->whereUuid('device')->name('destroy');
     });
 });
+
+// Dokumentasi API WhatsApp versi publik: link aman dibagikan ke developer (tanpa data akun).
+Route::get('docs/api-whatsapp', [ThirdPartyController::class, 'publicDocs'])->middleware('throttle:60,1')->name('docs.whatsapp-api');
