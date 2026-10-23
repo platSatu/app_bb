@@ -21,23 +21,37 @@ return new class extends Migration
         'whatsapp' => ['contact_group_customer'],
     ];
 
+    /**
+     * Aman dijalankan ulang (mis. setelah gagal di tengah): setiap langkah dicek dulu.
+     * Index lama (satu nomor per branch) dilepas SEBELUM data dipecah, karena salinan per aplikasi memakai nomor yang sama.
+     */
     public function up(): void
     {
-        Schema::table('customers', function (Blueprint $table) {
-            $table->string('app_key', 30)->default('whatsapp')->after('branch_id');
-        });
-
-        $this->splitExisting();
+        if (! Schema::hasColumn('customers', 'app_key')) {
+            Schema::table('customers', function (Blueprint $table) {
+                $table->string('app_key', 30)->default('whatsapp')->after('branch_id');
+            });
+        }
 
         // Index baru dibuat dulu: di MySQL index lama ikut dipakai foreign key branch_id.
         Schema::table('customers', function (Blueprint $table) {
-            $table->unique(['branch_id', 'app_key', 'phone']);
-            $table->unique(['branch_id', 'app_key', 'email']);
+            if (! Schema::hasIndex('customers', 'customers_branch_id_app_key_phone_unique')) {
+                $table->unique(['branch_id', 'app_key', 'phone']);
+            }
+            if (! Schema::hasIndex('customers', 'customers_branch_id_app_key_email_unique')) {
+                $table->unique(['branch_id', 'app_key', 'email']);
+            }
         });
         Schema::table('customers', function (Blueprint $table) {
-            $table->dropUnique(['branch_id', 'phone']);
-            $table->dropUnique(['branch_id', 'email']);
+            if (Schema::hasIndex('customers', 'customers_branch_id_phone_unique')) {
+                $table->dropUnique(['branch_id', 'phone']);
+            }
+            if (Schema::hasIndex('customers', 'customers_branch_id_email_unique')) {
+                $table->dropUnique(['branch_id', 'email']);
+            }
         });
+
+        $this->splitExisting();
     }
 
     public function down(): void
