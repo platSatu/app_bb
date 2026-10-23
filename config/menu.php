@@ -304,6 +304,13 @@ return [
                         'active' => 'superadmin.ai.*',
                         'superadmin_only' => true,
                     ],
+                    // Antrean email/job, job gagal, pembayaran & transfer yang tertahan.
+                    'superadmin.monitor' => [
+                        'label' => 'Antrean & Tugas',
+                        'route' => 'superadmin.monitor.index',
+                        'active' => 'superadmin.monitor.*',
+                        'superadmin_only' => true,
+                    ],
                     // Berisi seluruh data, jadi khusus superadmin.
                     'superadmin.backups' => [
                         'label' => 'Backup Database',

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Superadmin\Ai\AiController;
 use App\Http\Controllers\Superadmin\Backup\BackupController;
+use App\Http\Controllers\Superadmin\Monitor\MonitorController;
 use App\Http\Controllers\Superadmin\Branch\BranchController;
 use App\Http\Controllers\Superadmin\CategoryApplication\CategoryApplicationController;
 use App\Http\Controllers\Superadmin\Company\CompanyController;
@@ -127,6 +128,18 @@ Route::middleware(['auth', 'superadmin'])
                 Route::post('{provider}/activate', 'activate')->name('activate');
                 Route::post('{provider}/test', 'test')->middleware('throttle:10,1')->name('test');
                 Route::delete('{provider}', 'destroy')->name('destroy');
+            });
+
+        Route::controller(MonitorController::class)
+            ->prefix('monitor')
+            ->name('monitor.')
+            ->middleware('permission:superadmin.monitor,manage')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('retry', 'retry')->middleware('throttle:20,1')->name('retry');
+                Route::delete('failed', 'forget')->name('forget');
+                Route::delete('jobs/{job}', 'destroyJob')->whereNumber('job')->name('jobs.destroy');
+                Route::post('process', 'process')->middleware('throttle:5,1')->name('process');
             });
 
         Route::controller(BackupController::class)
