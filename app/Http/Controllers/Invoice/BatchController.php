@@ -96,7 +96,7 @@ class BatchController extends Controller
                 ->orderBy('customer_name')
                 ->paginate(50)
                 ->withQueryString(),
-            'available' => Customer::where('branch_id', $model->branch_id)->whereNotIn('id', $inBatch)->orderBy('name')->limit(1000)->get(['id', 'name', 'phone', 'email']),
+            'available' => Customer::where('branch_id', $model->branch_id)->forApp('invoices')->whereNotIn('id', $inBatch)->orderBy('name')->limit(1000)->get(['id', 'name', 'phone', 'email']),
         ]);
     }
 
@@ -105,7 +105,7 @@ class BatchController extends Controller
         $model = $this->find($request, $batch);
         $data = $request->validate([
             'customer_ids' => ['required', 'array', 'max:1000'],
-            'customer_ids.*' => ['string', Rule::exists('customers', 'id')->where('branch_id', $model->branch_id)],
+            'customer_ids.*' => ['string', Rule::exists('customers', 'id')->where('branch_id', $model->branch_id)->where('app_key', 'invoices')],
         ], ['customer_ids.required' => 'Pilih minimal satu customer dulu ya.']);
 
         try {

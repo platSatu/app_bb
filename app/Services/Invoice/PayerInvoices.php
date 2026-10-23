@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 
 /**
  * Tagihan milik pembayar yang login: invoice (dari dashboard owner, bukan API website) yang ditujukan ke email akun ini,
- * langsung di invoice atau lewat kontak di Buku Kontak. Isi tagihan hanya dibuka setelah email akun terverifikasi,
+ * langsung di invoice atau lewat customer Invoice-nya. Isi tagihan hanya dibuka setelah email akun terverifikasi,
  * supaya orang tidak bisa mendaftar memakai email orang lain lalu melihat tagihannya.
  */
 class PayerInvoices
@@ -22,7 +22,7 @@ class PayerInvoices
         return Invoice::query()
             ->where('source', '!=', Invoice::SOURCE_API)
             ->where(fn (Builder $q) => $q->where('customer_email', $email)
-                ->orWhereIn('customer_id', Customer::where('email', $email)->select('id')));
+                ->orWhereIn('customer_id', Customer::forApp('invoices')->where('email', $email)->select('id')));
     }
 
     /** Untuk menu: punya tagihan (belum bayar / sudah lunas) atau tidak. */

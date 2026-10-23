@@ -28,8 +28,10 @@ class BroadcastService
         $target = $broadcast->target ?? [];
         $customers = Customer::where('branch_id', $broadcast->branch_id)->whereNotNull('phone');
 
+        // Blast: anggota Group WhatsApp dan/atau semua customer aplikasi lain (mis. semua customer Pages).
         $list = $broadcast->type === 'blast'
-            ? $customers->whereHas('groups', fn ($q) => $q->whereIn('contact_groups.id', $target['group_ids'] ?? []))->get(['name', 'phone'])
+            ? $customers->where(fn ($q) => $q->whereHas('groups', fn ($g) => $g->whereIn('contact_groups.id', $target['group_ids'] ?? []))
+                ->orWhereIn('app_key', $target['apps'] ?? []))->get(['name', 'phone'])
             : $customers->whereIn('id', $target['customer_ids'] ?? [])->get(['name', 'phone'])
                 ->concat(collect($target['phones'] ?? [])->map(fn ($p) => (object) ['phone' => $p, 'name' => null]));
 

@@ -8,7 +8,7 @@ use App\Services\Customer\CustomerService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
-/** Tambah kontak massal (CSV / anggota grup WhatsApp) ke Buku Kontak branch, opsional ke satu Group. */
+/** Tambah kontak massal (CSV / anggota grup WhatsApp) ke Customers WhatsApp (Phone Book) branch, opsional ke satu Group. */
 class ContactBookService
 {
     public const MAX_ROWS = 5000;
@@ -35,7 +35,7 @@ class ContactBookService
 
                         continue;
                     }
-                    $ids[] = $this->customers->resolve($locked, $row['name'] ?? null, $row['phone'] ?? null, $row['email'] ?? null, $source)->getKey();
+                    $ids[] = $this->customers->resolve($locked, 'whatsapp', $row['name'] ?? null, $row['phone'] ?? null, $row['email'] ?? null, $source)->getKey();
                     $saved++;
                 }
 

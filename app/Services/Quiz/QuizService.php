@@ -35,7 +35,7 @@ class QuizService
                 throw ValidationException::withMessages(['phone' => 'Nomor WhatsApp ini sudah pernah mengerjakan quiz ini.']);
             }
 
-            $customer = $this->customers->resolve($branch, $participant['name'], $phone, $participant['email'], 'Quiz: '.Str::limit($page->name, 200, ''));
+            $customer = $this->customers->resolve($branch, 'pages', $participant['name'], $phone, $participant['email'], 'Quiz: '.Str::limit($page->name, 200, ''));
 
             $attempt = new QuizAttempt();
             $attempt->forceFill([

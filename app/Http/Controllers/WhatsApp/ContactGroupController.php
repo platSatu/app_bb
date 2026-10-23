@@ -36,7 +36,7 @@ class ContactGroupController extends Controller
         return view('whatsapp.groups.show', [
             'group' => $model->load('branch:id,name'),
             'members' => $model->customers()->search($request->query('search'))->orderBy('name')->paginate(25)->withQueryString(),
-            'available' => Customer::where('branch_id', $model->branch_id)->whereDoesntHave('groups', fn ($q) => $q->whereKey($model->id))
+            'available' => Customer::where('branch_id', $model->branch_id)->forApp('whatsapp')->whereDoesntHave('groups', fn ($q) => $q->whereKey($model->id))
                 ->orderBy('name')->limit(500)->get(['id', 'name', 'phone', 'email']),
         ]);
     }
@@ -67,7 +67,7 @@ class ContactGroupController extends Controller
         $model = $this->group($request, $group);
         $model->delete();
 
-        return redirect()->route('whatsapp.groups.index', ['branch' => $model->branch_id])->with('success', 'Group dihapus. Kontaknya tetap ada di Buku Kontak.');
+        return redirect()->route('whatsapp.groups.index', ['branch' => $model->branch_id])->with('success', 'Group dihapus. Kontaknya tetap ada di Phone Book.');
     }
 
     public function addMembers(Request $request, string $group): RedirectResponse
@@ -75,7 +75,7 @@ class ContactGroupController extends Controller
         $model = $this->group($request, $group);
         $ids = $request->validate([
             'customer_ids' => ['required', 'array', 'max:500'],
-            'customer_ids.*' => [Rule::exists('customers', 'id')->where('branch_id', $model->branch_id)],
+            'customer_ids.*' => [Rule::exists('customers', 'id')->where('branch_id', $model->branch_id)->where('app_key', 'whatsapp')],
         ], ['customer_ids.required' => 'Pilih minimal satu kontak.'])['customer_ids'];
 
         $model->customers()->syncWithoutDetaching(array_fill_keys($ids, ['created_at' => now()]));

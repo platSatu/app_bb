@@ -23,7 +23,7 @@
                                         <td class="text-center">{{ number_format($group->customers_count) }}</td>
                                         <td class="text-end text-nowrap">
                                             <a href="{{ route('whatsapp.groups.show', $group) }}" class="btn btn-sm rounded-pill btn-outline-secondary"><i class="ri-team-line"></i> Anggota</a>
-                                            <form method="POST" action="{{ route('whatsapp.groups.destroy', $group) }}" class="d-inline" onsubmit="return confirm('Hapus group ini? Kontaknya tetap ada di Buku Kontak.')">
+                                            <form method="POST" action="{{ route('whatsapp.groups.destroy', $group) }}" class="d-inline" onsubmit="return confirm('Hapus group ini? Kontaknya tetap ada di Phone Book.')">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button class="btn btn-sm rounded-pill btn-outline-danger"><i class="ri-delete-bin-line"></i></button>

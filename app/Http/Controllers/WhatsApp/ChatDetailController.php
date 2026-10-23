@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
 
-/** Panel kanan inbox: assignment, label, media & file, catatan, simpan ke Buku Kontak. */
+/** Panel kanan inbox: assignment, label, media & file, catatan, simpan ke Phone Book. */
 class ChatDetailController extends Controller
 {
     use InWhatsAppArea;
@@ -117,7 +117,7 @@ class ChatDetailController extends Controller
         ]);
     }
 
-    /** Simpan nomor chat ke Buku Kontak branch, opsional langsung masuk Group. */
+    /** Simpan nomor chat ke Phone Book (Customers WhatsApp) branch, opsional langsung masuk Group. */
     public function saveContact(Request $request, string $device, string $chat, CustomerService $customers): JsonResponse
     {
         [$model, $thread] = $this->resolve($request, $device, $chat);
@@ -130,7 +130,7 @@ class ChatDetailController extends Controller
 
         $customer = DB::transaction(function () use ($model, $thread, $data, $customers) {
             $branch = UserBranch::whereKey($model->branch_id)->lockForUpdate()->firstOrFail();
-            $customer = $customers->resolve($branch, $data['name'] ?? null, $thread->phone, null, 'whatsapp');
+            $customer = $customers->resolve($branch, 'whatsapp', $data['name'] ?? null, $thread->phone, null, 'whatsapp');
             if (! $customer->name && $thread->name) {
                 $customer->forceFill(['name' => $thread->name])->save();
             }
@@ -141,7 +141,7 @@ class ChatDetailController extends Controller
             return $customer;
         });
 
-        return response()->json(['contact' => $this->contactPayload($customer), 'message' => 'Kontak tersimpan di Buku Kontak.']);
+        return response()->json(['contact' => $this->contactPayload($customer), 'message' => 'Kontak tersimpan di Phone Book.']);
     }
 
     /** vCard untuk disimpan ke kontak HP. */
@@ -192,7 +192,7 @@ class ChatDetailController extends Controller
         if ($chat->is_group || ! $chat->phone) {
             return null;
         }
-        $customer = Customer::where('branch_id', $device->branch_id)->where('phone', $chat->phone)->with('groups:id,name')->first();
+        $customer = Customer::where('branch_id', $device->branch_id)->forApp('whatsapp')->where('phone', $chat->phone)->with('groups:id,name')->first();
 
         return $customer ? $this->contactPayload($customer) : null;
     }

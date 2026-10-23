@@ -23,7 +23,13 @@ return [
                     'pages.list' => [
                         'label' => 'List Page',
                         'route' => 'pages.index',
-                        'active' => 'pages.*',
+                        'active' => ['pages.*', '!pages.customers.*'],
+                    ],
+                    // Customer khusus Pages (pembeli tiket, katalog, peserta kuis).
+                    'pages.customers' => [
+                        'label' => 'Customers',
+                        'route' => 'pages.customers.index',
+                        'active' => 'pages.customers.*',
                     ],
                 ],
             ],
@@ -89,6 +95,8 @@ return [
                     'invoices.list' => ['label' => 'Semua Invoice', 'route' => 'invoices.index', 'active' => ['invoices.index', 'invoices.show']],
                     'invoices.batches' => ['label' => 'Invoice Periode', 'route' => 'invoices.batches.index', 'active' => 'invoices.batches.*'],
                     'invoices.categories' => ['label' => 'Kategori', 'route' => 'invoices.categories.index', 'active' => 'invoices.categories.*'],
+                    // Customer khusus Invoice (orang yang ditagih).
+                    'invoices.customers' => ['label' => 'Customers', 'route' => 'invoices.customers.index', 'active' => 'invoices.customers.*'],
                     'invoices.api' => ['label' => 'API & Integrasi', 'route' => 'invoices.api.index', 'active' => ['invoices.api.*', 'invoices.docs']],
                     // Kirim dana dari saldo ke banyak rekening (dashboard / API). Tab di dalam halaman.
                     'invoices.disbursements' => ['label' => 'Disbursement', 'route' => 'invoices.disbursements.index', 'active' => 'invoices.disbursements.*'],
@@ -118,24 +126,11 @@ return [
                     'phone-book' => [
                         'label' => 'Phone Book',
                         'items' => [
-                            'whatsapp.contacts' => ['label' => 'Contact', 'route' => 'whatsapp.contacts.index', 'active' => 'whatsapp.contacts.*'],
+                            // Customer khusus WhatsApp.
+                            'whatsapp.contacts' => ['label' => 'Customers', 'route' => 'whatsapp.contacts.index', 'active' => 'whatsapp.contacts.*'],
                             'whatsapp.groups' => ['label' => 'Group', 'route' => 'whatsapp.groups.index', 'active' => 'whatsapp.groups.*'],
                             'whatsapp.wa-groups' => ['label' => 'Group WhatsApp', 'route' => 'whatsapp.wa-groups.index', 'active' => 'whatsapp.wa-groups.*'],
                         ],
-                    ],
-                ],
-            ],
-            // Buku Kontak dipakai bersama semua aplikasi: tampil kalau minimal satu aplikasi aktif
-            // (akun yang hanya murid/pengajar/pembayar tidak melihatnya).
-            'contacts' => [
-                'label' => 'Kontak',
-                'app' => 'any',
-                'icon' => 'ri-contacts-book-line',
-                'items' => [
-                    'contacts.list' => [
-                        'label' => 'Buku Kontak',
-                        'route' => 'contacts.index',
-                        'active' => 'contacts.*',
                     ],
                 ],
             ],

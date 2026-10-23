@@ -219,7 +219,7 @@ class TicketOrderService
         $categories = TicketCategory::where('page_id', $page->getKey())->whereKey(array_keys($quantities))->get()->keyBy('id');
         $this->assertAvailable($categories, $quantities);
 
-        $customer = $this->customers->resolve($branch, $buyer['name'], $buyer['phone'], $buyer['email'], 'Tiket: '.Str::limit($page->name, 200, ''));
+        $customer = $this->customers->resolve($branch, 'pages', $buyer['name'], $buyer['phone'], $buyer['email'], 'Tiket: '.Str::limit($page->name, 200, ''));
         $total = array_sum(array_map(fn ($id, $qty) => $qty * $categories[$id]->price, array_keys($quantities), $quantities));
 
         // Tiket gratis: 1 orang (email/WA yang sama = customer yang sama) cukup sekali per page, supaya tidak diborong.

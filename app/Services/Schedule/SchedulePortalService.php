@@ -133,7 +133,7 @@ class SchedulePortalService
             $member->forceFill(['user_id' => $locked->user_id])->save();
 
             if ($locked->isStudent() && ! $member->customer_id && ($locked->phone || $locked->email)) {
-                $customer = $this->customers->resolve($branch, $locked->guardian_name ?: $locked->name, $locked->phone, $locked->email, 'schedule');
+                $customer = $this->customers->resolve($branch, 'schedules', $locked->guardian_name ?: $locked->name, $locked->phone, $locked->email, 'schedule');
                 $member->forceFill(['customer_id' => $customer->getKey()])->save();
             }
 

@@ -68,7 +68,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="small text-muted">Anggota disimpan ke Buku Kontak lalu dimasukkan ke group pilihan. Nomor yang disembunyikan WhatsApp akan dilewati.</p>
+                        <p class="small text-muted">Anggota disimpan ke Phone Book (Customers WhatsApp) lalu dimasukkan ke group pilihan. Nomor yang disembunyikan WhatsApp akan dilewati.</p>
                         <label class="form-label">Masukkan ke group</label>
                         <select name="group_id" class="form-select mb-2">
                             <option value="">Buat group baru...</option>

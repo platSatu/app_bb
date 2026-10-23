@@ -29,7 +29,7 @@
                     @foreach ($section['groups'] as $groupKey => $group)
                         @php
                             $collapseId = 'menu-'.$sectionKey.'-'.$groupKey;
-                            $isActive = fn ($items) => $items->contains(fn ($item) => request()->routeIs($item['active']));
+                            $isActive = fn ($items) => $items->contains(fn ($item) => \App\Support\Menu::isActive($item['active']));
                             $groupActive = $isActive($group['items']) || $group['submenus']->contains(fn ($sub) => $isActive($sub['items']));
                         @endphp
                         <li class="pe-slide pe-has-sub">
@@ -43,7 +43,7 @@
                             <ul class="pe-slide-menu collapse {{ $groupActive ? 'show' : '' }}" id="{{ $collapseId }}">
                                 @foreach ($group['items'] as $item)
                                     <li class="pe-slide-item">
-                                        <a href="{{ route($item['route']) }}" class="pe-nav-link {{ request()->routeIs($item['active']) ? 'active' : '' }}">
+                                        <a href="{{ route($item['route']) }}" class="pe-nav-link {{ \App\Support\Menu::isActive($item['active']) ? 'active' : '' }}">
                                             {{ $item['label'] }}
                                         </a>
                                     </li>
@@ -63,7 +63,7 @@
                                         <ul class="pe-slide-menu collapse ps-3 {{ $subActive ? 'show' : '' }}" id="{{ $subId }}">
                                             @foreach ($submenu['items'] as $item)
                                                 <li class="pe-slide-item">
-                                                    <a href="{{ route($item['route']) }}" class="pe-nav-link {{ request()->routeIs($item['active']) ? 'active' : '' }}">
+                                                    <a href="{{ route($item['route']) }}" class="pe-nav-link {{ \App\Support\Menu::isActive($item['active']) ? 'active' : '' }}">
                                                         {{ $item['label'] }}
                                                     </a>
                                                 </li>

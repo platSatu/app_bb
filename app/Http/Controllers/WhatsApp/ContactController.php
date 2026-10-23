@@ -14,7 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
-/** Phone Book > Contact: Buku Kontak bizbos per branch, bisa tambah, ubah, atur group, dan impor CSV. */
+/** Phone Book > Customers: customer WhatsApp per branch, bisa tambah, ubah, atur group, dan impor CSV. */
 class ContactController extends Controller
 {
     use InWhatsAppArea;
@@ -26,7 +26,7 @@ class ContactController extends Controller
         }
 
         $groups = ContactGroup::where('branch_id', $branch->id)->orderBy('name')->get(['id', 'name']);
-        $customers = Customer::where('branch_id', $branch->id)
+        $customers = Customer::where('branch_id', $branch->id)->forApp('whatsapp')
             ->with('groups:id,name')
             ->search($request->query('search'))
             ->when($request->query('group'), fn ($q, $id) => $q->whereHas('groups', fn ($g) => $g->whereKey($id)))
@@ -48,7 +48,7 @@ class ContactController extends Controller
         $data = $this->validated($request, $branch);
 
         $book->addMany($branch, [$data], null, 'manual');
-        Customer::where('branch_id', $branch->id)->where('phone', $data['phone'])->firstOrFail()
+        Customer::where('branch_id', $branch->id)->forApp('whatsapp')->where('phone', $data['phone'])->firstOrFail()
             ->groups()->syncWithPivotValues($data['group_ids'] ?? [], ['created_at' => now()]);
 
         return back()->with('success', 'Kontak ditambahkan.');
@@ -56,7 +56,7 @@ class ContactController extends Controller
 
     public function update(Request $request, string $customer): RedirectResponse
     {
-        $model = Customer::whereIn('branch_id', $this->ownerBranches($request)->pluck('id'))->findOrFail($customer);
+        $model = Customer::whereIn('branch_id', $this->ownerBranches($request)->pluck('id'))->forApp('whatsapp')->findOrFail($customer);
         $branch = $this->ownerBranches($request)->firstWhere('id', $model->branch_id);
         $data = $this->validated($request, $branch, $model);
 
@@ -98,10 +98,10 @@ class ContactController extends Controller
 
         return $request->validate([
             'name' => ['required', 'string', 'max:150'],
-            'phone' => ['required', 'string', 'min:10', 'max:20', Rule::unique('customers')->where('branch_id', $branch->id)->ignore($self?->id)],
-            'email' => ['nullable', 'email', 'max:255', Rule::unique('customers')->where('branch_id', $branch->id)->ignore($self?->id)],
+            'phone' => ['required', 'string', 'min:10', 'max:20', Rule::unique('customers')->where('branch_id', $branch->id)->where('app_key', 'whatsapp')->ignore($self?->id)],
+            'email' => ['nullable', 'email', 'max:255', Rule::unique('customers')->where('branch_id', $branch->id)->where('app_key', 'whatsapp')->ignore($self?->id)],
             'group_ids' => ['nullable', 'array'],
             'group_ids.*' => [Rule::exists('contact_groups', 'id')->where('branch_id', $branch->id)],
-        ], ['phone.unique' => 'Nomor WhatsApp ini sudah ada di Buku Kontak.', 'email.unique' => 'Email ini sudah dipakai kontak lain.'], ['phone' => 'nomor WhatsApp']);
+        ], ['phone.unique' => 'Nomor WhatsApp ini sudah ada di Phone Book.', 'email.unique' => 'Email ini sudah dipakai kontak lain.'], ['phone' => 'nomor WhatsApp']);
     }
 }

@@ -63,7 +63,7 @@ class StudentController extends ScheduleResourceController
         }
 
         $branch = UserBranch::whereKey($item->branch_id)->lockForUpdate()->firstOrFail();
-        $customer = $this->customers->resolve($branch, $item->name, $item->phone, $item->email, 'schedule');
+        $customer = $this->customers->resolve($branch, 'schedules', $item->name, $item->phone, $item->email, 'schedule');
         $item->forceFill(['customer_id' => $customer->getKey()])->save();
     }
 }

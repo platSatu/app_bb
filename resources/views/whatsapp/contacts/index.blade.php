@@ -7,7 +7,7 @@
     <div class="card">
         <div class="card-body">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-                <p class="text-muted small mb-0">Buku Kontak branch <strong>{{ $branch->name }}</strong>. Kontak dari form page, inbox WhatsApp, dan impor tersimpan di sini.</p>
+                <p class="text-muted small mb-0">Customers WhatsApp branch <strong>{{ $branch->name }}</strong>: kontak dari inbox, impor CSV, dan anggota grup WhatsApp. Customer Pages dan Invoice ada di menu masing-masing.</p>
                 <div class="d-flex gap-2 align-items-center">
                     @include('whatsapp._branch-filter')
                     <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#wa-import-modal"><i class="ri-upload-2-line"></i> Impor CSV</button>

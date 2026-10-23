@@ -10,10 +10,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** Buku kontak: pelanggan milik satu branch. Bukan akun login. */
+/**
+ * Customer milik satu branch DAN satu aplikasi (app_key). Bukan akun login.
+ * Orang yang sama di Pages dan Invoice = dua baris terpisah.
+ */
 class Customer extends Model
 {
     use HasUuids;
+
+    public const APPS = [
+        'pages' => 'Pages',
+        'schedules' => 'Schedules',
+        'invoices' => 'Invoice',
+        'whatsapp' => 'WhatsApp',
+    ];
 
     protected $fillable = [];
 
@@ -40,6 +50,21 @@ class Customer extends Model
     public function submissions(): HasMany
     {
         return $this->hasMany(PageSubmission::class);
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    public function scopeForApp(Builder $query, string $app): Builder
+    {
+        return $query->where($this->qualifyColumn('app_key'), $app);
+    }
+
+    public function appLabel(): string
+    {
+        return self::APPS[$this->app_key] ?? $this->app_key;
     }
 
     /** Owner: hanya kontak perusahaannya. Tim platform: semua, sesuai izin menu superadmin.customers. */

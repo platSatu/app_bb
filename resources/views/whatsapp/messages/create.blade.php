@@ -60,6 +60,7 @@
                         <h6 class="mb-3">Penerima</h6>
                         @if ($type === 'blast')
                             @error('group_ids') <div class="text-danger small mb-2">{{ $message }}</div> @enderror
+                            <div class="small fw-semibold text-muted mb-1">Group WhatsApp</div>
                             @forelse ($groups as $group)
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" name="group_ids[]" value="{{ $group->id }}" id="grp-{{ $group->id }}" @checked(in_array($group->id, (array) old('group_ids', [])))>
@@ -68,12 +69,23 @@
                             @empty
                                 <div class="text-muted small">Belum ada Group kontak. <a href="{{ route('whatsapp.groups.index', ['branch' => $branch->id]) }}">Buat Group</a> dulu.</div>
                             @endforelse
+                            <div class="small fw-semibold text-muted mt-3 mb-1">Customers aplikasi lain</div>
+                            @foreach (\App\Models\Customer::APPS as $app => $label)
+                                @continue($app === 'whatsapp')
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="apps[]" value="{{ $app }}" id="app-{{ $app }}" @checked(in_array($app, (array) old('apps', []))) @disabled(! ($appCounts[$app] ?? 0))>
+                                    <label class="form-check-label" for="app-{{ $app }}">Semua customer {{ $label }} <span class="text-muted small">({{ $appCounts[$app] ?? 0 }} nomor)</span></label>
+                                </div>
+                            @endforeach
                             <div class="form-text mt-2">Kontak yang ada di beberapa group hanya dikirimi sekali. Nomor yang membalas STOP otomatis dilewati.</div>
                         @else
                             @error('customer_ids') <div class="text-danger small mb-2">{{ $message }}</div> @enderror
                             <input type="search" class="form-control form-control-sm mb-2" placeholder="Cari kontak" data-picker-search>
                             <div class="border rounded p-2 mb-3" style="max-height: 220px; overflow-y: auto">
                                 @forelse ($customers as $customer)
+                                    @if ($loop->first || $customers[$loop->index - 1]->app_key !== $customer->app_key)
+                                        <div class="small fw-semibold text-muted {{ $loop->first ? '' : 'mt-2' }}" data-picker-row data-text="">Customers {{ $customer->appLabel() }}</div>
+                                    @endif
                                     <div class="form-check" data-picker-row data-text="{{ strtolower($customer->name.' '.$customer->phone) }}">
                                         <input class="form-check-input" type="checkbox" name="customer_ids[]" value="{{ $customer->id }}" id="c-{{ $customer->id }}" @checked(in_array($customer->id, (array) old('customer_ids', [])))>
                                         <label class="form-check-label" for="c-{{ $customer->id }}">{{ $customer->displayName() }} <span class="text-muted small">+{{ $customer->phone }}</span></label>

@@ -52,9 +52,9 @@
                         <dt class="text-muted fw-normal small">Alamat</dt><dd style="white-space: pre-line;">{{ $order->address ?: '-' }}</dd>
                         <dt class="text-muted fw-normal small">Catatan</dt><dd class="mb-0" style="white-space: pre-line;">{{ $order->note ?: '-' }}</dd>
                     </dl>
-                    @if ($order->customer && auth()->user()->canAccess($routes === 'pages' ? 'contacts.list' : 'superadmin.customers'))
-                        <a href="{{ route($routes === 'pages' ? 'contacts.show' : 'superadmin.contacts.show', $order->customer) }}" class="btn btn-sm btn-outline-secondary w-100 mt-3">
-                            <i class="ri-contacts-book-line me-1"></i>Lihat di Buku Kontak
+                    @if ($order->customer && auth()->user()->canAccess($routes === 'pages' ? 'pages.customers' : 'superadmin.customers'))
+                        <a href="{{ route($routes === 'pages' ? 'pages.customers.show' : 'superadmin.contacts.show', $order->customer) }}" class="btn btn-sm btn-outline-secondary w-100 mt-3">
+                            <i class="ri-contacts-book-line me-1"></i>Lihat di Customers
                         </a>
                     @endif
                 </div>

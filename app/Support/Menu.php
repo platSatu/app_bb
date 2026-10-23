@@ -56,6 +56,15 @@ class Menu
             ->filter(fn (array $section) => $section['groups']->isNotEmpty());
     }
 
+    /** Pola 'active' menu cocok dengan route sekarang. Pola berawalan '!' mengecualikan (mis. '!pages.customers.*'). */
+    public static function isActive(string|array $patterns): bool
+    {
+        [$exclude, $include] = collect((array) $patterns)->partition(fn (string $p) => str_starts_with($p, '!'));
+
+        return request()->routeIs($include->all())
+            && ! ($exclude->isNotEmpty() && request()->routeIs($exclude->map(fn ($p) => substr($p, 1))->all()));
+    }
+
     /** Item yang dipakai sebagai tab: hanya yang boleh dibuka user. */
     public static function tabs(User $user, array $keys): Collection
     {

@@ -65,7 +65,7 @@ class CatalogOrderService
                 throw ValidationException::withMessages(['cart' => $errors ?: ['Keranjang masih kosong.']]);
             }
 
-            $customer = $this->customers->resolve($branch, $buyer['name'], $buyer['phone'], $buyer['email'], 'Katalog: '.Str::limit($page->name, 200, ''));
+            $customer = $this->customers->resolve($branch, 'pages', $buyer['name'], $buyer['phone'], $buyer['email'], 'Katalog: '.Str::limit($page->name, 200, ''));
 
             $order = new CatalogOrder();
             $order->forceFill([

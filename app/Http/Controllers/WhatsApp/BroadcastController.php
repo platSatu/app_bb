@@ -53,7 +53,9 @@ class BroadcastController extends Controller
             'type' => $request->query('type') === 'blast' ? 'blast' : 'once',
             'devices' => WaDevice::where('branch_id', $branch->id)->orderBy('name')->get(['id', 'name', 'status', 'phone']),
             'groups' => ContactGroup::where('branch_id', $branch->id)->withCount(['customers' => fn ($q) => $q->whereNotNull('phone')])->orderBy('name')->get(),
-            'customers' => Customer::where('branch_id', $branch->id)->whereNotNull('phone')->orderBy('name')->limit(1000)->get(['id', 'name', 'phone']),
+            // Penerima boleh dari customer aplikasi mana pun di branch ini.
+            'customers' => Customer::where('branch_id', $branch->id)->whereNotNull('phone')->orderBy('app_key')->orderBy('name')->limit(1000)->get(['id', 'app_key', 'name', 'phone']),
+            'appCounts' => Customer::where('branch_id', $branch->id)->whereNotNull('phone')->selectRaw('app_key, count(*) as total')->groupBy('app_key')->pluck('total', 'app_key'),
         ]);
     }
 
@@ -68,7 +70,9 @@ class BroadcastController extends Controller
             'type' => ['required', Rule::in(array_keys(WaBroadcast::TYPES))],
             'body' => ['nullable', 'required_without:file', 'string', 'max:4000'],
             'file' => ['nullable', 'file', 'max:65536'],
-            'group_ids' => ['nullable', 'required_if:type,blast', 'array'],
+            'group_ids' => ['nullable', 'array'],
+            'apps' => ['nullable', 'array'],
+            'apps.*' => [Rule::in(array_keys(Customer::APPS))],
             'group_ids.*' => [Rule::exists('contact_groups', 'id')->where('branch_id', $device->branch_id)],
             'customer_ids' => ['nullable', 'array', 'max:500'],
             'customer_ids.*' => [Rule::exists('customers', 'id')->where('branch_id', $device->branch_id)],
@@ -77,11 +81,14 @@ class BroadcastController extends Controller
             'send_at' => ['nullable', 'required_unless:schedule,now', 'date', 'after:now'],
         ], [
             'body.required_without' => 'Isi pesan atau lampirkan file.',
-            'group_ids.required_if' => 'Pilih minimal satu Group untuk blast.',
             'send_at.required_unless' => 'Tentukan waktu kirim.',
             'send_at.after' => 'Waktu kirim harus setelah sekarang.',
             'file.max' => 'Ukuran file maksimal 64 MB.',
         ], ['name' => 'nama pesan', 'send_at' => 'waktu kirim']);
+
+        if ($data['type'] === 'blast' && empty($data['group_ids']) && empty($data['apps'])) {
+            return back()->withInput()->withErrors(['group_ids' => 'Pilih minimal satu Group atau customer aplikasi untuk blast.']);
+        }
 
         if ($data['type'] === 'once' && empty($data['customer_ids']) && empty($data['phones'])) {
             return back()->withInput()->withErrors(['customer_ids' => 'Pilih kontak atau tulis nomor tujuan.']);
@@ -104,7 +111,7 @@ class BroadcastController extends Controller
             'upload_kind' => $upload['kind'] ?? null,
             'upload_name' => $upload['name'] ?? null,
             'target' => $data['type'] === 'blast'
-                ? ['group_ids' => array_values($data['group_ids'] ?? [])]
+                ? ['group_ids' => array_values($data['group_ids'] ?? []), 'apps' => array_values($data['apps'] ?? [])]
                 : ['customer_ids' => array_values($data['customer_ids'] ?? []), 'phones' => $data['phones']],
             'next_run_at' => $data['schedule'] === 'now' ? now() : $data['send_at'],
             'status' => 'active',
@@ -129,7 +136,8 @@ class BroadcastController extends Controller
             'broadcast' => $model,
             'campaigns' => $model->campaigns()->latest()->limit(20)->get(),
             'recipients' => $model->status === 'active' ? $this->broadcasts->recipients($model)->count() : null,
-            'groups' => ContactGroup::whereIn('id', $model->target['group_ids'] ?? [])->pluck('name'),
+            'groups' => ContactGroup::whereIn('id', $model->target['group_ids'] ?? [])->pluck('name')
+                ->concat(collect($model->target['apps'] ?? [])->map(fn ($app) => 'Semua customer '.(Customer::APPS[$app] ?? $app))),
             'failures' => DB::table('wa_outbox')->whereIn('campaign_id', $model->campaigns()->select('id'))
                 ->whereIn('status', ['failed', 'skipped'])->latest('updated_at')->limit(20)->get(['chat_jid', 'status', 'error', 'updated_at']),
         ]);

@@ -100,7 +100,7 @@ class CategoryController extends Controller
             ...$this->shared($request, 'categories'),
             'category' => $model,
             'subscriptions' => $model->subscriptions()->with('customer')->latest()->get(),
-            'available' => Customer::where('branch_id', $model->branch_id)->whereNotIn('id', $subscribed)->orderBy('name')->limit(1000)->get(['id', 'name', 'phone', 'email']),
+            'available' => Customer::where('branch_id', $model->branch_id)->forApp('invoices')->whereNotIn('id', $subscribed)->orderBy('name')->limit(1000)->get(['id', 'name', 'phone', 'email']),
         ]);
     }
 
@@ -109,7 +109,7 @@ class CategoryController extends Controller
         $model = $this->find($request, $category);
         $data = $request->validate([
             'customer_ids' => ['required', 'array', 'max:1000'],
-            'customer_ids.*' => ['string', Rule::exists('customers', 'id')->where('branch_id', $model->branch_id)],
+            'customer_ids.*' => ['string', Rule::exists('customers', 'id')->where('branch_id', $model->branch_id)->where('app_key', 'invoices')],
         ], ['customer_ids.required' => 'Pilih minimal satu customer dulu ya.']);
 
         $count = DB::transaction(function () use ($model, $data) {
@@ -126,7 +126,7 @@ class CategoryController extends Controller
         return back()->with('success', "{$count} customer ditambahkan ke kategori {$model->name}.");
     }
 
-    /** Customer baru langsung masuk Buku Kontak branch (dicocokkan lewat WA/email supaya tidak dobel). */
+    /** Customer baru langsung masuk Customers Invoice branch (dicocokkan lewat WA/email supaya tidak dobel). */
     public function quickAdd(Request $request, string $category, CustomerService $customers): RedirectResponse
     {
         $model = $this->find($request, $category);
@@ -139,7 +139,7 @@ class CategoryController extends Controller
 
         $customer = DB::transaction(function () use ($model, $data, $customers) {
             $branch = UserBranch::whereKey($model->branch_id)->lockForUpdate()->firstOrFail();
-            $customer = $customers->resolve($branch, $data['name'], $data['phone'] ?? null, $data['email'] ?? null, 'Invoice: '.$model->name);
+            $customer = $customers->resolve($branch, 'invoices', $data['name'], $data['phone'] ?? null, $data['email'] ?? null, 'Invoice: '.$model->name);
 
             if (! $model->subscriptions()->where('customer_id', $customer->getKey())->exists()) {
                 $this->subscribeCustomer($model, $customer->getKey(), $data['amount'] ?? null);
@@ -148,7 +148,7 @@ class CategoryController extends Controller
             return $customer;
         });
 
-        return back()->with('success', "{$customer->displayName()} sudah masuk Buku Kontak dan berlangganan kategori ini.");
+        return back()->with('success', "{$customer->displayName()} sudah masuk Customers Invoice dan berlangganan kategori ini.");
     }
 
     public function updateSubscription(Request $request, string $category, string $subscription): RedirectResponse

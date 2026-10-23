@@ -18,7 +18,7 @@
         <div class="col-lg-7">
             <div class="card h-100 mb-0">
                 <div class="card-body">
-                    <h6>Pilih dari Buku Kontak</h6>
+                    <h6>Pilih dari Customers Invoice</h6>
                     @include('invoice._customer-picker', ['action' => route('invoices.categories.subscribe', $category), 'button' => 'Tambahkan ke Kategori'])
                 </div>
             </div>
@@ -87,7 +87,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="4" class="text-center text-muted py-4">Belum ada customer. Pilih dari Buku Kontak atau tambahkan customer baru di atas.</td></tr>
+                            <tr><td colspan="4" class="text-center text-muted py-4">Belum ada customer. Pilih dari Customers Invoice atau tambahkan customer baru di atas.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

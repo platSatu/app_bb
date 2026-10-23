@@ -66,7 +66,7 @@ class InvoiceService
             $overrides = InvoiceSubscription::where('category_id', $batch->category_id)->whereIn('customer_id', $customerIds)->pluck('amount', 'customer_id');
             $created = [];
 
-            foreach (Customer::where('branch_id', $batch->branch_id)->whereKey($customerIds)->whereNotIn('id', $existing)->get() as $customer) {
+            foreach (Customer::where('branch_id', $batch->branch_id)->forApp('invoices')->whereKey($customerIds)->whereNotIn('id', $existing)->get() as $customer) {
                 $created[] = $this->createForCustomer($branch, $batch, $customer, $overrides[$customer->getKey()] ?? $batch->amount);
             }
 
@@ -116,7 +116,7 @@ class InvoiceService
             }
 
             $customer = filled($data['customer']['email'] ?? null) || filled($data['customer']['phone'] ?? null)
-                ? $this->customers->resolve($branch, $data['customer']['name'], $data['customer']['phone'] ?? null, $data['customer']['email'] ?? null, 'Invoice API')
+                ? $this->customers->resolve($branch, 'invoices', $data['customer']['name'], $data['customer']['phone'] ?? null, $data['customer']['email'] ?? null, 'Invoice API')
                 : null;
 
             $invoice = $this->newInvoice($branch, 'INV', [

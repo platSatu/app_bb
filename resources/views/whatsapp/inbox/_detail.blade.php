@@ -12,11 +12,11 @@
             <div class="text-muted small d-none" id="wa-detail-contact"></div>
             <div class="wa-detail-save-actions">
                 <a href="#" id="wa-detail-save-contact" class="wa-detail-save-contact-btn d-none" download><i class="ri-user-add-line"></i> + Phone</a>
-                <button type="button" id="wa-detail-save-phonebook-btn" class="wa-detail-save-contact-btn wa-detail-save-phonebook-btn d-none"><i class="ri-contacts-book-line"></i> Buku Kontak</button>
+                <button type="button" id="wa-detail-save-phonebook-btn" class="wa-detail-save-contact-btn wa-detail-save-phonebook-btn d-none"><i class="ri-contacts-book-line"></i> Phone Book</button>
             </div>
 
             <div id="wa-save-phonebook-popover" class="wa-save-phonebook-popover d-none">
-                <div class="wa-save-phonebook-popover-title">Simpan ke Buku Kontak</div>
+                <div class="wa-save-phonebook-popover-title">Simpan ke Phone Book</div>
                 <label class="wa-save-phonebook-label" for="wa-save-phonebook-name">Nama</label>
                 <input id="wa-save-phonebook-name" class="wa-save-phonebook-select" maxlength="150">
                 <label class="wa-save-phonebook-label" for="wa-save-phonebook-category">Group (opsional)</label>

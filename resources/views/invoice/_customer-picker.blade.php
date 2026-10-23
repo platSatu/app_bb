@@ -1,4 +1,4 @@
-{{-- Pilih banyak customer dari Buku Kontak branch. $available, $action, $button --}}
+{{-- Pilih banyak customer Invoice di branch. $available, $action, $button --}}
 <form method="POST" action="{{ $action }}" data-picker>
     @csrf
     <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
@@ -16,7 +16,7 @@
                 </label>
             </div>
         @empty
-            <div class="text-muted small">Semua customer di Buku Kontak branch ini sudah masuk. Tambahkan customer baru dengan form di sebelah.</div>
+            <div class="text-muted small">Semua customer Invoice di branch ini sudah masuk. Tambahkan customer baru dengan form di sebelah.</div>
         @endforelse
     </div>
     @if ($available->isNotEmpty())

@@ -84,7 +84,7 @@
                             <input class="form-check-input" type="checkbox" role="switch" id="email_enabled" name="email_enabled" value="1" @checked(old('email_enabled', $item->email_enabled))>
                             <label class="form-check-label" for="email_enabled">Kirim email tagihan & pengingat</label>
                         </div>
-                        <div class="form-text">Hanya untuk customer yang punya email di Buku Kontak.</div>
+                        <div class="form-text">Hanya untuk customer yang punya email.</div>
                     </div>
                     <div class="col-md-6">
                         <label for="reminder_days" class="form-label">Pengingat (hari sebelum jatuh tempo)</label>

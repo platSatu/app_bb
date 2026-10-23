@@ -3,14 +3,17 @@
 use App\Http\Controllers\Contact\CustomerController;
 use Illuminate\Support\Facades\Route;
 
-// Hak akses dicek lagi di controller lewat Customer::accessibleBy().
+// Customers per aplikasi (satu tabel customers, dibedakan app_key). Aplikasinya dibaca dari nama route.
+// Hak akses data dicek lagi di controller lewat Customer::accessibleBy().
 $routes = function () {
     Route::get('/', [CustomerController::class, 'index'])->name('index');
-    Route::get('{customer}', [CustomerController::class, 'show'])->name('show');
+    Route::get('{customer}', [CustomerController::class, 'show'])->whereUuid('customer')->name('show');
 };
 
-Route::middleware(['auth', 'permission:contacts.list'])->prefix('contacts')->name('contacts.')->group($routes);
+Route::middleware(['auth', 'permission:pages.customers'])->prefix('pages/customers')->name('pages.customers.')->group($routes);
+Route::middleware(['auth', 'permission:invoices.customers'])->prefix('invoices/customers')->name('invoices.customers.')->group($routes);
 
+// Superadmin: semua aplikasi, bisa difilter.
 Route::middleware(['auth', 'superadmin', 'permission:superadmin.customers,view'])
     ->prefix('superadmin/contacts')
     ->name('superadmin.contacts.')

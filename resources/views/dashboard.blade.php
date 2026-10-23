@@ -35,7 +35,7 @@
                     collect(['Tiket' => $stats['income']['parts']['ticket'], 'Katalog' => $stats['income']['parts']['catalog'], 'Invoice' => $stats['income']['parts']['invoice']])->filter()->map(fn ($v, $k) => $k.' '.$rupiah($v))->join(' · ') ?: 'Belum ada pemasukan'],
                 ['Pesanan baru', number_format($stats['orders']['value'], 0, ',', '.'), $stats['orders']['change'], 'ri-shopping-cart-2-line', 'primary', 'Tiket lunas & pesanan katalog bulan ini'],
                 $usesInvoice ? ['Invoice belum dibayar', number_format($stats['unpaid']['value'], 0, ',', '.'), null, 'ri-file-warning-line', 'warning', 'Total '.$rupiah($stats['unpaid']['amount'])] : null,
-                ['Kontak baru', number_format($stats['contacts']['value'], 0, ',', '.'), $stats['contacts']['change'], 'ri-contacts-book-3-line', 'info', 'Masuk ke Buku Kontak bulan ini'],
+                ['Customer baru', number_format($stats['contacts']['value'], 0, ',', '.'), $stats['contacts']['change'], 'ri-contacts-book-3-line', 'info', 'Customer baru di semua aplikasi bulan ini'],
             ];
             $cards = array_filter($cards);
         @endphp

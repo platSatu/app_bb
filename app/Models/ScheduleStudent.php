@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
-/** Murid: tersambung ke Buku Kontak branch. Bisa terhubung ke akun portal orang tua/murid (user_id). */
+/** Murid: tersambung ke customer Schedules di branch. Bisa terhubung ke akun portal orang tua/murid (user_id). */
 class ScheduleStudent extends Authenticatable
 {
     use BelongsToScheduleBranch, HasActiveStatus, HasUuids;
