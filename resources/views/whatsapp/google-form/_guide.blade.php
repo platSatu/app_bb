@@ -6,11 +6,12 @@
                 <h5 class="fw-semibold">Cara kerjanya</h5>
                 <p class="text-muted">Orang mengisi Google Form Anda, lalu bizbos langsung mengirim WhatsApp ke nomor yang mereka tulis di form. Tidak perlu developer.</p>
 
-                <h6 class="fw-semibold mt-4">Pasang dalam 3 langkah</h6>
+                <h6 class="fw-semibold mt-4">Langkah pemasangan</h6>
                 <ol class="ps-3">
-                    <li class="mb-2">Klik <b>Hubungkan Google Form</b>, pilih nomor pengirim, tulis judul pertanyaan yang berisi nomor WhatsApp, lalu tulis pesannya.</li>
-                    <li class="mb-2">Di halaman berikutnya, salin <b>script Apps Script</b>. Buka Google Form Anda, menu <b>⋮ › Apps Script</b>, tempel, lalu simpan.</li>
-                    <li>Di Apps Script, klik ikon jam <b>Triggers › Add Trigger</b>, pilih <code>onFormSubmit</code> dan event <b>On form submit</b>. Selesai, coba isi form sekali.</li>
+                    <li class="mb-2"><b>Siapkan Google Form.</b> Wajib ada satu pertanyaan untuk nomor WhatsApp (mis. judul <i>Nomor WhatsApp</i>, jenis Jawaban singkat). Sebaiknya ada juga pertanyaan <i>Nama Lengkap</i>.</li>
+                    <li class="mb-2"><b>Hubungkan di bizbos.</b> Klik <b>Hubungkan Google Form</b>, pilih nomor pengirim, lalu tulis judul pertanyaan nomor WhatsApp <b>persis sama</b> dengan di form. Tulis pesannya, simpan.</li>
+                    <li class="mb-2"><b>Pasang script.</b> Di halaman detail, buka tab <b>Pasang Script</b> dan ikuti 5 langkahnya: buka Google Form › <b>⋮ › Apps Script</b>, tempel script, simpan, jalankan fungsi <code>pasang</code>, lalu izinkan aksesnya.</li>
+                    <li><b>Coba.</b> Isi form sekali dengan nomor WhatsApp Anda sendiri. Pesan masuk ke WhatsApp dan datanya muncul di tab <b>Pendaftar</b>.</li>
                 </ol>
 
                 <h6 class="fw-semibold mt-4">Fitur tambahan (opsional)</h6>

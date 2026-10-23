@@ -59,7 +59,7 @@ it('menu Google Form: tab pertama daftar, tab terakhir panduan; pengaturan pemba
     $this->post(route('whatsapp.google-forms.store'), [...$base, 'payment_enabled' => '1', 'amount' => '150000', 'registration_enabled' => '1', 'checkin_pin' => '482916'])->assertRedirect();
     $form = WaFormIntegration::sole();
     expect($form->amount)->toBe(150000)->and($form->checkin_token)->toHaveLength(48)->and(Hash::check('482916', $form->checkin_pin_hash))->toBeTrue();
-    $this->get(route('whatsapp.google-forms.show', [$form, 'tab' => 'script']))->assertOk()->assertSee('onFormSubmit')->assertSee($form->webhookUrl());
+    $this->get(route('whatsapp.google-forms.show', [$form, 'tab' => 'script']))->assertOk()->assertSee('function pasang()')->assertSee('onFormSubmit()')->assertSee($form->webhookUrl(), false);
 });
 
 it('pembayaran butuh paket Tagihan aktif', function () {
