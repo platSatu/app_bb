@@ -12,7 +12,9 @@ use Illuminate\Database\Seeder;
  * Judul sengaja memakai kata yang biasa diketik pengunjung (harga, daftar, gratis, tarik saldo, ...)
  * supaya live chat mudah menemukannya.
  * Jalankan: php artisan db:seed --class=WebFaqSeeder
- * Aman dijalankan ulang: FAQ yang judulnya sudah ada tidak ditimpa.
+ * Sengaja tanpa angka yang bisa berubah (harga, persen komisi, jumlah hari): angka itu tampil langsung di
+ * aplikasi, jadi FAQ tidak perlu ikut diganti setiap kali superadmin mengubah paket atau pengaturan.
+ * Aman dijalankan ulang: FAQ yang sudah diedit superadmin tidak ditimpa.
  */
 class WebFaqSeeder extends Seeder
 {
@@ -23,13 +25,13 @@ class WebFaqSeeder extends Seeder
         'Apakah saya perlu bisa coding untuk memakai bizbos?' => 'Sama sekali tidak perlu. Semua fitur dipakai lewat menu yang sudah siap, cukup isi dan klik. Kalau Anda punya website sendiri, tersedia juga API untuk developer, tapi itu opsional.',
 
         // Paket & harga
-        'Berapa harga paket bizbos?' => 'Paket tersedia untuk 6 bulan dan 12 bulan, mulai dari Pages 6 bulan Rp429.000 (sekitar Rp71 ribuan per bulan). Paket 12 bulan lebih hemat sekitar 20% dan ditandai Populer. Harga lengkap tiap paket bisa dilihat di menu Beli Paket setelah Anda masuk.',
-        'Apa saja pilihan paketnya?' => 'Ada 5 pilihan: Pages, Invoice, Invoice + WhatsApp, Pages + Invoice + WhatsApp, dan Komplit (Pages, Jadwal, Invoice, WhatsApp). Masing-masing tersedia untuk 6 bulan dan 12 bulan, plus trial gratis 7 hari. Pilih sesuai kebutuhan, dan Anda bisa menambah paket lain kapan saja.',
-        'Bisa coba gratis dulu?' => 'Bisa! Setiap paket punya trial gratis 7 hari tanpa perlu bayar. Trial bisa dipakai satu kali untuk setiap email dan nomor HP. Cukup daftar, buat branch, lalu pilih paket Trial di menu Beli Paket.',
+        'Berapa harga paket bizbos?' => 'Harga setiap paket bisa Anda lihat langsung di menu Beli Paket setelah daftar, lengkap dengan durasi dan fitur yang didapat. Makin panjang durasinya, biasanya makin hemat, dan paket yang paling banyak dipilih ditandai Populer. Kalau mau dibantu memilih yang paling pas untuk usaha Anda, chat kami saja ya.',
+        'Apa saja pilihan paketnya?' => 'Paket disusun sesuai kebutuhan: ada yang berisi satu fitur saja, seperti Pages atau Invoice, ada gabungan beberapa fitur, sampai paket Komplit yang berisi semuanya. Setiap paket tersedia dalam beberapa pilihan durasi, dan Anda bisa menambah paket lain kapan saja. Daftar lengkapnya ada di menu Beli Paket.',
+        'Bisa coba gratis dulu?' => 'Bisa! Tersedia paket Trial gratis supaya Anda bisa mencoba dulu sebelum berlangganan. Trial bisa dipakai satu kali untuk setiap email dan nomor HP, dan lama masa trial tertulis di kartu paketnya. Cukup daftar, buat branch, lalu pilih paket Trial di menu Beli Paket.',
         'Bagaimana cara membeli atau memperpanjang paket?' => 'Isi Saldo terlebih dahulu lewat menu Tambah Saldo, lalu buka Beli Paket, pilih paket, dan klik Bayar dengan Saldo. Paket bisa langsung diaktifkan ke branch Anda, atau disimpan sebagai kode voucher untuk dipakai nanti. Kalau diperpanjang saat masih aktif, masa aktifnya ditambahkan dari tanggal berakhir sebelumnya, jadi tidak ada hari yang hilang.',
-        'Apa itu kode voucher paket?' => 'Kode voucher adalah paket yang Anda beli tapi belum diaktifkan, misalnya untuk dipakai nanti atau diberikan ke rekan. Kode berlaku 90 hari sejak dibeli dan bisa diaktifkan lewat menu Punya Kode Voucher.',
-        'Apakah ada batas kuota di setiap paket?' => 'Beberapa paket punya batas per bulan, misalnya jumlah invoice dan pesan WhatsApp. Kuota diatur ulang setiap tanggal 1 dan sisa kuota tidak menumpuk ke bulan berikutnya. Rincian kuota tertulis di setiap kartu paket.',
-        'Apakah paket bisa direfund?' => 'Paket yang sudah aktif atau kode voucher yang sudah dipakai tidak bisa direfund. Tapi kalau terjadi kesalahan dari sistem kami, misalnya saldo terpotong dua kali, dana pasti kami kembalikan ke Saldo. Laporkan lewat halaman Kontak paling lambat 30 hari ya. Selengkapnya ada di halaman Kebijakan Refund.',
+        'Apa itu kode voucher paket?' => 'Kode voucher adalah paket yang sudah Anda beli tapi belum diaktifkan, misalnya untuk dipakai nanti atau diberikan ke rekan. Masa berlaku kodenya ditampilkan saat pembelian, dan kode bisa diaktifkan lewat menu Punya Kode Voucher.',
+        'Apakah ada batas kuota di setiap paket?' => 'Beberapa paket punya batas pemakaian per bulan, misalnya jumlah invoice dan pesan WhatsApp. Kuota diatur ulang setiap awal bulan dan sisanya tidak menumpuk ke bulan berikutnya. Rincian kuota tertulis di setiap kartu paket.',
+        'Apakah paket bisa direfund?' => 'Paket yang sudah aktif atau kode voucher yang sudah dipakai tidak bisa direfund. Tapi kalau terjadi kesalahan dari sistem kami, misalnya saldo terpotong dua kali, dana pasti kami kembalikan ke Saldo. Segera laporkan lewat halaman Kontak ya. Ketentuan lengkap dan batas waktunya ada di halaman Kebijakan Refund.',
 
         // Daftar & akun
         'Bagaimana cara daftar akun bizbos?' => 'Klik Daftar, isi nama, email, nomor WhatsApp, dan password, lalu baca dan setujui Syarat & Ketentuan. Setelah itu cek email Anda untuk verifikasi. Bisa juga daftar lebih cepat dengan akun Google.',
@@ -40,14 +42,14 @@ class WebFaqSeeder extends Seeder
         // Saldo & pembayaran
         'Bagaimana cara isi saldo atau top up?' => 'Buka menu Saldo lalu Tambah Saldo, masukkan nominal, dan bayar lewat Virtual Account, e-wallet, QRIS, atau metode lain yang tersedia. Saldo bertambah otomatis begitu pembayaran dikonfirmasi, biasanya hanya beberapa menit.',
         'Kenapa saldo saya belum bisa ditarik?' => 'Uang yang masuk lewat pembayaran online butuh waktu settlement dari bank dan penyedia pembayaran, dihitung dalam hari kerja. Selama menunggu, saldonya sudah bisa dipakai membeli paket, tapi belum bisa ditarik. Tanggal kapan bisa ditarik terlihat di halaman Tarik Saldo.',
-        'Bagaimana cara tarik saldo ke rekening?' => 'Daftarkan rekening atas nama Anda sendiri di menu Tarik Saldo. Nama pemilik rekening dicek ke bank lalu diperiksa tim kami. Setelah rekening disetujui, ajukan penarikan; minimal dan biayanya tampil sebelum Anda konfirmasi. Dana dikirim setelah pengajuan disetujui tim kami.',
+        'Bagaimana cara tarik saldo ke rekening?' => 'Daftarkan rekening atas nama Anda sendiri di menu Tarik Saldo. Nama pemilik rekening dicek ke bank lalu diperiksa tim kami. Setelah rekening disetujui, ajukan penarikan; batas minimal dan biayanya selalu ditampilkan sebelum Anda konfirmasi. Dana dikirim setelah pengajuan disetujui tim kami.',
         'Berapa lama proses tarik saldo?' => 'Pengajuan diproses tim kami pada jam kerja, lalu dana dikirim langsung ke rekening Anda. Selama menunggu, Anda masih bisa membatalkan pengajuan sendiri dan saldo kembali utuh. Kalau gagal atau ditolak, saldo juga otomatis dikembalikan.',
-        'Apakah uang saya aman di bizbos?' => 'Kami menjaga uang Anda dengan berlapis: setiap mutasi saldo tercatat lengkap, pembayaran diproses mitra resmi Duitku, rekening penarikan dicek ke bank, dan setiap penarikan diperiksa tim kami sebelum dikirim.',
+        'Apakah uang saya aman di bizbos?' => 'Kami menjaga uang Anda dengan berlapis: setiap mutasi saldo tercatat lengkap, pembayaran diproses oleh mitra pembayaran resmi, rekening penarikan dicek ke bank, dan setiap penarikan diperiksa tim kami sebelum dikirim.',
 
         // Referral & affiliate
-        'Bagaimana cara dapat komisi dari program referral?' => 'Bagikan link referral dari menu Akun Saya, Referral. Setiap teman yang daftar lewat link Anda lalu membeli atau memperpanjang paket dalam 12 bulan pertama, Anda dapat komisi, default-nya 20% dari harga paket. Anda juga bisa membagi sebagian komisi ke teman sebagai potongan harga.',
-        'Kapan komisi referral masuk ke saldo?' => 'Setiap komisi ditahan 30 hari sejak teman Anda membeli, untuk berjaga kalau ada komplain. Setelah itu komisi masuk ke Saldo sekaligus penuh dan bisa dipakai atau ditarik. Satu pembelian teman berarti satu kali pencairan.',
-        'Apakah teman yang saya ajak dapat diskon?' => 'Bisa, kalau Anda membagi sebagian komisi Anda di menu Referral. Misalnya komisi Anda 20% dan Anda memberi 5%, teman Anda dapat potongan 5% di setiap pembelian dan Anda tetap mendapat 15%. Potongannya otomatis muncul di halaman pembayaran paket teman Anda.',
+        'Bagaimana cara dapat komisi dari program referral?' => 'Bagikan link referral dari menu Akun Saya, Referral. Setiap kali teman yang daftar lewat link Anda membeli atau memperpanjang paket dalam masa program, Anda mendapat komisi dari harga paketnya. Besar komisi dan masa programnya bisa Anda lihat di menu Referral. Anda juga bisa membagi sebagian komisi ke teman sebagai potongan harga.',
+        'Kapan komisi referral masuk ke saldo?' => 'Setiap komisi ditahan beberapa waktu sejak teman Anda membeli, untuk berjaga kalau ada komplain atau pembatalan. Setelah masa tahan selesai, komisi masuk ke Saldo sekaligus penuh dan bisa dipakai atau ditarik. Satu pembelian teman berarti satu kali pencairan, dan tanggal cairnya terlihat di menu Referral.',
+        'Apakah teman yang saya ajak dapat diskon?' => 'Bisa, kalau Anda membagi sebagian komisi Anda di menu Referral. Bagian yang Anda bagi menjadi potongan harga untuk teman di setiap pembelian, dan sisanya tetap menjadi komisi Anda. Potongannya otomatis muncul di halaman pembayaran paket teman Anda.',
 
         // Fitur
         'Apa saja yang bisa dibuat di Pages?' => 'Di Pages Anda bisa membuat landing page, bio link, katalog online dengan pembayaran, tiket event lengkap dengan scan QR dan ID card peserta, serta kuis dan form pendaftaran. Data pengunjung yang mengisi otomatis tersimpan sebagai customer Anda.',
@@ -61,14 +63,31 @@ class WebFaqSeeder extends Seeder
         'Di mana saya bisa membaca syarat dan kebijakan bizbos?' => 'Semua dokumen resmi ada di bagian bawah website: Syarat & Ketentuan, Kebijakan Privasi, Kebijakan Penggunaan, Ketentuan Saldo, Kebijakan Refund, dan Program Referral. Kami menulisnya dengan bahasa sederhana supaya mudah dipahami.',
     ];
 
+    /**
+     * sha1 jawaban versi pertama (yang masih menyebut angka harga/persen/hari). Kalau isi di database masih
+     * persis versi itu, diganti versi umum di atas; kalau sudah diedit superadmin, tidak disentuh.
+     */
+    private const PREVIOUS = [
+        'd9c9ac572ce9a5c206037c3386b0c50de8d47a9c', 'ada9dbed6eac8edbc73285dbd70a13551f84f565',
+        '44dccdbe4ee391456242382622d36aad1e93436e', '1c1f237634acd2cdbda3d654d0fc58976619b574',
+        '308ca7e66f5a38ce93e2143ac2b9cfd1a248b724', 'fa38c44e6618b41d59a1f99f3a7fc8f0ca39d648',
+        '97c7086848562b349a900c77202f19ff9f7f10a3', 'c0ab5a42e41005a6026d8096b0ec1c65ae411f3d',
+        '3d965d32ab9a854d45df242527590bdb479ade0f', '0ad57a74927d85a26a73c50b48f787f9735403a0',
+        '137146448d7a9c9ed7535bc3ce5e27007fe66fa3',
+    ];
+
     public function run(): void
     {
         foreach (self::FAQS as $question => $answer) {
-            WebFaq::firstOrCreate(['name' => $question], [
+            $faq = WebFaq::firstOrCreate(['name' => $question], [
                 'descriptions' => $answer,
                 'status' => 'active',
                 'sort_order' => SortOrder::next(WebFaq::query()),
             ]);
+
+            if (in_array(sha1((string) $faq->descriptions), self::PREVIOUS, true)) {
+                $faq->update(['descriptions' => $answer]);
+            }
         }
     }
 }
