@@ -50,12 +50,13 @@ class WebSetting extends Model
         'tiktok_url',
         'running_text',
         'chat_enabled',
+        'chat_ai',
         'chat_greeting',
         'chat_questions',
         'chat_knowledge',
     ];
 
-    protected $casts = ['chat_enabled' => 'boolean'];
+    protected $casts = ['chat_enabled' => 'boolean', 'chat_ai' => 'boolean'];
 
     // Catatan internal untuk AI, tidak ikut dikirim ke fe-konexa lewat API web-setting.
     protected $hidden = ['chat_knowledge'];

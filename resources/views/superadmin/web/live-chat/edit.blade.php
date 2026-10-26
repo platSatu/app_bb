@@ -11,13 +11,20 @@
                 @method('PUT')
                 <div class="card-header bg-white border-bottom px-4 py-3">
                     <h6 class="mb-1 fw-semibold">Live Chat bizbos.id</h6>
-                    <div class="text-muted small lh-sm">Tombol <b>Live Chat</b> di header bizbos.id. Pengunjung bertanya, asisten menjawab dari konten Website (Fitur, Paket, FAQ, kontak) dan catatan di bawah.</div>
+                    <div class="text-muted small lh-sm">Tombol chat di kanan bawah bizbos.id. Pengunjung mengisi nama, email, dan WhatsApp dulu (masuk ke <b>Data User › Customer</b> sebagai "Website (Live Chat)"), lalu pertanyaannya dijawab dari <b>Website › FAQ</b>.</div>
                 </div>
                 <div class="card-body p-4">
                     <div class="form-check form-switch mb-4">
                         <input type="hidden" name="chat_enabled" value="0">
                         <input class="form-check-input" type="checkbox" role="switch" id="chat_enabled" name="chat_enabled" value="1" @checked(old('chat_enabled', $setting->chat_enabled ?? true))>
                         <label class="form-check-label fw-semibold" for="chat_enabled">Tampilkan live chat di bizbos.id</label>
+                    </div>
+
+                    <div class="form-check form-switch mb-4">
+                        <input type="hidden" name="chat_ai" value="0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="chat_ai" name="chat_ai" value="1" @checked(old('chat_ai', $setting->chat_ai)) @disabled(! $provider)>
+                        <label class="form-check-label fw-semibold" for="chat_ai">Jawab memakai AI</label>
+                        <div class="form-text">Mati = jawaban diambil dari FAQ yang paling cocok, disapa dengan nama pengunjung (tanpa biaya AI). Cukup tambah atau ubah FAQ untuk merawat jawabannya.</div>
                     </div>
 
                     <div class="mb-3">
@@ -56,14 +63,14 @@
                     @if ($provider)
                         <i class="ri-robot-2-line fs-3 text-success"></i>
                         <div class="small">
-                            <div class="fw-semibold">AI aktif: {{ $provider->name }} <span class="text-muted">({{ $provider->model }})</span></div>
-                            <div class="text-muted">Pertanyaan dijawab AI berdasarkan konten website. Kuota AI terpakai setiap pesan (maks 8 pesan/menit per pengunjung).</div>
+                            <div class="fw-semibold">AI tersedia: {{ $provider->name }} <span class="text-muted">({{ $provider->model }})</span></div>
+                            <div class="text-muted">{{ $setting->chat_ai ? 'Live chat dijawab AI berdasarkan konten website. Kuota AI terpakai setiap pesan (maks 8 pesan/menit per pengunjung).' : 'Live chat saat ini menjawab dari FAQ tanpa AI. Nyalakan "Jawab memakai AI" kalau ingin jawaban dari AI.' }}</div>
                         </div>
                     @else
                         <i class="ri-error-warning-line fs-3 text-warning"></i>
                         <div class="small">
                             <div class="fw-semibold">Belum ada AI aktif</div>
-                            <div class="text-muted">Chat tetap jalan, tapi hanya menjawab dari FAQ yang paling mirip. Aktifkan di <a href="{{ route('superadmin.ai.index') }}">Settings › AI</a> supaya jawabannya lebih pintar.</div>
+                            <div class="text-muted">Live chat menjawab dari FAQ yang paling cocok, disapa dengan nama pengunjung. Tambah FAQ di menu <b>Website › FAQ</b> supaya makin banyak pertanyaan yang terjawab.</div>
                         </div>
                     @endif
                 </div>

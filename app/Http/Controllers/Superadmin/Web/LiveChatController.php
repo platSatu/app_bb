@@ -30,6 +30,7 @@ class LiveChatController extends Controller
     {
         $data = $request->validate([
             'chat_enabled' => ['required', 'boolean'],
+            'chat_ai' => ['nullable', 'boolean'],
             'chat_greeting' => ['nullable', 'string', 'max:300'],
             'chat_questions' => ['nullable', 'string', 'max:1000'],
             'chat_knowledge' => ['nullable', 'string', 'max:6000'],
@@ -39,7 +40,7 @@ class LiveChatController extends Controller
         $data['chat_questions'] = collect(preg_split('/\R/', (string) ($data['chat_questions'] ?? '')))
             ->map(fn ($q) => mb_substr(trim($q), 0, 60))->filter()->unique()->take(6)->implode("\n") ?: null;
 
-        WebSetting::current()->update($data);
+        WebSetting::current()->update([...$data, 'chat_ai' => $request->boolean('chat_ai')]);
         Cache::forget(SiteAssistant::CACHE_KEY);
 
         return back()->with('success', 'Pengaturan live chat disimpan.');

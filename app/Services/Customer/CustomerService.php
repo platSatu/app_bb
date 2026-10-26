@@ -6,6 +6,8 @@ use App\Models\Customer;
 use App\Models\User;
 use App\Models\UserBranch;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class CustomerService
@@ -45,6 +47,33 @@ class CustomerService
         ])->save();
 
         return $customer;
+    }
+
+    /**
+     * Pengunjung live chat bizbos.id: customer aplikasi "website" milik platform (tanpa company/branch).
+     * Dicari lewat WhatsApp lalu email; dikunci per kontak supaya dua tab yang mulai chat bersamaan tidak membuat data kembar.
+     */
+    public function resolveWebsiteLead(string $name, string $phone, string $email): Customer
+    {
+        $phone = User::normalizePhone($phone);
+        $email = strtolower(trim($email));
+
+        return Cache::lock('website-lead:'.sha1($phone.'|'.$email), 10)->block(5, fn () => DB::transaction(function () use ($name, $phone, $email) {
+            $leads = Customer::whereNull('branch_id')->forApp(Customer::APP_WEBSITE);
+            $customer = (clone $leads)->where('phone', $phone)->first() ?? (clone $leads)->where('email', $email)->first() ?? new Customer();
+
+            $customer->forceFill([
+                'app_key' => Customer::APP_WEBSITE,
+                'source' => $customer->source ?? 'live_chat',
+                'first_seen_at' => $customer->first_seen_at ?? now(),
+                'name' => trim($name),
+                'phone' => $customer->phone ?? $phone,
+                'email' => $customer->email ?? $email,
+                'last_seen_at' => now(),
+            ])->save();
+
+            return $customer;
+        }));
     }
 
     /**

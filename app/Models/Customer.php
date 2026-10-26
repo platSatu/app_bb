@@ -18,11 +18,15 @@ class Customer extends Model
 {
     use HasUuids;
 
+    // Pengunjung live chat bizbos.id: milik platform (tanpa company/branch), hanya terlihat superadmin.
+    public const APP_WEBSITE = 'website';
+
     public const APPS = [
         'pages' => 'Pages',
         'schedules' => 'Schedules',
         'invoices' => 'Invoice',
         'whatsapp' => 'WhatsApp',
+        self::APP_WEBSITE => 'Website (Live Chat)',
     ];
 
     protected $fillable = [];

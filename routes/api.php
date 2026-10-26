@@ -63,6 +63,7 @@ Route::prefix('frontend')->middleware('frontend.api-key')->group(function () {
     Route::get('category-applications', [FrontendCategoryApplicationController::class, 'index']);
     // Live chat bizbos.id: jawaban dari konten website (FAQ, fitur, paket) lewat AI aktif.
     Route::post('chat', FrontendChatController::class)->middleware('throttle:120,1');
+    Route::post('chat/start', [FrontendChatController::class, 'start'])->middleware('throttle:30,1');
     Route::get('packages', [FrontendPackageController::class, 'index']);
     Route::get('articles', [FrontendArticleController::class, 'index']);
     Route::get('articles/{slug}', [FrontendArticleController::class, 'show'])->where('slug', '[a-z0-9-]+');

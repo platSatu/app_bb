@@ -248,6 +248,6 @@
     @endif
 
     @if ($isAdmin && $writable->isNotEmpty())
-        @include('contact.customer._import-modal', ['action' => route('superadmin.contacts.import'), 'template' => route('superadmin.contacts.template'), 'branches' => $writable, 'apps' => \App\Models\Customer::APPS])
+        @include('contact.customer._import-modal', ['action' => route('superadmin.contacts.import'), 'template' => route('superadmin.contacts.template'), 'branches' => $writable, 'apps' => \Illuminate\Support\Arr::except(\App\Models\Customer::APPS, \App\Models\Customer::APP_WEBSITE)])
     @endif
 @endsection
