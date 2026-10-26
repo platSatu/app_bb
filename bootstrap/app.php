@@ -13,6 +13,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->appendToGroup('web', \App\Http\Middleware\EnsureUserIsActive::class);
+        // Header keamanan (anti-clickjacking, nosniff, referrer) untuk semua halaman web; /page/* tetap boleh di-embed.
+        $middleware->appendToGroup('web', \App\Http\Middleware\SecurityHeaders::class);
         $middleware->validateCsrfTokens(except: ['payment/duitku/callback']);
 
         $middleware->alias([

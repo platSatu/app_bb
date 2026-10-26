@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Superadmin\Package\PackageRequest;
 use App\Models\CategoryApplication;
 use App\Models\Package;
+use App\Models\PageType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -34,6 +35,7 @@ class PackageController extends Controller
         return view('superadmin.package.create', [
             'package' => new Package(['status' => Package::STATUS_ACTIVE, 'duration' => 30]),
             'categories' => $this->categories(),
+            'pageTypes' => $this->pageTypes(),
         ]);
     }
 
@@ -46,7 +48,7 @@ class PackageController extends Controller
 
     public function edit(Package $package): View
     {
-        return view('superadmin.package.edit', ['package' => $package, 'categories' => $this->categories()]);
+        return view('superadmin.package.edit', ['package' => $package, 'categories' => $this->categories(), 'pageTypes' => $this->pageTypes()]);
     }
 
     public function update(PackageRequest $request, Package $package): RedirectResponse
@@ -65,6 +67,11 @@ class PackageController extends Controller
         $package->delete();
 
         return redirect()->route('superadmin.packages.index')->with('success', "Package {$package->name} sudah dihapus.");
+    }
+
+    private function pageTypes()
+    {
+        return PageType::orderBy('name')->get(['id', 'name', 'status']);
     }
 
     private function categories()

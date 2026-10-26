@@ -17,7 +17,7 @@ class BranchSubscription extends Model
 
     protected function casts(): array
     {
-        return ['starts_at' => 'datetime', 'ends_at' => 'datetime'];
+        return ['starts_at' => 'datetime', 'ends_at' => 'datetime', 'limits' => 'array'];
     }
 
     public function branch(): BelongsTo

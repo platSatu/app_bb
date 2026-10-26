@@ -13,6 +13,7 @@ use App\Models\InvoiceSubscription;
 use App\Models\User;
 use App\Models\UserBranch;
 use App\Services\Customer\CustomerService;
+use App\Services\Subscription\PlanLimits;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -25,7 +26,7 @@ use Throwable;
  */
 class InvoiceService
 {
-    public function __construct(private readonly CustomerService $customers)
+    public function __construct(private readonly CustomerService $customers, private readonly PlanLimits $limits)
     {
     }
 
@@ -235,8 +236,11 @@ class InvoiceService
         ]);
     }
 
+    /** Satu-satunya jalur invoice baru (manual, batch, API, Google Form), jadi kuota bulanan dicek di sini. */
     private function newInvoice(UserBranch $branch, string $prefix, array $attributes): Invoice
     {
+        $this->limits->assertInvoices($branch->getKey());
+
         $invoice = new Invoice();
         $invoice->forceFill([
             'branch_id' => $branch->getKey(),

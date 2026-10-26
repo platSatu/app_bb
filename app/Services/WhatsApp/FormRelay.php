@@ -3,6 +3,7 @@
 namespace App\Services\WhatsApp;
 
 use App\Models\User;
+use App\Exceptions\PlanLimitException;
 use App\Models\UserBranch;
 use App\Models\WaFormIntegration;
 use App\Models\WaFormSubmission;
@@ -50,7 +51,8 @@ class FormRelay
         $payable = $phone && $integration->payment_enabled && $integration->amount;
         $paymentOff = $payable && ! $this->access->branchActive($integration->branch_id, 'invoices');
 
-        $submission = DB::transaction(function () use ($integration, $answers, $phone, $name, $payable, $paymentOff) {
+        $quotaError = null;
+        $submission = DB::transaction(function () use ($integration, $answers, $phone, $name, $payable, $paymentOff, &$quotaError) {
             $submission = new WaFormSubmission();
             $submission->forceFill([
                 'integration_id' => $integration->id,
@@ -62,9 +64,13 @@ class FormRelay
             ]);
 
             if ($payable && ! $paymentOff) {
-                $submission->invoice_id = $this->invoices->createForForm(
-                    UserBranch::findOrFail($integration->branch_id), 'Pendaftaran '.$integration->name, $name ?? '+'.$phone, $phone, $integration->amount
-                )->getKey();
+                try {
+                    $submission->invoice_id = $this->invoices->createForForm(
+                        UserBranch::findOrFail($integration->branch_id), 'Pendaftaran '.$integration->name, $name ?? '+'.$phone, $phone, $integration->amount
+                    )->getKey();
+                } catch (PlanLimitException $e) {
+                    $quotaError = $e->getMessage();
+                }
             }
             $submission->save();
 
@@ -74,6 +80,7 @@ class FormRelay
         $result = match (true) {
             $phone === null => ['success' => false, 'message' => "Kolom \"{$integration->phone_field}\" tidak ditemukan atau nomornya belum benar. Samakan dengan judul pertanyaan di Google Form."],
             $paymentOff => ['success' => false, 'message' => 'Link bayar tidak dibuat karena paket Tagihan (Invoice) branch ini sudah habis. Perpanjang paketnya, lalu minta pendaftar mengisi ulang.'],
+            $quotaError !== null => ['success' => false, 'message' => 'Link bayar tidak dibuat. '.$quotaError],
             default => $this->send($integration, $submission, $this->compose($integration, $submission, $answers), 'gform:'.$fingerprint),
         };
 

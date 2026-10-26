@@ -63,6 +63,44 @@
         @error('apps.*') <div class="text-danger fs-13 mt-1">{{ $message }}</div> @enderror
     </div>
 
+    {{-- Batas paket (App\Services\Subscription\PlanLimits). Kosong = tanpa batas; berlaku per branch. --}}
+    <div class="col-12">
+        <label class="form-label">Batas Paket</label>
+        <div class="form-text mt-0 mb-2">Kosongkan = tanpa batas, 0 = tidak boleh sama sekali. Berlaku per branch, hanya untuk layanan yang dicentang di atas. Invoice & pesan WhatsApp dihitung per bulan kalender (reset tanggal 1).</div>
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <div class="border rounded-3 p-3 h-100">
+                    <div class="fw-semibold mb-2"><i class="ri-pages-line me-1"></i>Pages · maksimal page per kategori</div>
+                    @forelse ($pageTypes as $type)
+                        <div class="input-group input-group-sm mb-2">
+                            <span class="input-group-text flex-grow-1">{{ $type->name }}{{ $type->isActive() ? '' : ' (nonaktif)' }}</span>
+                            <input type="number" min="0" max="1000" name="limits[pages][{{ $type->id }}]" class="form-control text-end @error('limits.pages.'.$type->id) is-invalid @enderror" style="max-width: 110px"
+                                value="{{ old('limits.pages.'.$type->id, $package->limits['pages'][$type->id] ?? '') }}" placeholder="∞">
+                            <span class="input-group-text">page</span>
+                        </div>
+                    @empty
+                        <div class="small text-muted">Belum ada kategori page.</div>
+                    @endforelse
+                    @error('limits.pages.*') <div class="text-danger fs-13">{{ $message }}</div> @enderror
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="border rounded-3 p-3 h-100">
+                    @foreach (['invoices' => ['ri-file-list-3-line', 'Tagihan · invoice dibuat per bulan', 'invoice'], 'whatsapp' => ['ri-whatsapp-line', 'WhatsApp · semua pesan keluar per bulan', 'pesan']] as $app => [$icon, $label, $unit])
+                        <div class="fw-semibold mb-2"><i class="{{ $icon }} me-1"></i>{{ $label }}</div>
+                        <div class="input-group input-group-sm {{ $loop->last ? '' : 'mb-3' }}">
+                            <input type="number" min="0" max="{{ \App\Services\Subscription\PlanLimits::MAX_VALUE }}" name="limits[{{ $app }}][monthly]" class="form-control @error('limits.'.$app.'.monthly') is-invalid @enderror"
+                                value="{{ old('limits.'.$app.'.monthly', $package->limits[$app]['monthly'] ?? '') }}" placeholder="Tanpa batas">
+                            <span class="input-group-text">{{ $unit }} / bulan</span>
+                        </div>
+                        @error('limits.'.$app.'.monthly') <div class="text-danger fs-13 mb-2">{{ $message }}</div> @enderror
+                    @endforeach
+                    <div class="form-text">Pesan WhatsApp mencakup chat, broadcast, auto reply, chatbot, dan notifikasi. Kalau habis, semua pengiriman berhenti sampai tanggal 1.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="col-12">
         <div class="form-check form-switch">
             <input type="hidden" name="is_trial" value="0">

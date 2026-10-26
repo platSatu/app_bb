@@ -46,6 +46,9 @@
                                                 @if ($sub && $sub->isActive())
                                                     <span class="badge {{ $sub->daysLeft() <= 7 ? 'bg-warning-subtle text-warning' : 'bg-success-subtle text-success' }}">Aktif · {{ $sub->daysLeft() }} hari lagi</span>
                                                     <div class="small text-muted mt-1">s/d {{ $sub->ends_at->translatedFormat('d M Y') }}</div>
+                                                    @foreach ($usage[$branch->id][$key] ?? [] as $line)
+                                                        <div class="small text-body mt-1"><i class="ri-bar-chart-line text-primary"></i> {{ $line }}</div>
+                                                    @endforeach
                                                 @elseif ($sub)
                                                     <span class="badge bg-danger-subtle text-danger">Habis</span>
                                                     <div class="small text-muted mt-1">{{ $sub->ends_at->translatedFormat('d M Y') }}</div>

@@ -2,6 +2,7 @@
 
 namespace App\Services\WhatsApp;
 
+use App\Services\Subscription\PlanLimits;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\UploadedFile;
@@ -37,29 +38,29 @@ class WaGateway
 
     public function sendText(string $branchId, array $data): array
     {
-        if ($denied = $this->inactive($branchId)) {
+        if ($denied = $this->inactive($branchId) ?? $this->quota($branchId)) {
             return $denied;
         }
 
-        return $this->json('POST', '/v1/messages', $branchId, $data);
+        return $this->settle($branchId, $this->json('POST', '/v1/messages', $branchId, $data));
     }
 
     public function sendMedia(string $branchId, array $data, UploadedFile $file): array
     {
-        if ($denied = $this->inactive($branchId)) {
+        if ($denied = $this->inactive($branchId) ?? $this->quota($branchId)) {
             return $denied;
         }
 
-        return $this->multipart('/v1/messages/media', $branchId, $data, $file);
+        return $this->settle($branchId, $this->multipart('/v1/messages/media', $branchId, $data, $file));
     }
 
     public function sendPoll(string $branchId, array $data): array
     {
-        if ($denied = $this->inactive($branchId)) {
+        if ($denied = $this->inactive($branchId) ?? $this->quota($branchId)) {
             return $denied;
         }
 
-        return $this->json('POST', '/v1/messages/poll', $branchId, $data);
+        return $this->settle($branchId, $this->json('POST', '/v1/messages/poll', $branchId, $data));
     }
 
     public function upload(string $branchId, UploadedFile $file): array
@@ -131,6 +132,24 @@ class WaGateway
     {
         return app(\App\Services\Subscription\AppAccess::class)->branchActive($branchId, 'whatsapp') ? null
             : ['success' => false, 'status' => 403, 'message' => 'Paket WhatsApp untuk branch ini belum aktif atau sudah habis. Aktifkan paket dulu ya.', 'data' => []];
+    }
+
+    /** Kuota pesan WhatsApp bulan ini (PlanLimits): dipakai 1 sebelum kirim, dikembalikan kalau go_bizbos menolak. */
+    private function quota(string $branchId): ?array
+    {
+        $limits = app(PlanLimits::class);
+
+        return $limits->takeMessages($branchId, 1) ? null
+            : ['success' => false, 'status' => 429, 'message' => $limits->messagesExhaustedMessage($branchId), 'data' => []];
+    }
+
+    private function settle(string $branchId, array $result): array
+    {
+        if (! $result['success']) {
+            app(PlanLimits::class)->refundMessages($branchId, 1);
+        }
+
+        return $result;
     }
 
     private function publicUrl(string $path): string

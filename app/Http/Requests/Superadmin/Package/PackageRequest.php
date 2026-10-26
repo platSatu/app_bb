@@ -4,6 +4,8 @@ namespace App\Http\Requests\Superadmin\Package;
 
 use App\Models\CategoryApplication;
 use App\Models\Package;
+use App\Models\PageType;
+use App\Services\Subscription\PlanLimits;
 use App\Support\Apps;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -22,12 +24,27 @@ class PackageRequest extends FormRequest
             'apps' => ['required', 'array', 'min:1'],
             'apps.*' => ['required', 'distinct', Rule::in(Apps::keys())],
             'is_trial' => ['boolean'],
+            // Batas paket; kosong = tanpa batas. Key pages = id kategori page (sudah disaring di prepareForValidation).
+            'limits' => ['array'],
+            'limits.pages' => ['array'],
+            'limits.pages.*' => ['integer', 'min:0', 'max:1000'],
+            'limits.invoices.monthly' => ['nullable', 'integer', 'min:0', 'max:'.PlanLimits::MAX_VALUE],
+            'limits.whatsapp.monthly' => ['nullable', 'integer', 'min:0', 'max:'.PlanLimits::MAX_VALUE],
         ];
     }
 
     protected function prepareForValidation(): void
     {
         $this->merge(['is_trial' => $this->boolean('is_trial')]);
+
+        // Isian kosong dibuang (= tanpa batas); kategori page yang tidak dikenal diabaikan.
+        $limits = (array) $this->input('limits');
+        $pages = array_filter((array) ($limits['pages'] ?? []), 'filled');
+        $this->merge(['limits' => [
+            'pages' => array_intersect_key($pages, array_flip(PageType::whereKey(array_keys($pages))->pluck('id')->all())),
+            'invoices' => array_filter(['monthly' => $limits['invoices']['monthly'] ?? null], 'filled'),
+            'whatsapp' => array_filter(['monthly' => $limits['whatsapp']['monthly'] ?? null], 'filled'),
+        ]]);
     }
 
     /** Paket trial selalu gratis. */
@@ -54,6 +71,9 @@ class PackageRequest extends FormRequest
             'duration' => 'durasi',
             'description' => 'deskripsi',
             'apps' => 'layanan',
+            'limits.pages.*' => 'batas page',
+            'limits.invoices.monthly' => 'batas invoice per bulan',
+            'limits.whatsapp.monthly' => 'batas pesan WhatsApp per bulan',
         ];
     }
 }

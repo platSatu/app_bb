@@ -5,6 +5,7 @@ namespace App\Services\WhatsApp;
 use App\Models\Customer;
 use App\Models\WaBroadcast;
 use App\Models\WaCampaign;
+use App\Services\Subscription\PlanLimits;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -20,7 +21,7 @@ class BroadcastService
     /** Sampai 3 penerima dianggap pesan biasa (langsung), selebihnya ikut antrean blast yang dijeda. */
     private const DIRECT_LIMIT = 3;
 
-    public function __construct(private WaGateway $wa) {}
+    public function __construct(private WaGateway $wa, private PlanLimits $limits) {}
 
     /** @return Collection<int, array{phone: string, name: ?string}> */
     public function recipients(WaBroadcast $broadcast): Collection
@@ -52,12 +53,21 @@ class BroadcastService
             }
 
             $recipients = $this->recipients($broadcast);
+            // Kuota pesan bulan ini dipakai di muka; kalau kurang, hanya sebanyak sisa kuota yang dikirim.
+            $granted = $this->limits->takeMessages($broadcast->branch_id, $recipients->count(), partial: true);
+            $skipped = $recipients->count() - $granted;
+            $recipients = $recipients->take($granted);
+
             $broadcast->forceFill([
                 'last_run_at' => now(),
                 'runs_count' => $broadcast->runs_count + 1,
                 'next_run_at' => $broadcast->nextAfter($broadcast->next_run_at),
                 'status' => $broadcast->isRepeating() ? 'active' : 'done',
-                'last_error' => $recipients->isEmpty() ? 'Tidak ada penerima (kontak tanpa nomor atau sudah berhenti berlangganan).' : null,
+                'last_error' => match (true) {
+                    $skipped > 0 => "Kuota pesan WhatsApp bulan ini habis: {$skipped} penerima tidak dikirimi. Kuota kembali tanggal 1, atau upgrade paket.",
+                    $recipients->isEmpty() => 'Tidak ada penerima (kontak tanpa nomor atau sudah berhenti berlangganan).',
+                    default => null,
+                },
             ])->save();
 
             return $recipients->isEmpty() ? null : $this->createCampaign($broadcast, $recipients);

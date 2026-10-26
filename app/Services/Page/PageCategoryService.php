@@ -6,6 +6,7 @@ use App\Models\PageCategory;
 use App\Models\UserBranch;
 use App\Services\Media\ImageUploader;
 use App\Services\Media\QrCodeGenerator;
+use App\Services\Subscription\PlanLimits;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -14,7 +15,7 @@ use Throwable;
 
 class PageCategoryService
 {
-    public function __construct(private readonly QrCodeGenerator $qrcodes, private readonly ImageUploader $images)
+    public function __construct(private readonly QrCodeGenerator $qrcodes, private readonly ImageUploader $images, private readonly PlanLimits $limits)
     {
     }
 
@@ -40,8 +41,17 @@ class PageCategoryService
             $created[] = $page->qrcodePath();
         }
 
+        // Batas page per kategori dicek saat page baru dibuat atau dipindah kategori/branch, dalam transaksi yang sama.
+        $countsTowardLimit = ! $page->exists || $page->isDirty(['page_type_id', 'branch_id']);
+
         try {
-            $page->save();
+            DB::transaction(function () use ($page, $countsTowardLimit) {
+                if ($countsTowardLimit) {
+                    $this->limits->assertPage($page->branch_id, $page->page_type_id, $page->exists ? $page->getKey() : null);
+                }
+
+                $page->save();
+            });
         } catch (Throwable $e) {
             array_map(fn ($path) => $this->images->delete($path), $created);
 

@@ -131,7 +131,18 @@ class SubscriptionService
                 // Mulai baru dihitung ulang kalau sebelumnya sudah habis (siklus baru).
                 'starts_at' => $previous && $previous->isFuture() ? $subscription->starts_at : now(),
                 'ends_at' => $ends,
-            ])->save();
+            ]);
+
+            // Batas paket ikut disalin. Diperpanjang sebelum habis = ambil yang lebih longgar (tidak turun kelas);
+            // siklus baru / langganan lama tanpa batas tercatat = batas paket ini. Tambah hari manual tidak mengubah batas.
+            if ($packageId && ($package = Package::find($packageId))) {
+                $incoming = $package->limitsFor($appKey);
+                $subscription->limits = $previous?->isFuture() && $subscription->limits !== null
+                    ? PlanLimits::looser($subscription->limits, $incoming)
+                    : $incoming;
+            }
+
+            $subscription->save();
 
             $history = new SubscriptionHistory();
             $history->forceFill([

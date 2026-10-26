@@ -8,6 +8,7 @@ use App\Models\Package;
 use App\Models\SubscriptionHistory;
 use App\Models\UserBranch;
 use App\Models\Voucher;
+use App\Services\Subscription\PlanLimits;
 use App\Services\Subscription\SubscriptionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -31,13 +32,15 @@ class PackageController extends Controller implements HasMiddleware
         return [new Middleware(fn ($request, $next) => $request->user()->isPlatformTeam() ? abort(403) : $next($request))];
     }
 
-    public function index(Request $request): View
+    public function index(Request $request, PlanLimits $limits): View
     {
         $branches = $this->branches($request);
 
         return view('profile.packages.index', [
             'branches' => $branches,
             'subscriptions' => BranchSubscription::whereIn('branch_id', $branches->modelKeys())->get()->groupBy('branch_id'),
+            // Pemakaian kuota per branch per layanan (hanya yang dibatasi paket).
+            'usage' => $branches->mapWithKeys(fn ($branch) => [$branch->id => $limits->summary($branch->id)]),
             'histories' => SubscriptionHistory::with(['branch:id,name', 'package:id,name'])->whereIn('branch_id', $branches->modelKeys())->latest()->limit(15)->get(),
         ]);
     }
