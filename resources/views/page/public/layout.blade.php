@@ -52,11 +52,16 @@
         .page-hero.has-image::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.2), rgba(0,0,0,.45)); }
         .page-hero h1 { position: relative; z-index: 1; margin: 0; font-weight: 700; font-size: clamp(1.6rem, 5vw, 3.2rem); line-height: 1.15; }
         .page-hero.has-image h1 { text-shadow: 0 2px 12px rgba(0,0,0,.35); }
-        .btn-brand:disabled { background: color-mix(in srgb, var(--brand) 45%, #fff); border-color: transparent; color: #fff; opacity: 1; }
         .product-thumb { aspect-ratio: 1 / 1; object-fit: cover; }
         .cart-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030; }
-        .btn-brand { background: var(--brand); border-color: var(--brand); color: #fff; }
-        .btn-brand:hover { filter: brightness(.92); color: #fff; }
+        /* Lewat variabel Bootstrap: :hover/:active/:disabled bawaan .btn tidak lagi menimpa warnanya jadi transparan. */
+        .btn-brand {
+            --bs-btn-color: #fff; --bs-btn-bg: var(--brand); --bs-btn-border-color: var(--brand);
+            --bs-btn-hover-color: #fff; --bs-btn-hover-bg: color-mix(in srgb, var(--brand) 88%, #000); --bs-btn-hover-border-color: color-mix(in srgb, var(--brand) 88%, #000);
+            --bs-btn-active-color: #fff; --bs-btn-active-bg: color-mix(in srgb, var(--brand) 80%, #000); --bs-btn-active-border-color: color-mix(in srgb, var(--brand) 80%, #000);
+            --bs-btn-focus-shadow-rgb: 0, 0, 0;
+            --bs-btn-disabled-color: #fff; --bs-btn-disabled-bg: color-mix(in srgb, var(--brand) 45%, #fff); --bs-btn-disabled-border-color: transparent; --bs-btn-disabled-opacity: 1;
+        }
         .text-brand { color: var(--brand) !important; }
         .bg-brand-soft { background: color-mix(in srgb, var(--brand) 8%, #fff); }
         .site-nav .nav-link.active { color: var(--brand); font-weight: 600; }
