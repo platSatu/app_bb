@@ -29,6 +29,21 @@
                         <div class="bg-light rounded p-2 small" id="fee-example"></div>
                     </div>
                 </div>
+
+                <h6 class="mt-4 mb-1">Tiket Gratis</h6>
+                <p class="text-muted small">Penyelenggara membayar di depan dari Saldo saat menyimpan kategori tiket gratis. Jatah gratis dihitung per event (semua kategori gratis dijumlahkan). Sisa yang tidak terpakai kembali ke Saldo saat pendaftaran ditutup. Angka dikunci per event saat pertama kali disimpan.</p>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="free_allowance" class="form-label">Jatah Gratis per Event (tiket)</label>
+                        <input type="number" id="free_allowance" name="free_allowance" min="0" class="form-control @error('free_allowance') is-invalid @enderror" value="{{ old('free_allowance', $setting->free_allowance) }}" required>
+                        @error('free_allowance') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="col-md-3">
+                        <label for="free_unit_price" class="form-label">Biaya per Tiket Gratis (Rp)</label>
+                        <input type="number" id="free_unit_price" name="free_unit_price" min="0" class="form-control @error('free_unit_price') is-invalid @enderror" value="{{ old('free_unit_price', $setting->free_unit_price) }}" required>
+                        @error('free_unit_price') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+                </div>
                 @if (auth()->user()->canAccess('superadmin.pages', 'manage'))
                     <div class="d-flex justify-content-end mt-4"><button class="btn btn-primary">Simpan</button></div>
                 @endif

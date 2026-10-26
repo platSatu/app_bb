@@ -21,6 +21,8 @@ class WalletTransaction extends Model
     public const TYPE_REFERRAL_BONUS = 'referral_bonus';
     public const TYPE_TICKET_SALE = 'ticket_sale';
     public const TYPE_CATALOG_SALE = 'catalog_sale';
+    public const TYPE_TICKET_FREE_FEE = 'ticket_free_fee';
+    public const TYPE_TICKET_FREE_REFUND = 'ticket_free_refund';
     public const TYPE_INVOICE_PAYMENT = 'invoice_payment';
     public const TYPE_WITHDRAWAL = 'withdrawal';
     public const TYPE_WITHDRAWAL_FEE = 'withdrawal_fee';
@@ -37,6 +39,8 @@ class WalletTransaction extends Model
         self::TYPE_REFERRAL_BONUS => 'Bonus Referral',
         self::TYPE_TICKET_SALE => 'Penjualan Tiket',
         self::TYPE_CATALOG_SALE => 'Penjualan Katalog',
+        self::TYPE_TICKET_FREE_FEE => 'Biaya Tiket Gratis',
+        self::TYPE_TICKET_FREE_REFUND => 'Pengembalian Biaya Tiket Gratis',
         self::TYPE_INVOICE_PAYMENT => 'Pembayaran Invoice',
         self::TYPE_WITHDRAWAL => 'Tarik Saldo',
         self::TYPE_WITHDRAWAL_FEE => 'Biaya Tarik Saldo',

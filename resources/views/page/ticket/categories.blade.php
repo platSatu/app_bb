@@ -64,7 +64,7 @@
     @endif
 
 
-    <form method="POST" action="{{ route($routes.'.ticket.categories.sync', $page) }}">
+    <form method="POST" action="{{ route($routes.'.ticket.categories.sync', $page) }}" id="ticket-categories-form">
         @csrf
         @method('PUT')
         <div class="card">
@@ -83,6 +83,7 @@
                         @foreach ($errors->all() as $message) <div>{{ $message }}</div> @endforeach
                     </div>
                 @endif
+                @include('page.ticket._free-fee')
                 <fieldset @disabled(! $canManage)>
                     <div data-sortable id="ticket-rows">
                         @foreach ($rows as $i => $row)
@@ -101,6 +102,8 @@
         </div>
     </form>
 
+    @include('page.ticket._free-fee-close')
+
     <script src="{{ asset('be/assets/js/sortable-rows.js') }}"></script>
     <script>
         (function () {
@@ -116,7 +119,38 @@
                 if (!event.target.closest('[data-remove]')) return;
                 event.target.closest('[data-row]').remove();
                 refresh();
+                freeFee();
             });
+        })();
+
+        // Perkiraan biaya tiket gratis, rumusnya sama dengan FreeTicketFeeService (dihitung per event).
+        function freeFee() {
+            var box = document.getElementById('free-fee');
+            if (!box || box.dataset.closed === '1') return null;
+            var unit = Number(box.dataset.unit), allowance = Number(box.dataset.allowance), paid = Number(box.dataset.paid), quota = 0;
+            document.querySelectorAll('#ticket-rows [data-row]').forEach(function (row) {
+                var price = row.querySelector('[name$="[price]"]'), qty = row.querySelector('[name$="[quota]"]');
+                if (price.value !== '' && Number(price.value) === 0) quota += Math.max(0, parseInt(qty.value, 10) || 0);
+            });
+            var needed = Math.max(0, quota - allowance), change = needed - paid, amount = Math.abs(change) * unit;
+            var rp = function (n) { return 'Rp ' + n.toLocaleString('id-ID'); };
+            var text = 'Total kuota tiket gratis: <strong>' + quota + '</strong> · gratis ' + Math.min(quota, allowance) + ' · berbayar ' + needed + ' (sudah dibayar ' + paid + ').<br>';
+            text += change > 0 && amount > 0 ? '<span class="text-danger">Saat disimpan, <strong>' + rp(amount) + '</strong> (' + change + ' tiket × ' + rp(unit) + ') dipotong dari Saldo.</span>'
+                : change < 0 && amount > 0 ? '<span class="text-success">Saat disimpan, <strong>' + rp(amount) + '</strong> dikembalikan ke Saldo.</span>'
+                : 'Tidak ada biaya tambahan.';
+            box.querySelector('[data-free-summary]').innerHTML = text;
+            box.querySelector('[data-free-confirm]').value = change > 0 ? amount : 0;
+            return change > 0 && amount > 0 ? { amount: rp(amount), count: change } : null;
+        }
+
+        (function () {
+            var form = document.getElementById('ticket-categories-form');
+            form.addEventListener('input', freeFee);
+            form.addEventListener('submit', function (event) {
+                var charge = freeFee();
+                if (charge && !confirm('Ada ' + charge.count + ' tiket gratis tambahan. ' + charge.amount + ' akan dipotong dari Saldo Anda. Lanjutkan?')) event.preventDefault();
+            });
+            freeFee();
         })();
     </script>
 @endsection

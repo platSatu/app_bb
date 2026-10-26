@@ -20,11 +20,11 @@ class TicketSetting extends Model
 
     public const MAX_PERCENT = 20;
 
-    protected $fillable = ['fee_percent'];
+    protected $fillable = ['fee_percent', 'free_allowance', 'free_unit_price'];
 
     protected function casts(): array
     {
-        return ['fee_percent' => 'decimal:2'];
+        return ['fee_percent' => 'decimal:2', 'free_allowance' => 'integer', 'free_unit_price' => 'integer'];
     }
 
     public static function current(): self

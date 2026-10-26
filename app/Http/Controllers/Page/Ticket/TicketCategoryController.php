@@ -8,12 +8,14 @@ use App\Models\PageCategory;
 use App\Models\PageType;
 use App\Models\TicketCategory;
 use App\Models\TicketStockLog;
+use App\Services\Ticket\FreeTicketFeeService;
 use App\Support\Menu;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 use Illuminate\View\View;
 
 class TicketCategoryController extends Controller
@@ -30,12 +32,13 @@ class TicketCategoryController extends Controller
         return view('page.ticket.categories', [
             'page' => $model,
             'categories' => $model->ticketCategories()->get(),
+            'freeFee' => app(FreeTicketFeeService::class)->summary($model),
             'routes' => $this->routes($request),
             'canManage' => $this->canManage($request),
         ]);
     }
 
-    public function sync(Request $request, string $page): RedirectResponse
+    public function sync(Request $request, FreeTicketFeeService $freeFees, string $page): RedirectResponse
     {
         $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET, Menu::ABILITY_MANAGE);
 
@@ -50,6 +53,7 @@ class TicketCategoryController extends Controller
             'categories.*.sale_starts_at' => ['nullable', 'date'],
             'categories.*.sale_ends_at' => ['nullable', 'date'],
             'categories.*.status' => ['required', Rule::in(array_keys(TicketCategory::STATUS_LABELS))],
+            'free_fee_confirm' => ['nullable', 'integer', 'min:0'],
         ], [
             'categories.*.name.required' => 'Nama kategori tiket belum diisi.',
             'categories.*.price.required' => 'Harga tiket belum diisi. Isi 0 kalau tiketnya gratis.',
@@ -59,9 +63,11 @@ class TicketCategoryController extends Controller
             'categories.*.max_per_order.max' => 'Batas pembelian per orang maksimal 100 tiket.',
         ])['categories']);
 
-        $actorId = $request->user()->getKey();
+        $actor = $request->user();
+        $actorId = $actor->getKey();
+        $confirmed = $request->filled('free_fee_confirm') ? (int) $request->input('free_fee_confirm') : null;
 
-        DB::transaction(function () use ($model, $rows, $actorId) {
+        $message = DB::transaction(function () use ($model, $rows, $actorId, $actor, $confirmed, $freeFees) {
             PageCategory::whereKey($model->getKey())->lockForUpdate()->first();
             $existing = TicketCategory::where('page_id', $model->getKey())->lockForUpdate()->get()->keyBy('id');
             $errors = [];
@@ -73,6 +79,12 @@ class TicketCategoryController extends Controller
 
                 if ($category->exists && $row['quota'] < $category->sold + $category->reserved) {
                     $errors["categories.{$position}.quota"] = "{$label}: jumlah tiket minimal ".($category->sold + $category->reserved).', karena sebanyak itu sudah terjual atau sedang menunggu pembayaran.';
+                }
+
+                // Tiket gratis dibayar per kuota di depan, tiket berbayar dikenai persen: kategori yang sudah ada
+                // pembelinya tidak boleh pindah dari gratis ke berbayar atau sebaliknya.
+                if ($category->exists && $category->sold + $category->reserved > 0 && ($category->price === 0) !== ((int) $row['price'] === 0)) {
+                    $errors["categories.{$position}.price"] = "{$label}: sudah ada pembelinya, jadi tidak bisa diubah dari gratis ke berbayar atau sebaliknya. Buat kategori baru saja ya.";
                 }
 
                 if (filled($row['sale_starts_at'] ?? null) && filled($row['sale_ends_at'] ?? null) && $row['sale_ends_at'] < $row['sale_starts_at']) {
@@ -99,8 +111,24 @@ class TicketCategoryController extends Controller
             if ($errors) {
                 throw ValidationException::withMessages($errors);
             }
+
+            // Biaya tiket gratis dihitung dari kategori yang baru saja disimpan, di transaksi yang sama:
+            // saldo kurang / belum disetujui = semua perubahan kategori dibatalkan.
+            return $freeFees->settle($model, $actor, $confirmed);
         });
 
-        return back()->with('success', 'Kategori tiket sudah disimpan.');
+        return back()->with('success', trim('Kategori tiket sudah disimpan. '.$message));
+    }
+
+    /** Tutup pendaftaran tiket gratis: tiket yang tidak terpakai dikembalikan ke Saldo. */
+    public function closeFree(Request $request, FreeTicketFeeService $freeFees, string $page): RedirectResponse
+    {
+        $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET, Menu::ABILITY_MANAGE);
+
+        try {
+            return back()->with('success', $freeFees->close($model, $request->user()));
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
     }
 }

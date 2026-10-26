@@ -13,7 +13,7 @@
         <p class="text-muted mb-0">Sebelum membuat page tiket, coba hitung dulu berapa yang akan Anda terima. Isi harga dan perkiraan jumlah tiket, angkanya langsung muncul di sebelah kanan.</p>
     </div>
 
-    <form method="GET" action="{{ route('pages.create') }}" id="fee-sim" data-bps="{{ (int) round((float) $percent * 100) }}">
+    <form method="GET" action="{{ route('pages.create') }}" id="fee-sim" data-bps="{{ (int) round((float) $percent * 100) }}" data-free-allowance="{{ $freeAllowance }}" data-free-unit="{{ $freeUnit }}">
         <input type="hidden" name="type" value="{{ $type->id }}">
 
         <div class="row g-4">
@@ -85,7 +85,7 @@
 
                         <div class="alert alert-primary small mb-3">
                             <div class="fw-semibold mb-1"><i class="ri-information-line"></i> Cara kerja biaya layanan</div>
-                            Biaya layanan bizbos <strong>{{ $percentLabel }}</strong> dari harga setiap tiket berbayar yang terjual. Tiket gratis tidak dikenai biaya. Tidak ada biaya bulanan tambahan untuk penjualan tiket.
+                            Biaya layanan bizbos <strong>{{ $percentLabel }}</strong> dari harga setiap tiket berbayar yang terjual. Untuk tiket gratis, {{ $freeAllowance }} tiket pertama per event tidak dikenai biaya; selebihnya Rp {{ number_format($freeUnit, 0, ',', '.') }} per tiket, dibayar di depan dari Saldo.
                         </div>
 
                         <div class="bg-light rounded-3 p-3 mb-2">
@@ -95,6 +95,11 @@
                         <div class="bg-light rounded-3 p-3 mb-2">
                             <div class="d-flex justify-content-between small text-muted"><span>Biaya layanan ({{ $percentLabel }})</span><span data-out="payer"></span></div>
                             <div class="fs-4 fw-semibold text-danger" data-out="fee">Rp 0</div>
+                        </div>
+                        <div class="bg-light rounded-3 p-3 mb-2" data-free-only>
+                            <div class="small text-muted">Biaya tiket gratis (dibayar di depan dari Saldo)</div>
+                            <div class="fs-5 fw-semibold text-danger" data-out="free">Rp 0</div>
+                            <div class="small text-muted" data-out="free-note"></div>
                         </div>
                         <div class="bg-light rounded-3 p-3 mb-2" data-buyer-only>
                             <div class="small text-muted">Total yang dibayar semua pembeli</div>
@@ -115,7 +120,8 @@
                     <div class="card-body p-4">
                         <h6 class="mb-3">Yang perlu Anda ketahui</h6>
                         <ul class="small text-muted mb-0 ps-3" style="line-height:1.8">
-                            <li>Biaya layanan {{ $percentLabel }} dihitung dari harga tiket berbayar di setiap pesanan. Pendaftaran tiket gratis tidak dikenai biaya apa pun.</li>
+                            <li>Biaya layanan {{ $percentLabel }} dihitung dari harga tiket berbayar di setiap pesanan.</li>
+                            <li><strong>Tiket gratis:</strong> {{ $freeAllowance }} tiket gratis pertama di setiap event tidak dikenai biaya. Selebihnya Rp {{ number_format($freeUnit, 0, ',', '.') }} per tiket, dibayar di depan dari Saldo saat Anda menyimpan kategori tiket. Tiket yang tidak terpakai dikembalikan ke Saldo saat Anda menutup pendaftaran.</li>
                             <li><strong>Ditanggung Anda:</strong> pembeli membayar sesuai harga tiket. Biaya layanan dipotong otomatis sebelum hasil penjualan masuk ke Saldo Anda.</li>
                             <li><strong>Ditanggung pembeli:</strong> di halaman pembayaran muncul baris <em>Biaya layanan</em> sehingga pembeli membayar harga tiket + biaya layanan. Anda menerima harga tiket utuh.</li>
                             <li>Biaya metode pembayaran (Virtual Account, e-wallet, dan lainnya) mengikuti metode yang dipilih pembeli dan tidak mengurangi pendapatan Anda.</li>
@@ -149,19 +155,26 @@
             var feeFor = function (subtotal) { return subtotal > 0 && bps > 0 ? Math.floor((subtotal * bps + 9999) / 10000) : 0; };
 
             function update() {
-                var sales = 0;
+                var sales = 0, freeQty = 0;
                 rows.querySelectorAll('[data-row]').forEach(function (row) {
                     var price = Math.max(0, parseInt(row.querySelector('[data-price]').value, 10) || 0);
                     var qty = Math.max(0, parseInt(row.querySelector('[data-qty]').value, 10) || 0);
                     sales += price * qty;
+                    if (price === 0) freeQty += qty;
                 });
+                // Tiket gratis: jatah gratis per event, selebihnya dibayar di depan (sama dengan FreeTicketFeeService).
+                var allowance = Number(form.dataset.freeAllowance) || 0, unit = Number(form.dataset.freeUnit) || 0;
+                var freePaid = Math.max(0, freeQty - allowance), freeCost = freePaid * unit;
+                out('free', '−' + money(freeCost));
+                out('free-note', freeQty ? freeQty + ' tiket gratis: ' + Math.min(freeQty, allowance) + ' gratis, ' + freePaid + ' × ' + money(unit) + '. Yang tidak terpakai dikembalikan saat pendaftaran ditutup.' : '');
+                form.querySelector('[data-free-only]').classList.toggle('d-none', freeQty === 0);
                 var buyer = (form.querySelector('[name=fee_payer]:checked') || {}).value === 'buyer';
                 var fee = feeFor(sales);
                 out('sales', money(sales));
                 out('fee', (buyer ? '+' : '−') + money(fee));
                 out('payer', buyer ? 'Ditanggung pembeli' : 'Ditanggung Anda');
                 out('paid', money(sales + fee));
-                out('net', money(buyer ? sales : sales - fee));
+                out('net', money((buyer ? sales : sales - fee) - freeCost));
                 form.querySelector('[data-buyer-only]').classList.toggle('d-none', !buyer);
             }
 

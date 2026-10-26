@@ -16,9 +16,13 @@ class TicketFeeController extends Controller
         $types = PageType::active()->where('template', PageType::TEMPLATE_TICKET)->orderBy('name')->get(['id', 'name']);
         abort_if($types->isEmpty(), 404);
 
+        $setting = TicketSetting::current();
+
         return view('page.ticket.fee', [
             'type' => $types->firstWhere('id', $request->query('type')) ?? $types->first(),
-            'percent' => TicketSetting::current()->fee_percent,
+            'percent' => $setting->fee_percent,
+            'freeAllowance' => $setting->free_allowance,
+            'freeUnit' => $setting->free_unit_price,
             'payer' => array_key_exists((string) $request->query('fee_payer'), TicketSetting::PAYER_LABELS) ? $request->query('fee_payer') : TicketSetting::PAYER_ORGANIZER,
         ]);
     }

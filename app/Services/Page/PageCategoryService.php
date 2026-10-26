@@ -114,6 +114,10 @@ class PageCategoryService
     /** @throws RuntimeException kalau page sudah punya transaksi tiket (catatan uang tidak boleh hilang). */
     public function delete(PageCategory $page): void
     {
+        if (\App\Models\TicketFreeFee::where('page_id', $page->getKey())->where('paid_units', '>', 0)->exists()) {
+            throw new RuntimeException("Page {$page->name} masih punya biaya tiket gratis yang sudah dibayar. Hapus kategori tiket gratisnya dulu supaya biayanya kembali ke Saldo.");
+        }
+
         if ($page->ticketOrders()->exists()) {
             throw new RuntimeException("Page {$page->name} sudah punya pesanan tiket, jadi tidak bisa dihapus. Ubah statusnya menjadi Tidak Aktif saja.");
         }

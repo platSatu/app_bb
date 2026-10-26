@@ -27,10 +27,12 @@ class TicketFeeController extends Controller
     {
         $data = $request->validate([
             'fee_percent' => ['required', 'numeric', 'min:0', 'max:'.TicketSetting::MAX_PERCENT, 'decimal:0,2'],
-        ], [], ['fee_percent' => 'biaya layanan']);
+            'free_allowance' => ['required', 'integer', 'min:0', 'max:100000'],
+            'free_unit_price' => ['required', 'integer', 'min:0', 'max:100000'],
+        ], [], ['fee_percent' => 'biaya layanan', 'free_allowance' => 'jatah tiket gratis', 'free_unit_price' => 'biaya per tiket gratis']);
 
         TicketSetting::current()->fill($data)->save();
 
-        return back()->with('success', 'Biaya layanan tiket disimpan. Berlaku untuk pesanan berikutnya; pesanan yang sudah ada tidak berubah.');
+        return back()->with('success', 'Biaya layanan tiket disimpan. Berlaku untuk pesanan dan event baru; yang sudah berjalan tetap memakai angka lamanya.');
     }
 }
