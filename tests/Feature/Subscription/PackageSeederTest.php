@@ -18,10 +18,14 @@ it('seeder paket: 5 kombinasi x 4 durasi, 12 bulan Populer, aman dijalankan ulan
         ->and($complete->limits)->toBe(['invoices' => ['monthly' => 2000], 'whatsapp' => ['monthly' => 20000]])
         ->and($complete->features())->toHaveCount(5);
 
-    $complete->update(['price' => 299000]);
+    // Paket dari seeder versi lama (semua di satu kategori) dipindah ke kategorinya; harga hasil edit tetap.
+    $old = CategoryApplication::create(['name' => 'Whatsapp', 'status' => 'active']);
+    $complete->update(['price' => 299000, 'category_application_id' => $old->id]);
     $this->seed(PackageSeeder::class);
 
-    expect(Package::count())->toBe(20)->and($complete->fresh()->price)->toBe(299000);
+    expect(Package::count())->toBe(20)
+        ->and($complete->fresh()->price)->toBe(299000)
+        ->and($complete->fresh()->category->name)->toBe('Komplit');
 
     $this->actingAs(User::factory()->create())->get(route('packages.catalog'))->assertOk()
         // Tab = kategori, urut dari harga termurah; isi tab Pages: Trial, 1, 6, 12 bulan.

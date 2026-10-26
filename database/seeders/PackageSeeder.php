@@ -9,7 +9,8 @@ use Illuminate\Database\Seeder;
 /**
  * Paket awal bizbos: 5 kategori (tab di halaman Beli Paket) x (Trial 7 hari, 1, 6, 12 bulan). 12 bulan ditandai Populer.
  * Jalankan: php artisan db:seed --class=PackageSeeder
- * Aman dijalankan ulang: kategori & paket yang namanya sudah ada TIDAK ditimpa, jadi hasil edit di superadmin tetap.
+ * Aman dijalankan ulang: harga, fitur, kuota, dll. yang sudah diedit di superadmin TIDAK ditimpa.
+ * Hanya kategorinya yang selalu disamakan (paket dari seeder versi lama masuk ke satu kategori).
  */
 class PackageSeeder extends Seeder
 {
@@ -63,7 +64,7 @@ class PackageSeeder extends Seeder
                 $trial = $days === 7;
                 $limits = $trial ? array_intersect_key(self::TRIAL_LIMITS, $config['limits']) : $config['limits'];
 
-                Package::firstOrCreate(['name' => "{$plan} - {$label}"], [
+                $package = Package::firstOrCreate(['name' => "{$plan} - {$label}"], [
                     'category_application_id' => $category->id,
                     'price' => $trial ? 0 : $config['prices'][$days],
                     'duration' => $days,
@@ -74,6 +75,10 @@ class PackageSeeder extends Seeder
                     'is_featured' => $days === 365,
                     'status' => 'active',
                 ]);
+
+                if ($package->category_application_id !== $category->id) {
+                    $package->update(['category_application_id' => $category->id]);
+                }
             }
         }
     }
