@@ -21,7 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'superadmin' => \App\Http\Middleware\EnsureSuperadmin::class,
             'permission' => \App\Http\Middleware\EnsurePermission::class,
             'invoice.api' => \App\Http\Middleware\VerifyInvoiceSignature::class,
-            'wa.api' => \App\Http\Middleware\VerifyWaApiSignature::class,
+            'wa.api' => \App\Http\Middleware\VerifyWaApiKey::class,
             'frontend.api-key' => \App\Http\Middleware\VerifyFrontendApiKey::class,
             'public.app' => \App\Http\Middleware\EnsurePublicAppActive::class,
         ]);

@@ -40,16 +40,18 @@
                             <h6 class="mb-0">Kredensial &middot; {{ $device->name }}</h6>
                             <span class="badge {{ $key->is_active ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger' }}">{{ $key->is_active ? 'Aktif' : 'Nonaktif' }}</span>
                         </div>
-                        <label class="form-label small mb-1">Base URL</label>
+                        <label class="form-label small mb-1">API Host</label>
                         <div class="input-group mb-3">
-                            <input type="text" class="form-control font-monospace" value="{{ url('/api/v1/wa') }}" readonly>
-                            <button class="btn btn-outline-secondary" type="button" data-copy="{{ url('/api/v1/wa') }}"><i class="ri-file-copy-line"></i></button>
+                            <input type="text" class="form-control font-monospace" value="{{ url('/') }}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" data-copy="{{ url('/') }}"><i class="ri-file-copy-line"></i></button>
                         </div>
-                        <label class="form-label small mb-1">API Key (X-Bizbos-Key)</label>
+                        <label class="form-label small mb-1">Token (X-WA-Token)</label>
                         <div class="input-group mb-3">
                             <input type="text" class="form-control font-monospace" value="{{ $key->api_key }}" readonly>
                             <button class="btn btn-outline-secondary" type="button" data-copy="{{ $key->api_key }}"><i class="ri-file-copy-line"></i></button>
                         </div>
+                        <label class="form-label small mb-1">Secret Key (X-WA-Secret)</label>
+                        <input type="text" class="form-control mb-3" value="Tersimpan aman, hanya ditampilkan sekali saat dibuat" disabled>
                         <div class="small text-muted mb-3">Dipakai terakhir: {{ $key->last_used_at?->diffForHumans() ?? 'belum pernah' }}</div>
                         <div class="d-flex flex-wrap gap-2">
                             <form method="POST" action="{{ route('whatsapp.api-key.regenerate', $device) }}" onsubmit="return confirm('Secret Key lama langsung tidak berlaku. Lanjutkan?')">
@@ -69,14 +71,14 @@
                 <div class="card mb-0 h-100">
                     <div class="card-body small">
                         <h6>Cara pakai</h6>
-                        <p class="mb-2">Setiap request membawa header <code>X-Bizbos-Key</code>, <code>X-Bizbos-Timestamp</code> (detik unix), dan <code>X-Bizbos-Signature</code>:</p>
-                        <pre class="bg-light p-2 rounded mb-2"><code>signature = hex(HMAC_SHA256(secret, timestamp + "\n" + METHOD + "\n" + path + "\n" + body))</code></pre>
+                        <p class="mb-2">Di aplikasi Anda cukup isi <b>API Host</b>, <b>Token</b>, dan <b>Secret Key</b> di atas. Format sama dengan API teleios/konexa, jadi aplikasi yang sudah terhubung tidak perlu diubah kodenya.</p>
                         <ul class="mb-2 ps-3">
-                            <li><code>POST /api/v1/wa/messages</code> &rarr; JSON <code>{"to": "6281...", "text": "Halo", "ref": "order-123"}</code></li>
-                            <li><code>POST /api/v1/wa/messages/media</code> &rarr; multipart <code>to, caption, file</code> (maks 64 MB)</li>
-                            <li><code>GET /api/v1/wa/messages/{id}</code> &rarr; status: queued, sent, failed, skipped</li>
+                            <li><code>POST /api/wa-api/v1/send-message</code> &rarr; JSON <code>{"to": "6281...", "message": "Halo"}</code></li>
+                            <li><code>POST /api/wa-api/v1/send-media</code> &rarr; multipart <code>to, file, caption</code> (maks 64 MB)</li>
+                            <li><code>GET /api/wa-api/v1/messages/{id}</code> &rarr; status: queued, sent, failed, skipped</li>
+                            <li><code>GET /api/wa-api/v1/usage</code> &rarr; paket, sisa kuota pesan, jumlah request</li>
                         </ul>
-                        <p class="text-muted mb-2">Path dihitung dari <code>/api/...</code>. <code>ref</code> opsional; ref yang sama tidak akan dikirim dua kali. Maksimal 20 pesan per menit supaya nomor aman dari pembatasan WhatsApp.</p>
+                        <p class="text-muted mb-2">Header wajib: <code>X-WA-Token</code> dan <code>X-WA-Secret</code>, selalu lewat <b>https</b>. Maksimal 20 request per menit; pesan dikirim berjeda supaya nomor aman dari pembatasan WhatsApp.</p>
                         <a href="{{ route('whatsapp.third-party.index', ['branch' => $device->branch_id, 'tab' => 'docs']) }}" class="btn btn-sm btn-outline-primary"><i class="ri-book-open-line"></i> Dokumentasi lengkap &amp; contoh kode</a>
                     </div>
                 </div>

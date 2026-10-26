@@ -32,9 +32,9 @@ class ApiKeyController extends Controller
             return back()->with('error', 'Perangkat ini sudah punya API key.');
         }
 
-        $secret = WaApiKey::newSecret();
-        $key = new WaApiKey();
-        $key->forceFill(['branch_id' => $model->branch_id, 'device_id' => $model->id, 'api_key' => WaApiKey::newApiKey(), 'secret' => $secret, 'is_active' => true])->save();
+        $key = (new WaApiKey())->forceFill(['branch_id' => $model->branch_id, 'device_id' => $model->id, 'api_key' => WaApiKey::newApiKey(), 'is_active' => true]);
+        $secret = $key->issueSecret();
+        $key->save();
 
         return back()->with('secret', $secret)->with('success', 'API key dibuat. Salin Secret Key sekarang, hanya ditampilkan sekali.');
     }
@@ -42,8 +42,8 @@ class ApiKeyController extends Controller
     public function regenerate(Request $request, string $device): RedirectResponse
     {
         $key = $this->device($request, $device)->apiKey()->firstOrFail();
-        $secret = WaApiKey::newSecret();
-        $key->forceFill(['secret' => $secret])->save();
+        $secret = $key->issueSecret();
+        $key->save();
 
         return back()->with('secret', $secret)->with('success', 'Secret Key baru dibuat. Yang lama langsung tidak berlaku.');
     }

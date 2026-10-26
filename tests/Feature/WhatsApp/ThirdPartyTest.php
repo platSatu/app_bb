@@ -37,14 +37,14 @@ beforeEach(fn () => Http::fake(['*/v1/messages' => Http::response(['success' => 
 
 it('menu Integrasi Web: tab API Key per nomor lalu tab dokumentasi; dokumentasi publik tanpa login', function () {
     [$branch, $device] = waBranchWithDevice();
-    (new WaApiKey())->forceFill(['branch_id' => $branch->id, 'device_id' => $device->id, 'api_key' => WaApiKey::newApiKey(), 'secret' => 'wsk_x', 'is_active' => true])->save();
+    (new WaApiKey())->forceFill(['branch_id' => $branch->id, 'device_id' => $device->id, 'api_key' => WaApiKey::newApiKey(), 'secret_hash' => WaApiKey::hashSecret('wsk_x'), 'is_active' => true])->save();
     $this->actingAs($branch->user);
 
     $this->get(route('whatsapp.third-party.index'))->assertOk()->assertSee('API Key per Nomor')->assertSee('Kelola')->assertSee('Dokumentasi API');
-    $this->get(route('whatsapp.third-party.index', ['tab' => 'docs']))->assertOk()->assertSee('/api/v1/wa/messages')->assertSee(route('docs.whatsapp-api'));
+    $this->get(route('whatsapp.third-party.index', ['tab' => 'docs']))->assertOk()->assertSee('/api/wa-api/v1/send-message')->assertSee(route('docs.whatsapp-api'));
 
     auth()->logout();
-    $this->get(route('docs.whatsapp-api'))->assertOk()->assertSee(url('/api/v1/wa/messages'))->assertDontSee('{{BASE_URL}}', false);
+    $this->get(route('docs.whatsapp-api'))->assertOk()->assertSee(url('/api/wa-api/v1/send-message'))->assertDontSee('{{BASE_URL}}', false);
 });
 
 it('menu Google Form: tab pertama daftar, tab terakhir panduan; pengaturan pembayaran & registrasi ulang tervalidasi', function () {

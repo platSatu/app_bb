@@ -96,6 +96,15 @@ class PlanLimits
             ->where('used', '>=', $count)->decrement('used', $count);
     }
 
+    /** Kuota pesan WhatsApp bulan ini: max null = tanpa batas. */
+    public function messageQuota(string $branchId): array
+    {
+        $max = $this->limit($branchId, 'whatsapp', 'monthly');
+        $used = (int) DB::table('plan_usages')->where(['branch_id' => $branchId, 'metric' => 'whatsapp', 'period' => now()->format('Y-m')])->value('used');
+
+        return ['unlimited' => $max === null, 'max' => $max, 'used' => $used, 'remaining' => $max === null ? null : max(0, $max - $used)];
+    }
+
     public function messagesExhaustedMessage(string $branchId): string
     {
         $max = (int) $this->limit($branchId, 'whatsapp', 'monthly');

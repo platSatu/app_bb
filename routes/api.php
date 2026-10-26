@@ -46,11 +46,12 @@ Route::prefix('v1')->middleware('invoice.api')->group(function () {
 // Webhook dari service WhatsApp (go_bizbos), ditandatangani WA_WEBHOOK_SECRET.
 Route::post('webhooks/wa', WaWebhookController::class);
 
-// API WhatsApp per device (API Key di menu WhatsApp > Device & Inbox).
-Route::prefix('v1/wa')->middleware('wa.api')->group(function () {
-    Route::post('messages', [WaApiController::class, 'send']);
-    Route::post('messages/media', [WaApiController::class, 'sendMedia']);
+// API WhatsApp per device, format sama dengan teleios (X-WA-Token + X-WA-Secret). Kunci di menu WhatsApp > Third Party > Integrasi Web.
+Route::prefix('wa-api/v1')->middleware('wa.api')->group(function () {
+    Route::post('send-message', [WaApiController::class, 'send']);
+    Route::post('send-media', [WaApiController::class, 'sendMedia']);
     Route::get('messages/{id}', [WaApiController::class, 'status'])->whereUuid('id');
+    Route::get('usage', [WaApiController::class, 'usage']);
 });
 
 // Google Form (Apps Script) -> balasan WhatsApp. Token di URL adalah kuncinya (menu WhatsApp > Third Party).
