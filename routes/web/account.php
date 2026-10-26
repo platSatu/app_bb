@@ -8,7 +8,8 @@ use App\Http\Controllers\Account\WithdrawalController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth')->group(function () {
-    Route::get('profile/referral', ReferralController::class)->name('profile.referral');
+    Route::get('profile/referral', [ReferralController::class, 'index'])->name('profile.referral');
+    Route::put('profile/referral/share', [ReferralController::class, 'share'])->middleware('throttle:10,1')->name('profile.referral.share');
 
     Route::get('profile/balance', [BalanceController::class, 'index'])->name('profile.balance');
     Route::get('profile/balance/top-up', [BalanceController::class, 'create'])->name('account.deposits.create');

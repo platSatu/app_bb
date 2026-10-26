@@ -62,6 +62,13 @@ Route::middleware(['auth', 'superadmin'])
         Route::put('referral', [ReferralController::class, 'update'])
             ->middleware('permission:superadmin.referral,manage')
             ->name('referral.update');
+        Route::post('referral/rates', [ReferralController::class, 'rate'])
+            ->middleware(['permission:superadmin.referral,manage', 'throttle:30,1'])
+            ->name('referral.rate');
+        Route::post('referral/commissions/{commission}/cancel', [ReferralController::class, 'cancel'])
+            ->whereUuid('commission')
+            ->middleware(['permission:superadmin.referral,manage', 'throttle:30,1'])
+            ->name('referral.cancel');
 
         Route::controller(DepositController::class)
             ->prefix('deposits')

@@ -14,8 +14,9 @@ class Referral extends Model
     public const STATUS_REWARDED = 'rewarded';
 
     public const STATUS_LABELS = [
-        self::STATUS_PENDING => 'Menunggu Top Up',
-        self::STATUS_REWARDED => 'Bonus Cair',
+        self::STATUS_PENDING => 'Terdaftar',
+        // Bonus top up versi lama (sebelum komisi dari pembelian paket).
+        self::STATUS_REWARDED => 'Bonus Lama Cair',
     ];
 
     protected $fillable = [];

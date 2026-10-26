@@ -6,7 +6,7 @@
 
 @php
     $rupiah = fn ($v) => 'Rp '.number_format((int) $v, 0, ',', '.');
-    $enough = $balance >= $package->price;
+    $enough = $balance >= $price;
 @endphp
 
 @section('content')
@@ -29,7 +29,11 @@
                     <div class="pkg-head">
                         <div class="small text-muted mb-1">{{ $package->category?->name }}</div>
                         <h4 class="mb-2">{{ $package->name }} @if ($package->is_trial) <span class="badge bg-info align-middle fs-12">Gratis</span> @endif</h4>
-                        <div class="pkg-price text-primary">{{ $package->price ? $rupiah($package->price) : 'Gratis' }}</div>
+                        <div class="pkg-price text-primary">
+                            {{ $package->price ? $rupiah($price) : 'Gratis' }}
+                            @if ($discount) <del class="fs-6 text-muted fw-normal">{{ $rupiah($package->price) }}</del> @endif
+                        </div>
+                        @if ($discount) <span class="badge bg-success-subtle text-success mb-1">Potongan referral {{ $sharePercent }}%</span> @endif
                         <div class="small text-muted">untuk {{ $package->duration }} hari</div>
                     </div>
                     <div class="card-body">
@@ -59,7 +63,7 @@
 
             <div class="col-lg-5">
                 <form method="POST" action="{{ route('packages.purchase', $package) }}" class="card h-100 mb-0" id="checkout"
-                    onsubmit="return confirm(this.mode.value === 'voucher' ? 'Beli paket ini sebagai kode voucher? Saldo langsung dipotong.' : {{ \Illuminate\Support\Js::from($package->price ? 'Beli paket ini seharga '.$rupiah($package->price).'? Saldo langsung dipotong.' : 'Aktifkan paket ini sekarang?') }})">
+                    onsubmit="return confirm(this.mode.value === 'voucher' ? 'Beli paket ini sebagai kode voucher? Saldo langsung dipotong.' : {{ \Illuminate\Support\Js::from($package->price ? 'Beli paket ini seharga '.$rupiah($price).'? Saldo langsung dipotong.' : 'Aktifkan paket ini sekarang?') }})">
                     @csrf
                     <div class="card-body d-flex flex-column">
                         <h6 class="mb-3">Mau dipakai untuk apa?</h6>
@@ -92,9 +96,12 @@
                         <div class="border-top pt-3 mt-auto">
                             <div class="d-flex justify-content-between small mb-1"><span class="text-muted">Saldo Anda</span><span>{{ $rupiah($balance) }}</span></div>
                             <div class="d-flex justify-content-between small mb-1"><span class="text-muted">Harga paket</span><span>- {{ $rupiah($package->price) }}</span></div>
+                            @if ($discount)
+                                <div class="d-flex justify-content-between small mb-1 text-success"><span>Potongan referral ({{ $sharePercent }}%)</span><span>+ {{ $rupiah($discount) }}</span></div>
+                            @endif
                             <div class="d-flex justify-content-between fw-semibold mb-3">
                                 <span>Sisa saldo</span>
-                                <span class="{{ $enough ? '' : 'text-danger' }}">{{ $enough ? $rupiah($balance - $package->price) : 'Kurang '.$rupiah($package->price - $balance) }}</span>
+                                <span class="{{ $enough ? '' : 'text-danger' }}">{{ $enough ? $rupiah($balance - $price) : 'Kurang '.$rupiah($price - $balance) }}</span>
                             </div>
 
                             @if ($enough)

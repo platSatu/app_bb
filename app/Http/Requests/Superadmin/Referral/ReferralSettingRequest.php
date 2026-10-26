@@ -10,13 +10,14 @@ class ReferralSettingRequest extends FormRequest
     {
         return [
             'is_active' => ['boolean'],
-            'reward_amount' => ['required', 'integer', 'min:0', 'max:10000000'],
-            'min_deposit_amount' => ['required', 'integer', 'min:0', 'max:100000000'],
+            'default_percent' => ['required', 'integer', 'min:0', 'max:100'],
+            'hold_days' => ['required', 'integer', 'min:0', 'max:365'],
+            'active_months' => ['required', 'integer', 'min:1', 'max:120'],
         ];
     }
 
     public function attributes(): array
     {
-        return ['reward_amount' => 'nominal bonus', 'min_deposit_amount' => 'minimal top up'];
+        return ['default_percent' => 'persen default', 'hold_days' => 'lama ditahan', 'active_months' => 'lama berlaku'];
     }
 }

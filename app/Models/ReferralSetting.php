@@ -5,25 +5,24 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
-/** Aturan bonus referral (1 baris): cair saat top up pertama yang berhasil dari orang yang diajak. */
+/**
+ * Aturan komisi referral (1 baris): pengajak dapat persen dari setiap pembelian paket orang yang diajak,
+ * selama active_months sejak orang itu daftar. Komisi ditahan hold_days sebelum cair ke saldo.
+ */
 class ReferralSetting extends Model
 {
     use HasUuids;
 
-    protected $fillable = ['is_active', 'reward_amount', 'min_deposit_amount'];
+    protected $fillable = ['is_active', 'default_percent', 'hold_days', 'active_months'];
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean', 'reward_amount' => 'integer', 'min_deposit_amount' => 'integer'];
+        return ['is_active' => 'boolean', 'default_percent' => 'integer', 'hold_days' => 'integer', 'active_months' => 'integer'];
     }
 
+    /** Baris pengaturan satu-satunya. Baris baru dibaca ulang supaya default database ikut terisi. */
     public static function current(): self
     {
-        return static::query()->firstOrCreate([], ['is_active' => false, 'reward_amount' => 0, 'min_deposit_amount' => 0]);
-    }
-
-    public function isPayable(): bool
-    {
-        return $this->is_active && $this->reward_amount > 0;
+        return static::query()->first() ?? static::query()->create(['is_active' => false])->refresh();
     }
 }

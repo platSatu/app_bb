@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\UserBranch;
 use App\Models\Voucher;
 use App\Models\WalletTransaction;
+use App\Services\Referral\ReferralService;
 use App\Services\Wallet\InsufficientBalanceException;
 use App\Services\Wallet\WalletService;
 use App\Support\Apps;
@@ -20,6 +21,7 @@ use RuntimeException;
 
 /**
  * Beli paket (potong saldo) -> voucher -> redeem ke satu branch -> masa aktif tiap layanan bertambah.
+ * Pembeli yang diajak lewat referral bisa dapat potongan harga, dan pengajaknya dapat komisi (lihat ReferralService).
  * Masa aktif bertumpuk: dihitung dari tanggal berakhir lama kalau masih aktif, dari sekarang kalau sudah habis.
  * Semua perubahan memakai transaksi + lockForUpdate supaya klik ganda tidak memotong saldo/menambah hari dua kali.
  */
@@ -28,7 +30,7 @@ class SubscriptionService
     /** Kode voucher yang dibeli untuk diberikan ke orang lain berlaku selama ini sebelum dipakai. */
     public const VOUCHER_VALID_DAYS = 90;
 
-    public function __construct(private readonly WalletService $wallets)
+    public function __construct(private readonly WalletService $wallets, private readonly ReferralService $referrals)
     {
     }
 
@@ -49,18 +51,26 @@ class SubscriptionService
                     $this->claimTrial($buyer, $package, $branch);
                 }
 
+                // Harga final dihitung di dalam transaksi yang sama dengan potong saldo & catat komisi.
+                $referral = $this->referrals->terms($buyer, (int) $package->price);
+                $price = $referral['paid'] ?? (int) $package->price;
+
                 $voucher = new Voucher();
                 $voucher->forceFill([
                     'package_id' => $package->getKey(),
                     'user_id' => $buyer->getKey(),
                     'code' => $this->newCode(),
-                    'price' => $package->price,
+                    'price' => $price,
                     'valid_from' => now(),
                     'valid_until' => now()->addDays(self::VOUCHER_VALID_DAYS),
                 ])->save();
 
-                if ($package->price > 0) {
-                    $this->wallets->debit($buyer, $package->price, WalletTransaction::TYPE_PURCHASE, 'package:'.$voucher->getKey(), $voucher, 'Beli paket '.$package->name);
+                if ($price > 0) {
+                    $this->wallets->debit($buyer, $price, WalletTransaction::TYPE_PURCHASE, 'package:'.$voucher->getKey(), $voucher, 'Beli paket '.$package->name);
+                }
+
+                if ($referral) {
+                    $this->referrals->record($voucher, $buyer, $package->name, $referral);
                 }
 
                 if ($branch) {

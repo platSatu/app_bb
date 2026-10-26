@@ -8,7 +8,6 @@ use App\Models\PaymentGatewaySetting;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Services\Payment\DuitkuClient;
-use App\Services\Referral\ReferralService;
 use App\Services\Wallet\SettlementCalendar;
 use App\Services\Wallet\WalletService;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +22,6 @@ class DepositService
 
     public function __construct(
         private readonly WalletService $wallets,
-        private readonly ReferralService $referrals,
     ) {
     }
 
@@ -140,7 +138,7 @@ class DepositService
         return $summary;
     }
 
-    /** Satu-satunya jalur deposit -> saldo. Deposit dikunci, saldo + bonus referral sekali saja. */
+    /** Satu-satunya jalur deposit -> saldo. Deposit dikunci, saldo masuk sekali saja. */
     private function markPaid(Deposit $deposit, ?string $paymentCode, ?string $providerReference): string
     {
         return DB::transaction(function () use ($deposit, $paymentCode, $providerReference) {
@@ -168,8 +166,6 @@ class DepositService
                 paymentMethod: $locked->payment_method,
                 availableAt: SettlementCalendar::availableAt($locked->payment_method),
             );
-
-            $this->referrals->rewardForDeposit($locked);
 
             return 'credited';
         });

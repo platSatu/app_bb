@@ -12,7 +12,12 @@
     @if ($referralCode)
         <div class="alert alert-success d-flex align-items-center gap-2" role="alert">
             <i class="ri-gift-line fs-5"></i>
-            <div>Anda diundang oleh <strong>{{ $referralCode->user->name }}</strong>.</div>
+            <div>
+                Anda diundang oleh <strong>{{ $referralCode->user->name }}</strong>.
+                @if (($referralSetting = \App\Models\ReferralSetting::current())->is_active && ($share = $referralCode->sharePercent($referralSetting)))
+                    Dapat potongan <strong>{{ $share }}%</strong> setiap beli paket selama {{ $referralSetting->active_months }} bulan.
+                @endif
+            </div>
         </div>
     @endif
 

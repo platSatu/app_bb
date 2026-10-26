@@ -8,6 +8,7 @@ use App\Models\Package;
 use App\Models\SubscriptionHistory;
 use App\Models\UserBranch;
 use App\Models\Voucher;
+use App\Services\Referral\ReferralService;
 use App\Services\Subscription\PlanLimits;
 use App\Services\Subscription\SubscriptionService;
 use Illuminate\Http\RedirectResponse;
@@ -61,7 +62,7 @@ class PackageController extends Controller implements HasMiddleware
         ]);
     }
 
-    public function show(Request $request, string $package): View|RedirectResponse
+    public function show(Request $request, string $package, ReferralService $referrals): View|RedirectResponse
     {
         $model = $this->forSale($request)->find($package);
 
@@ -70,9 +71,14 @@ class PackageController extends Controller implements HasMiddleware
         }
 
         $branches = $this->branches($request);
+        // Pratinjau potongan referral; harga final tetap dihitung ulang saat beli (SubscriptionService::purchase).
+        $referral = $referrals->terms($request->user(), (int) $model->price);
 
         return view('profile.packages.show', [
             'package' => $model,
+            'price' => $referral['paid'] ?? (int) $model->price,
+            'discount' => $referral['discount'] ?? 0,
+            'sharePercent' => $referral['share'] ?? 0,
             'branches' => $branches,
             // Tanggal berakhir sekarang per branch per layanan, untuk pratinjau masa aktif setelah beli.
             'ends' => BranchSubscription::whereIn('branch_id', $branches->modelKeys())->whereIn('app_key', $model->apps)->get()
