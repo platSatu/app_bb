@@ -6,6 +6,9 @@ use App\Models\User;
 use Database\Seeders\PackageSeeder;
 
 it('seeder paket: 5 kategori x 3 durasi (trial, 6, 12 bulan), 12 bulan Populer, aman dijalankan ulang tanpa menimpa hasil edit; katalog per tab kategori', function () {
+    // Sisa seeder versi lama (paket 1 bulan) ikut dibersihkan.
+    Package::create(['category_application_id' => CategoryApplication::create(['name' => 'Pages', 'status' => 'active'])->id,
+        'name' => 'Pages - 1 Bulan', 'price' => 79000, 'duration' => 30, 'apps' => ['pages'], 'status' => 'active']);
     $this->seed(PackageSeeder::class);
 
     expect(Package::count())->toBe(15)

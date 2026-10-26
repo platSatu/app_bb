@@ -60,6 +60,10 @@ class PackageSeeder extends Seeder
         foreach (self::PLANS as $plan => $config) {
             $category = CategoryApplication::firstOrCreate(['name' => $plan], ['status' => 'active']);
 
+            // Paket 1 bulan dari seeder versi lama tidak dijual lagi: dihapus, atau dinonaktifkan kalau sudah pernah dibeli.
+            Package::where('name', "{$plan} - 1 Bulan")->doesntHave('vouchers')->delete();
+            Package::where('name', "{$plan} - 1 Bulan")->update(['status' => Package::STATUS_INACTIVE]);
+
             foreach (self::DURATIONS as $days => $label) {
                 $trial = $days === 7;
                 $limits = $trial ? array_intersect_key(self::TRIAL_LIMITS, $config['limits']) : $config['limits'];
