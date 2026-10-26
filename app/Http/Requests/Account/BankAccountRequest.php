@@ -19,7 +19,7 @@ class BankAccountRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'bank_code' => ['required', 'string', 'max:10'],
+            'bank_code' => ['required', 'string', 'max:10', 'regex:/^[A-Za-z0-9]+$/'],
             'account_number' => ['required', 'digits_between:5,25'],
         ];
     }

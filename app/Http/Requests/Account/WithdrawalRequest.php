@@ -13,7 +13,9 @@ class WithdrawalRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge(['amount' => preg_replace('/\D/', '', (string) $this->input('amount'))]);
+        // "1.500.000" -> 1500000. Tanda minus dibiarkan supaya ditolak validasi, bukan diam-diam jadi angka positif.
+        $amount = (string) $this->input('amount');
+        $this->merge(['amount' => str_contains($amount, '-') ? $amount : preg_replace('/\D/', '', $amount)]);
     }
 
     public function rules(): array
@@ -21,7 +23,7 @@ class WithdrawalRequest extends FormRequest
         return [
             'amount' => ['required', 'integer', 'min:1', 'max:1000000000'],
             // Biaya yang dilihat user; kalau admin baru mengubahnya, pengajuan ditahan dulu.
-            'fee' => ['nullable', 'integer', 'min:0'],
+            'fee' => ['nullable', 'integer', 'min:0', 'max:100000000'],
         ];
     }
 

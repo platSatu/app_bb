@@ -6,6 +6,7 @@ use App\Models\BankAccount;
 use App\Models\User;
 use App\Services\Payment\DuitkuDisbursementClient;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -15,9 +16,18 @@ use RuntimeException;
  */
 class BankAccountService
 {
+    /** Cek rekening ke bank per user per hari: mencegah fitur ini dipakai untuk mencari nama pemilik rekening orang lain. */
+    public const MAX_CHECKS_PER_DAY = 5;
+
     public function submit(User $user, string $bankCode, string $number): BankAccount
     {
         $number = preg_replace('/\D/', '', $number);
+
+        $limiter = 'bank-account-check:'.$user->getKey();
+        if (RateLimiter::tooManyAttempts($limiter, self::MAX_CHECKS_PER_DAY)) {
+            throw new RuntimeException('Pengecekan rekening sudah '.self::MAX_CHECKS_PER_DAY.' kali hari ini. Coba lagi besok, atau hubungi admin kalau butuh bantuan.');
+        }
+        RateLimiter::hit($limiter, 86400);
         $client = DuitkuDisbursementClient::make();
         $bank = collect($client->banks())->firstWhere('bankCode', $bankCode) ?? throw new RuntimeException('Bank tidak dikenali, silakan pilih ulang.');
 

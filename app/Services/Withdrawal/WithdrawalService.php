@@ -27,6 +27,9 @@ class WithdrawalService
 {
     private const SUCCESS = '00';
 
+    /** Pengajuan yang boleh menunggu bersamaan per user; mencegah saldo ditahan berkali-kali lewat spam pengajuan. */
+    public const MAX_PENDING = 3;
+
     public function __construct(private readonly WalletService $wallets)
     {
     }
@@ -57,6 +60,13 @@ class WithdrawalService
         }
 
         return DB::transaction(function () use ($user, $account, $amount, $net, $setting) {
+            // Kunci user: pengajuan bersamaan dari user yang sama antre, jadi batas di bawah tidak bisa dilewati.
+            User::whereKey($user->getKey())->lockForUpdate()->first();
+
+            if (WalletWithdrawal::where('user_id', $user->getKey())->whereIn('status', [WalletWithdrawal::STATUS_PENDING, WalletWithdrawal::STATUS_PROCESSING])->count() >= self::MAX_PENDING) {
+                throw new RuntimeException('Masih ada '.self::MAX_PENDING.' pengajuan yang menunggu diproses. Tunggu sampai selesai, atau batalkan salah satunya dulu.');
+            }
+
             $withdrawal = new WalletWithdrawal();
             $withdrawal->forceFill([
                 'user_id' => $user->getKey(),
@@ -108,6 +118,13 @@ class WithdrawalService
         $withdrawal = $withdrawal->refresh()->load('bankAccount');
         $transferSent = false;
         $inquiry = null;
+
+        // Dana hanya dikirim ke rekening milik user ini yang masih aktif (bukan rekening yang sudah diganti/ditolak).
+        $account = $withdrawal->bankAccount;
+        if (! $account || $account->user_id !== $withdrawal->user_id || $account->status !== BankAccount::STATUS_APPROVED
+            || $account->bank_code !== $withdrawal->bank_code || $account->account_last4 !== $withdrawal->account_last4) {
+            return $this->fail($withdrawal, 'Rekening tujuan sudah tidak aktif atau berubah sejak pengajuan dibuat. Dana tidak dikirim, silakan ajukan ulang ke rekening yang aktif.');
+        }
 
         try {
             $client = DuitkuDisbursementClient::make();
