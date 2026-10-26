@@ -13,6 +13,7 @@ use App\Http\Controllers\WhatsApp\FormCheckinController;
 use App\Http\Controllers\WhatsApp\GoogleFormController;
 use App\Http\Controllers\WhatsApp\InboxController;
 use App\Http\Controllers\WhatsApp\LabelController;
+use App\Http\Controllers\WhatsApp\NotificationController;
 use App\Http\Controllers\WhatsApp\QuickReplyController;
 use App\Http\Controllers\WhatsApp\TemplateController;
 use App\Http\Controllers\WhatsApp\ThirdPartyController;
@@ -22,6 +23,8 @@ use Illuminate\Support\Facades\Route;
 // Owner. Semua data dibatasi ke branch miliknya lewat InWhatsAppArea.
 Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function () {
     Route::middleware('permission:whatsapp.devices')->group(function () {
+        Route::get('notifications', NotificationController::class)->middleware('throttle:20,1')->name('notifications');
+
         Route::controller(DeviceController::class)->prefix('devices')->name('devices.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('list', 'list')->name('list');

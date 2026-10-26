@@ -23,6 +23,32 @@
                     type="button" id="toggleFullscreen" aria-label="Toggle fullscreen">
                     <i class="ri-fullscreen-line"></i>
                 </button>
+                @if (! Auth::user()->isPlatformTeam() && Auth::user()->canAccess('whatsapp.devices'))
+                    {{-- Lonceng: chat WhatsApp yang belum dibaca, diisi public/js/notifications.js. --}}
+                    <div class="dropdown pe-dropdown-mega" data-notifications data-url="{{ route('whatsapp.notifications') }}">
+                        <button class="btn text-muted rounded-circle icon-btn fs-5 header-menu-btn position-relative"
+                            type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifikasi">
+                            <i class="ri-notification-4-line"></i>
+                            <div class="icon-dot bg-danger d-none" data-dot><span class="ping bg-danger"></span></div>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-clickable dropdown-mega-md dropdown-menu-end header-dropdown-menu shadow-sm border p-0">
+                            <div class="card mb-0 border-0">
+                                <div class="card-header d-flex align-items-center justify-content-between gap-2">
+                                    <h5 class="card-title mb-0">Notifikasi
+                                        <span class="h-20px ms-1 px-1 d-inline-flex align-items-center justify-content-center border fs-12 text-muted rounded-1" data-count>0</span>
+                                    </h5>
+                                    <a href="{{ route('whatsapp.devices.index') }}" class="fw-medium fs-13">Buka WhatsApp</a>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="notification-panel" data-simplebar style="max-height: 324px;" data-list></div>
+                                    <div class="text-center text-muted p-4" data-empty>
+                                        <i class="ri-notification-off-line fs-2 d-block mb-2"></i>Tidak ada pesan baru.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
                 <div id="toggleMode">
                     <button id="theme-toggle" class="btn icon-btn theme-toggle" title="Toggles light & dark theme"
                         aria-label="Switch to dark theme" aria-live="polite" type="button">
@@ -124,3 +150,9 @@
         </div>
     </div>
 </header>
+
+@if (! Auth::user()->isPlatformTeam() && Auth::user()->canAccess('whatsapp.devices'))
+    @push('scripts')
+        <script src="{{ asset('js/notifications.js') }}"></script>
+    @endpush
+@endif
