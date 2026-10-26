@@ -34,5 +34,6 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin/customers')->name(
     Route::middleware('permission:superadmin.customers,manage')->controller(CustomerController::class)->group(function () {
         Route::get('contoh-excel', 'template')->name('template');
         Route::post('import', 'import')->middleware('throttle:10,1')->name('import');
+        Route::delete('/', 'destroyMany')->middleware('throttle:20,1')->name('destroy-many');
     });
 });

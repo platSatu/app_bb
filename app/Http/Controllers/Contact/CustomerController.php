@@ -108,6 +108,28 @@ class CustomerController extends Controller
         return back()->with('success', "{$model->displayName()} dihapus dari Customers. Riwayat transaksi/invoice tetap tersimpan.");
     }
 
+    /** Hapus banyak (superadmin): yang dicentang, atau semua yang cocok dengan filter (all=1, filter dibawa di query string). */
+    public function destroyMany(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'all' => ['nullable', 'boolean'],
+            'ids' => ['required_unless:all,1', 'array', 'max:1000'],
+            'ids.*' => ['uuid'],
+        ], ['ids.required_unless' => 'Pilih customer yang mau dihapus dulu.']);
+
+        $filterApp = array_key_exists((string) $request->query('app'), Customer::APPS) ? $request->query('app') : null;
+        $query = $request->boolean('all')
+            ? $this->filtered($request, $filterApp)
+            : Customer::accessibleBy($request->user())->whereKey($data['ids']);
+
+        $deleted = 0;
+        $query->select('id')->chunkById(500, function ($rows) use (&$deleted) {
+            $deleted += Customer::whereKey($rows->modelKeys())->delete();
+        });
+
+        return back()->with('success', number_format($deleted, 0, ',', '.').' customer dihapus. Riwayat transaksi/invoice tetap tersimpan.');
+    }
+
     /** Export Excel sesuai filter yang sedang dipakai (superadmin). */
     public function export(Request $request): StreamedResponse|RedirectResponse
     {

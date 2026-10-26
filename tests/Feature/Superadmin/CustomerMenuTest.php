@@ -51,3 +51,23 @@ it('import Excel ke branch & aplikasi pilihan superadmin; branch yang paketnya t
     $this->post(route('superadmin.contacts.import'), ['app' => 'invoices', 'branch_id' => $branch->id, 'file' => $csv])
         ->assertSessionHasErrors('branch_id');
 });
+
+it('hapus banyak: yang dicentang saja, atau semua yang cocok dengan filter', function () {
+    $branch = appBranch(['pages', 'invoices']);
+    $a = customerIn($branch, 'pages', 'Ani', '081200000001');
+    $b = customerIn($branch, 'pages', 'Budi', '081200000002');
+    $c = customerIn($branch, 'invoices', 'Cici', '081200000003');
+    $d = customerIn($branch, 'invoices', 'Dedi', '081200000004');
+    $this->actingAs($this->superadmin);
+
+    $this->get(route('superadmin.contacts.index'))->assertSee('Hapus yang dipilih');
+
+    $this->delete(route('superadmin.contacts.destroy-many'), ['ids' => [$a->id]])->assertSessionHas('success');
+    expect(Customer::whereKey([$a->id, $b->id, $c->id, $d->id])->pluck('name')->sort()->values()->all())->toBe(['Budi', 'Cici', 'Dedi']);
+
+    // "Pilih semua yang cocok dengan filter": hanya customer Invoice yang terhapus.
+    $this->delete(route('superadmin.contacts.destroy-many', ['app' => 'invoices']), ['all' => 1])->assertSessionHas('success');
+    expect(Customer::whereKey([$b->id, $c->id, $d->id])->pluck('name')->all())->toBe(['Budi']);
+
+    $this->delete(route('superadmin.contacts.destroy-many'), [])->assertSessionHasErrors('ids');
+});
