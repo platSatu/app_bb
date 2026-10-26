@@ -105,8 +105,9 @@ it('meminta verifikasi email sebelum menampilkan tagihan', function () {
     $sd = billBranch();
     bill($sd, sppCategory($sd), 'ortu@mail.test', 'SPP Januari', 500000, '2026-01-10');
 
-    $this->actingAs(parent(verified: false))->get(route('bills.index'))->assertOk()
-        ->assertSee('Verifikasi email dulu')->assertDontSee('SPP Januari');
+    // Semua halaman login sekarang dijaga RequireVerifiedEmail: diarahkan ke halaman verifikasi, tagihan tidak tampil.
+    $this->actingAs(parent(verified: false))->get(route('bills.index'))->assertRedirect(route('verification.notice'));
+    $this->get(route('verification.notice'))->assertOk()->assertDontSee('SPP Januari');
 });
 
 it('wajib bayar berurutan dalam satu kategori, lalu satu order Duitku untuk semua', function () {

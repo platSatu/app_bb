@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -17,7 +17,11 @@ use Illuminate\Support\Str;
 use App\Support\Menu;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable
+/**
+ * Daftar sendiri (form register / link pendaftaran portal) wajib verifikasi email.
+ * Akun yang dibuat dari dalam (superadmin, akun customer, Google) langsung terisi email_verified_at.
+ */
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, HasUuids, Notifiable;
@@ -74,6 +78,16 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /** Email gagal terkirim (mis. server mail sedang gangguan) tidak boleh menggagalkan pendaftaran; user bisa kirim ulang. */
+    public function sendEmailVerificationNotification(): void
+    {
+        try {
+            parent::sendEmailVerificationNotification();
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public function isActive(): bool

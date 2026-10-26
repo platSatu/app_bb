@@ -24,6 +24,7 @@ class MakeSuperadmin extends Command
         $user->forceFill([
             'user_type' => User::TYPE_SUPERADMIN,
             'status' => User::STATUS_ACTIVE,
+            'email_verified_at' => $user->email_verified_at ?? now(),
         ])->save();
 
         $this->info("{$user->name} sekarang superadmin.");
