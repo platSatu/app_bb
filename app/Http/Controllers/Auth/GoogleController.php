@@ -60,7 +60,8 @@ class GoogleController extends Controller
                     'email' => $email,
                     'password' => Str::random(40),
                 ]);
-                $user->forceFill(['google_id' => $google->getId(), 'status' => User::STATUS_ACTIVE, 'email_verified_at' => now()])->save();
+                // Daftar lewat Google = menyetujui S&K (tertulis di bawah tombol Google).
+                $user->forceFill(['google_id' => $google->getId(), 'status' => User::STATUS_ACTIVE, 'email_verified_at' => now(), 'terms_accepted_at' => now(), 'terms_id' => \App\Models\WebTermCondition::current()?->getKey()])->save();
                 $this->referrals->recordSignup($user, $request->session()->pull('referral_code'));
 
                 return $user;

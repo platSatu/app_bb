@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\WebTermCondition;
 use App\Rules\Turnstile;
 use App\Services\Referral\ReferralService;
 use Illuminate\Auth\Events\Registered;
@@ -32,6 +33,7 @@ class RegisteredUserController extends Controller
         }
 
         return view('auth.register', [
+            'terms' => WebTermCondition::current(),
             'referralCode' => $this->referrals->findActiveCode($request->session()->get('referral_code')),
         ]);
     }
@@ -51,7 +53,9 @@ class RegisteredUserController extends Controller
             'handphone' => ['required', 'regex:/^62[1-9][0-9]{8,12}$/', Rule::unique(User::class)],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'cf-turnstile-response' => [new Turnstile()],
+            'terms' => ['accepted'],
         ], [
+            'terms.accepted' => 'Centang persetujuan Syarat & Ketentuan dan Kebijakan Privasi untuk melanjutkan.',
             'handphone.regex' => 'Nomor WhatsApp belum benar. Isi 9–13 digit tanpa awalan 0, contoh: 81234567890.',
             'handphone.unique' => 'Nomor WhatsApp ini sudah terdaftar. Silakan masuk atau pakai nomor lain.',
         ]);
@@ -63,6 +67,7 @@ class RegisteredUserController extends Controller
                 'handphone' => $request->handphone,
                 'password' => Hash::make($request->password),
             ]);
+            $user->forceFill(['terms_accepted_at' => now(), 'terms_id' => WebTermCondition::current()?->getKey()])->save();
 
             $this->referrals->recordSignup($user, $request->session()->pull('referral_code'));
 

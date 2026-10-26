@@ -42,7 +42,10 @@
         </div>
     </div>
 
+    @stack('modals')
+
     <script src="{{ asset('be') }}/assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+    @stack('scripts')
     <script>
         document.querySelectorAll('.toggle-password').forEach(function (button) {
             button.addEventListener('click', function () {

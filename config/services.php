@@ -59,6 +59,8 @@ return [
     // Kunci API untuk fe-konexa (/api/frontend/*). Harus sama dengan TELEIOS_API_KEY di .env fe-konexa.
     'frontend' => [
         'key' => env('FRONTEND_API_KEY'),
+        // Alamat website (fe-konexa), dipakai untuk link Syarat & Ketentuan / Kebijakan Privasi di halaman daftar.
+        'url' => rtrim((string) env('FRONTEND_URL', 'https://bizbos.id'), '/'),
     ],
 
     // Google Analytics bizbos (G-XXXX), dipasang di semua halaman publik page. Kosong = tidak dipasang.
