@@ -24,9 +24,10 @@ class DisbursementSetting extends Model
         ];
     }
 
+    /** Baris pengaturan satu-satunya. Baris baru dibaca ulang supaya default database (biaya, minimal) ikut terisi. */
     public static function current(): self
     {
-        return static::query()->firstOrCreate([], ['mode' => 'sandbox']);
+        return static::query()->first() ?? static::query()->create(['mode' => 'sandbox'])->refresh();
     }
 
     public function isSandbox(): bool

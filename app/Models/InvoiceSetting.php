@@ -17,9 +17,10 @@ class InvoiceSetting extends Model
         return ['fee_percent' => 'float', 'fee_flat' => 'integer', 'min_amount' => 'integer', 'max_amount' => 'integer', 'api_expiry_minutes' => 'integer'];
     }
 
+    /** Baris pengaturan satu-satunya. Baris yang baru dibuat dibaca ulang supaya nilai default database (batas nominal dll.) ikut terisi. */
     public static function current(): self
     {
-        return static::query()->firstOrCreate([]);
+        return static::query()->first() ?? static::query()->create([])->refresh();
     }
 
     /** Biaya layanan dari total yang dibayar customer; dibulatkan ke atas, tidak pernah melebihi total. */

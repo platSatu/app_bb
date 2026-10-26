@@ -12,6 +12,8 @@ use App\Models\WalletTransaction;
 use App\Services\Payment\DuitkuClient;
 use App\Services\Wallet\SettlementCalendar;
 use App\Services\Wallet\WalletService;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -31,8 +33,23 @@ class InvoicePaymentService
     {
     }
 
-    /** $timeout: batas tunggu Duitku (detik). API memakai batas pendek supaya website pemanggil tidak ikut timeout. */
+    /**
+     * $timeout: batas tunggu Duitku (detik). API memakai batas pendek supaya website pemanggil tidak ikut timeout.
+     *
+     * Antre per invoice: dua permintaan bersamaan (klik "Bayar" dua kali, API dipanggil ulang) diproses satu per satu,
+     * yang kedua memakai order Duitku yang baru dibuat yang pertama, jadi tidak ada order dobel.
+     */
     public function checkout(Invoice $invoice, string $returnUrl, int $timeout = 20): InvoicePayment
+    {
+        try {
+            return Cache::lock('invoice-checkout:'.$invoice->getKey(), $timeout + 15)
+                ->block($timeout + 5, fn () => $this->startCheckout($invoice, $returnUrl, $timeout));
+        } catch (LockTimeoutException) {
+            throw new RuntimeException('Pembayaran invoice ini sedang disiapkan. Coba lagi beberapa detik lagi.');
+        }
+    }
+
+    private function startCheckout(Invoice $invoice, string $returnUrl, int $timeout): InvoicePayment
     {
         $client = DuitkuClient::make(forCallback: true);
 
