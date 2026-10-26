@@ -1,15 +1,3 @@
-@if (session('ordered'))
-    <div class="card shadow-sm mb-4">
-        <div class="card-body p-4 text-center">
-            <i class="ri-checkbox-circle-line fs-1 text-success"></i>
-            <h1 class="h4 mt-2">Terima kasih, pesanan Anda sudah kami terima</h1>
-            <p class="text-muted mb-1">Nomor pesanan:</p>
-            <p class="fs-4 fw-semibold mb-1">{{ session('ordered.reference') }}</p>
-            <p class="text-muted mb-0">Total Rp {{ number_format(session('ordered.total'), 0, ',', '.') }}. Penjual akan menghubungi Anda untuk pembayaran & pengiriman.</p>
-        </div>
-    </div>
-@endif
-
 @if ($page->description)
     <p class="text-muted text-center mb-4" style="white-space: pre-line;">{{ $page->description }}</p>
 @endif

@@ -25,6 +25,14 @@ class CatalogOrder extends Model
         self::STATUS_CANCELLED => 'Dibatalkan',
     ];
 
+    public const PAYMENT_TRANSFER = 'transfer';
+    public const PAYMENT_ONLINE = 'online';
+
+    public const PAYMENT_LABELS = [
+        self::PAYMENT_TRANSFER => 'Transfer bank',
+        self::PAYMENT_ONLINE => 'Bayar online (VA, QRIS, e-wallet)',
+    ];
+
     private const STATUS_BADGES = [
         self::STATUS_NEW => 'bg-info-subtle text-info',
         self::STATUS_PAID => 'bg-primary-subtle text-primary',
@@ -37,7 +45,7 @@ class CatalogOrder extends Model
 
     protected function casts(): array
     {
-        return ['total' => 'integer', 'stock_restored' => 'boolean'];
+        return ['total' => 'integer', 'stock_restored' => 'boolean', 'expires_at' => 'datetime', 'paid_at' => 'datetime'];
     }
 
     public function page(): BelongsTo
@@ -59,6 +67,17 @@ class CatalogOrder extends Model
     public function isFinal(): bool
     {
         return in_array($this->status, [self::STATUS_COMPLETED, self::STATUS_CANCELLED], true);
+    }
+
+    /** Pembayaran online yang uangnya belum tercatat (paid_at kosong). Dicek ulang dengan kunci di CatalogOrderService. */
+    public function awaitsOnlinePayment(): bool
+    {
+        return $this->payment_type === self::PAYMENT_ONLINE && $this->paid_at === null;
+    }
+
+    public function paymentLabel(): string
+    {
+        return self::PAYMENT_LABELS[$this->payment_type] ?? 'Dikonfirmasi penjual';
     }
 
     public function statusLabel(): string

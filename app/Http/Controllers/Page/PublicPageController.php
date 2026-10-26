@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Page;
 
 use App\Http\Controllers\Controller;
 use App\Models\CatalogCategory;
+use App\Models\CatalogOrder;
 use App\Models\CatalogProduct;
 use App\Models\PageCategory;
 use App\Models\PageType;
@@ -11,7 +12,9 @@ use App\Rules\Turnstile;
 use App\Services\Catalog\CatalogOrderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use RuntimeException;
 
 class PublicPageController extends Controller
 {
@@ -65,13 +68,14 @@ class PublicPageController extends Controller
         $page = $this->find($slug);
         abort_unless($this->isOpen($page) && $page->isTemplate(PageType::TEMPLATE_CATALOG), 404);
 
-        return view('page.public.catalog-checkout', ['page' => $page]);
+        return view('page.public.catalog-checkout', ['page' => $page, 'paymentMethods' => CatalogOrderService::paymentMethods($page)]);
     }
 
     public function placeOrder(Request $request, CatalogOrderService $orders, string $slug): RedirectResponse
     {
         $page = $this->find($slug);
         abort_unless($this->isOpen($page) && $page->isTemplate(PageType::TEMPLATE_CATALOG), 404);
+        $methods = CatalogOrderService::paymentMethods($page);
 
         $data = $request->validate([
             'website' => ['nullable', 'max:0'],
@@ -80,11 +84,15 @@ class PublicPageController extends Controller
             'items.*' => ['integer', 'min:1', 'max:'.CatalogOrderService::MAX_QTY],
             'name' => ['required', 'string', 'max:150'],
             'phone' => ['required', 'string', 'max:20', 'regex:/^\+?[0-9\s\-]{8,20}$/'],
-            'email' => ['nullable', 'email', 'max:255'],
+            'email' => ['nullable', 'required_if:payment,'.CatalogOrder::PAYMENT_ONLINE, 'email', 'max:255'],
             'address' => ['required', 'string', 'max:1000'],
             'note' => ['nullable', 'string', 'max:1000'],
+            // Hanya metode yang diaktifkan owner; tanpa metode = alur lama (dikonfirmasi penjual).
+            'payment' => $methods ? ['required', Rule::in($methods)] : ['prohibited'],
         ], [
             'items.required' => 'Keranjang masih kosong.',
+            'payment.required' => 'Pilih metode pembayaran dulu ya.',
+            'email.required_if' => 'Email wajib diisi untuk bayar online, tagihan dikirim ke sini.',
             'phone.regex' => 'Nomor WhatsApp belum benar.',
             'website.max' => 'Pesanan gagal dikirim.',
         ], ['name' => 'nama', 'phone' => 'nomor WhatsApp', 'address' => 'alamat', 'note' => 'catatan']);
@@ -95,12 +103,32 @@ class PublicPageController extends Controller
         $order = $orders->place($page, $cart, [
             'name' => trim($data['name']),
             'phone' => $data['phone'],
-            'email' => $data['email'] ?? null,
+            'email' => isset($data['email']) ? strtolower(trim($data['email'])) : null,
             'address' => $data['address'],
             'note' => $data['note'] ?? null,
-        ], $request->ip(), $request->userAgent());
+        ], $data['payment'] ?? null, $request->ip(), $request->userAgent());
 
-        return redirect()->route('page.show', $page->slug)->with('ordered', ['reference' => $order->reference, 'total' => $order->total]);
+        if ($order->payment_type === CatalogOrder::PAYMENT_ONLINE) {
+            try {
+                return redirect()->away($orders->startPayment($order, $page));
+            } catch (RuntimeException $e) {
+                return back()->withInput()->withErrors(['cart' => $e->getMessage()]);
+            }
+        }
+
+        return redirect()->route('page.order', [$page->slug, $order->access_token]);
+    }
+
+    /** Halaman pesanan pembeli: status, rincian, rekening tujuan / tombol bayar. Juga returnUrl dari Duitku. */
+    public function order(string $slug, string $token): View
+    {
+        $page = $this->find($slug);
+        abort_unless($page->isTemplate(PageType::TEMPLATE_CATALOG), 404);
+
+        return view('page.public.catalog-order', [
+            'page' => $page,
+            'order' => CatalogOrder::where('page_id', $page->getKey())->where('access_token', $token)->with('items')->firstOrFail(),
+        ]);
     }
 
     private function products(PageCategory $page)

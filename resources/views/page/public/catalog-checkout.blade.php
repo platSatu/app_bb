@@ -12,7 +12,7 @@
 
         @if ($errors->any())
             <div class="alert alert-danger">
-                @foreach ($errors->get('cart') ?: ['Ada isian yang belum sesuai, silakan periksa kembali.'] as $message)
+                @foreach ($errors->get('cart') ?: ($errors->get('payment') ?: ['Ada isian yang belum sesuai, silakan periksa kembali.']) as $message)
                     <div>{{ $message }}</div>
                 @endforeach
             </div>
@@ -43,7 +43,7 @@
                         @foreach ([
                             'name' => ['Nama', 'text', true],
                             'phone' => ['No. WhatsApp', 'tel', true],
-                            'email' => ['Email (opsional)', 'email', false],
+                            'email' => [in_array(\App\Models\CatalogOrder::PAYMENT_ONLINE, $paymentMethods, true) ? 'Email (wajib untuk bayar online)' : 'Email (opsional)', 'email', false],
                         ] as $field => [$label, $type, $required])
                             <div class="mb-3">
                                 <label for="{{ $field }}" class="form-label">{{ $label }} @if ($required)<span class="text-danger">*</span>@endif</label>
@@ -60,9 +60,21 @@
                             <label for="note" class="form-label">Catatan (opsional)</label>
                             <textarea id="note" name="note" rows="2" class="form-control">{{ old('note') }}</textarea>
                         </div>
+                        @if ($paymentMethods)
+                            <div class="mb-3">
+                                <label class="form-label">Metode Pembayaran <span class="text-danger">*</span></label>
+                                @foreach ($paymentMethods as $method)
+                                    <div class="form-check border rounded-3 p-2 ps-5 mb-2">
+                                        <input class="form-check-input" type="radio" name="payment" id="payment-{{ $method }}" value="{{ $method }}" required
+                                            @checked(old('payment', count($paymentMethods) === 1 ? $method : null) === $method)>
+                                        <label class="form-check-label w-100" for="payment-{{ $method }}">{{ \App\Models\CatalogOrder::PAYMENT_LABELS[$method] }}</label>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                         @include('auth.partials.turnstile')
-                        <button type="submit" class="btn btn-primary w-100" id="checkout-submit">Kirim Pesanan</button>
-                        <div class="form-text text-center">Pembayaran & pengiriman dikonfirmasi langsung oleh penjual.</div>
+                        <button type="submit" class="btn btn-primary w-100" id="checkout-submit">{{ $paymentMethods ? 'Pesan & Bayar' : 'Kirim Pesanan' }}</button>
+                        <div class="form-text text-center">{{ $paymentMethods ? 'Rincian pembayaran tampil setelah pesanan dibuat.' : 'Pembayaran & pengiriman dikonfirmasi langsung oleh penjual.' }}</div>
                     </div>
                 </div>
             </div>

@@ -50,8 +50,20 @@
                         <dt class="text-muted fw-normal small">WhatsApp</dt><dd>{{ $order->phone }}</dd>
                         <dt class="text-muted fw-normal small">Email</dt><dd>{{ $order->email ?: '-' }}</dd>
                         <dt class="text-muted fw-normal small">Alamat</dt><dd style="white-space: pre-line;">{{ $order->address ?: '-' }}</dd>
-                        <dt class="text-muted fw-normal small">Catatan</dt><dd class="mb-0" style="white-space: pre-line;">{{ $order->note ?: '-' }}</dd>
+                        <dt class="text-muted fw-normal small">Catatan</dt><dd style="white-space: pre-line;">{{ $order->note ?: '-' }}</dd>
+                        <dt class="text-muted fw-normal small">Pembayaran</dt>
+                        <dd class="mb-0">
+                            {{ $order->paymentLabel() }}
+                            @if ($order->paid_at)
+                                <div class="small text-success">Lunas {{ $order->paid_at->translatedFormat('d M Y H:i') }}{{ $order->payment_method ? ' · '.$order->payment_method : '' }} · masuk saldo Anda</div>
+                            @elseif ($order->awaitsOnlinePayment() && $order->status === \App\Models\CatalogOrder::STATUS_NEW)
+                                <div class="small text-warning">Menunggu pembayaran sampai {{ $order->expires_at?->translatedFormat('d M Y H:i') }}</div>
+                            @endif
+                        </dd>
                     </dl>
+                    @if ($order->payment_note)
+                        <div class="alert alert-warning small mt-3 mb-0">{{ $order->payment_note }}</div>
+                    @endif
                     @if ($order->customer && auth()->user()->canAccess($routes === 'pages' ? 'pages.customers' : 'superadmin.customers'))
                         <a href="{{ route($routes === 'pages' ? 'pages.customers.show' : 'superadmin.contacts.show', $order->customer) }}" class="btn btn-sm btn-outline-secondary w-100 mt-3">
                             <i class="ri-contacts-book-line me-1"></i>Lihat di Customers

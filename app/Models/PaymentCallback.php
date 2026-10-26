@@ -12,7 +12,7 @@ class PaymentCallback extends Model
     protected $fillable = ['provider', 'merchant_order_id', 'payload', 'signature_valid', 'result', 'message', 'ip_address'];
 
     public const RESULT_LABELS = [
-        'paid' => 'Lunas, tiket diterbitkan',
+        'paid' => 'Lunas',
         'refund_needed' => 'Dibayar terlambat, kuota habis (perlu refund)',
         'already_processed' => 'Sudah diproses sebelumnya',
         'failed' => 'Pembayaran gagal/dibatalkan',
@@ -20,6 +20,7 @@ class PaymentCallback extends Model
         'not_confirmed' => 'Ditolak: belum lunas saat dicek ke Duitku',
         'not_found' => 'Nomor pesanan tidak ditemukan',
         'invalid_signature' => 'Ditolak: tanda tangan tidak valid',
+        'error' => 'Error sistem (Duitku akan mengirim ulang)',
     ];
 
     public function resultLabel(): string

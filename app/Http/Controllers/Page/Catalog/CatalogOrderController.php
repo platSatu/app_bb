@@ -58,6 +58,11 @@ class CatalogOrderController extends Controller
         $item = CatalogOrder::where('page_id', $model->getKey())->findOrFail($order);
         $status = $request->validate(['status' => ['required', Rule::in(array_keys(CatalogOrder::STATUS_LABELS))]])['status'];
 
+        // Bayar online: "Lunas" hanya dari konfirmasi Duitku (uang benar-benar masuk saldo), tidak bisa diklik manual.
+        if ($status === CatalogOrder::STATUS_PAID && $item->awaitsOnlinePayment()) {
+            return back()->with('error', 'Pesanan bayar online berubah menjadi Lunas otomatis setelah pembayaran terkonfirmasi.');
+        }
+
         if (! $orders->changeStatus($item, $status)) {
             return back()->with('error', 'Status pesanan ini sudah final atau tidak berubah.');
         }

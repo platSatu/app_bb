@@ -47,10 +47,6 @@
                 setTimeout(function () { button.innerHTML = '<i class="ri-shopping-cart-2-line me-1"></i>Tambah'; }, 1200);
             });
 
-            @if (session('ordered'))
-                try { localStorage.removeItem(key); } catch (e) {}
-            @endif
-
             document.addEventListener('DOMContentLoaded', render);
 
             return { read: read, write: write, format: format };

@@ -25,9 +25,10 @@ class RegisteredUserController extends Controller
 
     public function create(Request $request): View
     {
-        // Kode dari link ?ref= disimpan di sesi supaya tetap terbawa walau form gagal validasi.
-        if ($request->filled('ref')) {
-            $request->session()->put('referral_code', strtoupper((string) $request->query('ref')));
+        // Kode dari link ?ref= disimpan di sesi supaya tetap terbawa walau form gagal validasi atau daftar lewat Google.
+        // Hanya kode yang benar-benar aktif yang disimpan, jadi link lain/rusak tidak menimpa kode yang sah.
+        if ($request->filled('ref') && ($code = $this->referrals->findActiveCode((string) $request->query('ref')))) {
+            $request->session()->put('referral_code', $code->code);
         }
 
         return view('auth.register', [

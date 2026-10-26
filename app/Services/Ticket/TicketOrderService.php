@@ -500,9 +500,10 @@ class TicketOrderService
         ])->save();
     }
 
+    /** Pending, atau kedaluwarsa/gagal tapi ternyata dibayar (dicek ulang ke Duitku; kuota dicek ulang di markPaid). */
     private function canBePaid(TicketOrder $order): bool
     {
-        return in_array($order->status, [TicketOrder::STATUS_PENDING, TicketOrder::STATUS_EXPIRED], true);
+        return in_array($order->status, [TicketOrder::STATUS_PENDING, TicketOrder::STATUS_EXPIRED, TicketOrder::STATUS_FAILED], true);
     }
 
     private function uniqueValue(string $model, string $column, callable $make, array $scope = []): string

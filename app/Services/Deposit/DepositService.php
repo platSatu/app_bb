@@ -200,10 +200,10 @@ class DepositService
         });
     }
 
-    /** Pending, atau sudah kedaluwarsa tapi ternyata dibayar (callback telat). */
+    /** Pending, atau sudah kedaluwarsa/gagal tapi ternyata dibayar (callback telat; selalu dicek ulang ke Duitku dulu). */
     private function canBeCredited(Deposit $deposit): bool
     {
-        return in_array($deposit->status, [Deposit::STATUS_PENDING, Deposit::STATUS_EXPIRED], true);
+        return in_array($deposit->status, [Deposit::STATUS_PENDING, Deposit::STATUS_EXPIRED, Deposit::STATUS_FAILED], true);
     }
 
     private function clientOrNull(): ?DuitkuClient

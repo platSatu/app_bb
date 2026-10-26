@@ -7,6 +7,7 @@ use App\Models\UserBranch;
 use App\Models\WaFormIntegration;
 use App\Models\WaFormSubmission;
 use App\Services\Invoice\InvoiceService;
+use App\Services\Subscription\AppAccess;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
@@ -23,7 +24,7 @@ class FormRelay
 
     private const PER_MINUTE = 30;
 
-    public function __construct(private WaGateway $wa, private InvoiceService $invoices) {}
+    public function __construct(private WaGateway $wa, private InvoiceService $invoices, private AppAccess $access) {}
 
     /** @return array{status: string, message: string} status: sent | failed | duplicate | limited */
     public function handle(WaFormIntegration $integration, array $raw): array
@@ -45,8 +46,11 @@ class FormRelay
 
         $phone = $this->phone($answers, $integration->phone_field);
         $name = $integration->name_field ? mb_substr((string) $this->answer($answers, $integration->name_field), 0, 150) ?: null : null;
+        // Link bayar hanya bisa dibuka selama paket Tagihan branch aktif; kalau habis, jangan kirim link yang mati.
+        $payable = $phone && $integration->payment_enabled && $integration->amount;
+        $paymentOff = $payable && ! $this->access->branchActive($integration->branch_id, 'invoices');
 
-        $submission = DB::transaction(function () use ($integration, $answers, $phone, $name) {
+        $submission = DB::transaction(function () use ($integration, $answers, $phone, $name, $payable, $paymentOff) {
             $submission = new WaFormSubmission();
             $submission->forceFill([
                 'integration_id' => $integration->id,
@@ -57,7 +61,7 @@ class FormRelay
                 'status' => 'failed',
             ]);
 
-            if ($phone && $integration->payment_enabled && $integration->amount) {
+            if ($payable && ! $paymentOff) {
                 $submission->invoice_id = $this->invoices->createForForm(
                     UserBranch::findOrFail($integration->branch_id), 'Pendaftaran '.$integration->name, $name ?? '+'.$phone, $phone, $integration->amount
                 )->getKey();
@@ -67,9 +71,11 @@ class FormRelay
             return $submission;
         });
 
-        $result = $phone === null
-            ? ['success' => false, 'message' => "Kolom \"{$integration->phone_field}\" tidak ditemukan atau nomornya belum benar. Samakan dengan judul pertanyaan di Google Form."]
-            : $this->send($integration, $submission, $this->compose($integration, $submission, $answers), 'gform:'.$fingerprint);
+        $result = match (true) {
+            $phone === null => ['success' => false, 'message' => "Kolom \"{$integration->phone_field}\" tidak ditemukan atau nomornya belum benar. Samakan dengan judul pertanyaan di Google Form."],
+            $paymentOff => ['success' => false, 'message' => 'Link bayar tidak dibuat karena paket Tagihan (Invoice) branch ini sudah habis. Perpanjang paketnya, lalu minta pendaftar mengisi ulang.'],
+            default => $this->send($integration, $submission, $this->compose($integration, $submission, $answers), 'gform:'.$fingerprint),
+        };
 
         $submission->forceFill([
             'status' => $result['success'] ? 'sent' : 'failed',

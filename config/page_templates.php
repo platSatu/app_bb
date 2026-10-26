@@ -14,6 +14,7 @@ return [
             'catalog-categories' => ['Kategori', 'ri-price-tag-3-line', 'catalog.categories.index'],
             'catalog-products' => ['Produk', 'ri-shopping-bag-3-line', 'catalog.products.index'],
             'catalog-orders' => ['Pesanan', 'ri-file-list-3-line', 'catalog.orders.index'],
+            'catalog-payment' => ['Pembayaran', 'ri-bank-card-line', 'catalog.payment.edit'],
         ],
         'quick' => ['Pesanan', 'ri-file-list-3-line', 'catalog.orders.index', 'catalog_orders_count'],
         'public' => 'page.public.catalog',

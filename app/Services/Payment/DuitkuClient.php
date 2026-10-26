@@ -79,6 +79,11 @@ class DuitkuClient
             }
         }
 
+        // Callback untuk merchant lain (mis. kode sandbox saat mode production) langsung ditolak.
+        if (! hash_equals((string) $this->setting->merchantCode(), (string) $callback['merchantCode'])) {
+            return false;
+        }
+
         $expected = hash_hmac('sha256', $callback['merchantCode'].$callback['amount'].$callback['merchantOrderId'], $this->setting->apiKey());
 
         return hash_equals($expected, (string) $callback['signature']);

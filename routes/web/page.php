@@ -3,6 +3,7 @@
 use App\Http\Controllers\Page\Biolink\BiolinkController;
 use App\Http\Controllers\Page\Catalog\CatalogCategoryController;
 use App\Http\Controllers\Page\Catalog\CatalogOrderController;
+use App\Http\Controllers\Page\Catalog\CatalogPaymentController;
 use App\Http\Controllers\Page\Catalog\CatalogProductController;
 use App\Http\Controllers\Page\Category\PageCategoryController;
 use App\Http\Controllers\Page\Form\PageFormFieldController;
@@ -36,6 +37,7 @@ $read = function () {
     Route::get('{page}/catalog/products', [CatalogProductController::class, 'index'])->name('catalog.products.index');
     Route::get('{page}/catalog/orders', [CatalogOrderController::class, 'index'])->name('catalog.orders.index');
     Route::get('{page}/catalog/orders/{order}', [CatalogOrderController::class, 'show'])->name('catalog.orders.show');
+    Route::get('{page}/catalog/payment', [CatalogPaymentController::class, 'edit'])->name('catalog.payment.edit');
 
     Route::get('{page}/quiz/questions', [QuizQuestionController::class, 'index'])->name('quiz.questions.index');
     Route::get('{page}/quiz/settings', [QuizSettingController::class, 'edit'])->name('quiz.settings.edit');
@@ -71,6 +73,7 @@ $write = function () {
     Route::put('{page}/catalog/products/{product}', [CatalogProductController::class, 'update'])->name('catalog.products.update');
     Route::delete('{page}/catalog/products/{product}', [CatalogProductController::class, 'destroy'])->name('catalog.products.destroy');
     Route::patch('{page}/catalog/orders/{order}/status', [CatalogOrderController::class, 'status'])->name('catalog.orders.status');
+    Route::put('{page}/catalog/payment', [CatalogPaymentController::class, 'update'])->name('catalog.payment.update');
 
     Route::put('{page}/quiz/questions', [QuizQuestionController::class, 'sync'])->middleware('throttle:30,1')->name('quiz.questions.sync');
     Route::put('{page}/quiz/settings', [QuizSettingController::class, 'update'])->name('quiz.settings.update');
@@ -142,6 +145,12 @@ Route::middleware('public.app:pages')->group(function () {
         ->middleware('throttle:10,1')
         ->name('page.tickets.checkout');
 });
+
+// Halaman pesanan katalog untuk pembeli (juga returnUrl Duitku): token 48 karakter acak.
+Route::get('page/{slug}/order/{token}', [PublicPageController::class, 'order'])
+    ->where(['slug' => '[a-z0-9-]+', 'token' => '[A-Za-z0-9]{48}'])
+    ->middleware('throttle:60,1')
+    ->name('page.order');
 
 // Link e-ticket: token 48 karakter acak, tidak bisa ditebak atau dicari.
 Route::middleware('throttle:60,1')->prefix('e-ticket/{slug}')->where(['slug' => '[a-z0-9-]+'])->name('eticket.')->group(function () {
