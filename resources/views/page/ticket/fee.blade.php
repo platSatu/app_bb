@@ -8,7 +8,7 @@
 @endphp
 
 @section('content')
-    <div class="mb-4">
+    <div class="mt-2 mb-4">
         <h4 class="mb-1">Simulasi Pendapatan Event</h4>
         <p class="text-muted mb-0">Sebelum membuat page tiket, coba hitung dulu berapa yang akan Anda terima. Isi harga dan perkiraan jumlah tiket, angkanya langsung muncul di sebelah kanan.</p>
     </div>
@@ -128,7 +128,7 @@
             </div>
         </div>
 
-        <div class="d-flex flex-wrap justify-content-between gap-2 mt-4">
+        <div class="d-flex flex-wrap justify-content-between gap-2 mt-5 mb-5 pt-2 pb-4">
             <a href="{{ route('pages.index') }}" class="btn btn-outline-secondary">Batal</a>
             <button type="submit" class="btn btn-primary px-4">Saya Mengerti, Lanjut Buat Page Tiket <i class="ri-arrow-right-line"></i></button>
         </div>
