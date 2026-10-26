@@ -31,11 +31,11 @@
                     <tbody>
                         <tr><td><code>@{{Judul Pertanyaan}}</code></td><td>Jawaban pengisi, mis. <code>@{{Nama Lengkap}}</code></td></tr>
                         <tr><td><code>@{{link_bayar}}</code></td><td>Link pembayaran (kalau pembayaran aktif)</td></tr>
-                        <tr><td><code>@{{link_qr}}</code></td><td>Link QR registrasi ulang</td></tr>
+                        <tr><td><code>@{{link_qr}}</code></td><td>Link QR registrasi ulang. Kalau pembayaran aktif, halamannya menampilkan tombol bayar dulu, QR muncul setelah lunas.</td></tr>
                         <tr><td><code>@{{kode}}</code></td><td>Kode registrasi ulang (10 huruf/angka)</td></tr>
                     </tbody>
                 </table>
-                <p class="small text-muted">Link bayar dan link QR yang tidak Anda tulis di pesan akan ditambahkan otomatis di bagian bawah, jadi tidak ada yang terlewat.</p>
+                <p class="small text-muted">Link bayar dan link QR yang tidak Anda tulis di pesan akan ditambahkan otomatis di bagian bawah, jadi tidak ada yang terlewat. Kata untuk fitur yang tidak aktif dikosongkan, tidak ikut terkirim. Judul pertanyaan tidak membedakan huruf besar/kecil.</p>
                 <h6 class="fw-semibold mt-3">Contoh pesan</h6>
                 <pre class="bg-light p-2 rounded small mb-0" style="white-space: pre-wrap;">Halo @{{Nama Lengkap}} 👋
 Terima kasih sudah mendaftar *Seminar Bisnis*.

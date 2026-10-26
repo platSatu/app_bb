@@ -119,6 +119,17 @@ it('pembayaran + registrasi ulang: link bayar dulu, QR dikirim sekali setelah lu
     $this->postJson(route('form-checkin.check', $form->checkin_token), ['code' => $row->code])->assertJson(['state' => 'ok']);
 });
 
+it('kata sistem selalu diganti: {{link_qr}} saat menunggu bayar berisi link tiket, fitur mati dikosongkan', function () {
+    $form = gform(['registration_enabled' => true, 'payment_enabled' => true, 'amount' => 75000, 'message' => "Halo {{Nama Lengkap:}}\n{{link_qr}} {{kode}}"], ['whatsapp', 'invoices']);
+    submitForm($form);
+    $row = WaFormSubmission::with('invoice')->sole();
+    Http::assertSent(fn (HttpRequest $r) => str_starts_with($r['text'], "Halo Budi\n".$row->ticketUrl().' '.$row->code) && str_contains($r['text'], $row->invoice->payUrl()));
+
+    $plain = gform(['message' => 'Hai {{nama  lengkap}}{{link_bayar}}{{link_qr}}{{kode}}']);
+    submitForm($plain, ["Nama\u{00A0}Lengkap " => 'Budi', 'Nomor WhatsApp' => '0812 3456 7890']);
+    Http::assertSent(fn (HttpRequest $r) => $r['text'] === 'Hai Budi');
+});
+
 it('laporan: tab pendaftar, kirim ulang QR, dan export Excel; owner lain tidak bisa membuka', function () {
     $form = gform(['registration_enabled' => true]);
     submitForm($form);

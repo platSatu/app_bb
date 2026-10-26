@@ -116,32 +116,46 @@ class FormRelay
         return $result['success'];
     }
 
-    /** Ganti {{Judul Pertanyaan}} dengan jawabannya (huruf besar/kecil & spasi diabaikan). Yang tidak ada jawabannya dibiarkan. */
-    public function render(string $message, array $answers): string
+    /**
+     * Ganti {{Judul Pertanyaan}} dengan jawabannya (huruf besar/kecil, spasi & tanda baca di ujung diabaikan);
+     * pertanyaan yang tidak ada jawabannya dibiarkan. Kata sistem ($system: link_bayar, link_qr, kode) selalu
+     * diganti supaya tulisan {{...}}-nya tidak ikut terkirim; kalau fiturnya tidak aktif, dipakai jawaban form
+     * berjudul sama (kalau ada) atau dikosongkan.
+     */
+    public function render(string $message, array $answers, array $system = []): string
     {
         $lookup = collect($answers)->mapWithKeys(fn ($v, $k) => [$this->key($k) => $v])->all();
 
-        return preg_replace_callback('/\{\{\s*(.+?)\s*\}\}/u', fn ($m) => filled($lookup[$this->key($m[1])] ?? null) ? $lookup[$this->key($m[1])] : $m[0], $message);
+        return preg_replace_callback('/\{\{\s*(.+?)\s*\}\}/u', function ($m) use ($lookup, $system) {
+            $key = $this->key($m[1]);
+
+            if (array_key_exists($key, $system)) {
+                return (string) ($system[$key] ?? $lookup[$key] ?? '');
+            }
+
+            return filled($lookup[$key] ?? null) ? $lookup[$key] : $m[0];
+        }, $message);
     }
 
-    /** Pesan pertama: jawaban form + link bayar/QR. Link yang tidak ditulis owner ditambahkan otomatis di bawah pesan. */
+    /**
+     * Pesan pertama: jawaban form + link bayar/QR. Link yang tidak ditulis owner ditambahkan otomatis di bawah pesan.
+     * {{link_qr}} yang ditulis owner selalu berisi link tiket; selama belum lunas, halaman tiket menampilkan tombol bayar
+     * (QR baru muncul setelah lunas), jadi aman dikirim sejak pesan pertama.
+     */
     private function compose(WaFormIntegration $integration, WaFormSubmission $submission, array $answers): string
     {
-        $links = array_filter([
-            'link_bayar' => $submission->invoice_id ? $submission->invoice->payUrl() : null,
-            'link_qr' => $submission->code && ! $submission->invoice_id ? $submission->ticketUrl() : null,
-            'kode' => $submission->code,
-        ]);
-        $text = $this->render($integration->message, [...$answers, ...$links]);
+        $payUrl = $submission->invoice_id ? $submission->invoice->payUrl() : null;
+        $ticketUrl = $submission->ticketUrl();
+        $text = $this->render($integration->message, $answers, ['link_bayar' => $payUrl, 'link_qr' => $ticketUrl, 'kode' => $submission->code]);
 
-        if (isset($links['link_bayar']) && ! str_contains($text, $links['link_bayar'])) {
-            $text .= "\n\nSelesaikan pembayaran Rp ".number_format($integration->amount, 0, ',', '.')." di sini:\n".$links['link_bayar'];
+        if ($payUrl && ! str_contains($text, $payUrl)) {
+            $text .= "\n\nSelesaikan pembayaran Rp ".number_format($integration->amount, 0, ',', '.')." di sini:\n".$payUrl;
             if ($submission->code) {
                 $text .= "\nQR registrasi ulang dikirim setelah pembayaran diterima.";
             }
         }
-        if (isset($links['link_qr']) && ! str_contains($text, $links['link_qr'])) {
-            $text .= "\n\nTunjukkan QR ini saat registrasi ulang:\n".$links['link_qr'];
+        if ($ticketUrl && ! $payUrl && ! str_contains($text, $ticketUrl)) {
+            $text .= "\n\nTunjukkan QR ini saat registrasi ulang:\n".$ticketUrl;
         }
 
         return $text;
@@ -172,8 +186,11 @@ class FormRelay
         return strlen($phone) >= 10 ? $phone : null;
     }
 
+    /** Kunci pencocokan judul: huruf kecil, spasi tak terlihat (hasil salin-tempel) dirapikan, tanda baca di ujung (":", "?", "*") diabaikan. */
     private function key(string $text): string
     {
-        return mb_strtolower(preg_replace('/\s+/u', ' ', trim($text)));
+        $text = preg_replace('/[\s\x{00A0}\x{200B}-\x{200D}\x{FEFF}]+/u', ' ', $text);
+
+        return mb_strtolower(trim($text, " \t:?*.-"));
     }
 }
