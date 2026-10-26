@@ -53,6 +53,7 @@
                         onsubmit="this.querySelector('[type=submit]').disabled = true;">
                         @csrf
                         <input type="hidden" name="branch_id" value="{{ $branch->id }}">
+                        <input type="hidden" name="request_token" value="{{ \Illuminate\Support\Str::uuid() }}">
                         <div class="col-md-4">
                             <label class="form-label small mb-1">Rekening penerima</label>
                             <select name="recipient_id" class="form-select" required>

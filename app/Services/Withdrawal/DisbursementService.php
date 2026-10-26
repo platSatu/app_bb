@@ -17,6 +17,7 @@ use App\Services\Wallet\InsufficientBalanceException;
 use App\Services\Wallet\WalletService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -31,6 +32,8 @@ class DisbursementService
 {
     private const SUCCESS = '00';
 
+    public const ACCOUNT_CHECKS_PER_DAY = 100;
+
     public function __construct(private readonly WalletService $wallets)
     {
     }
@@ -42,7 +45,15 @@ class DisbursementService
         $client = DuitkuDisbursementClient::make();
         $bank = collect($client->banks())->firstWhere('bankCode', $data['bank_code']) ?? throw new RuntimeException('Kode bank tidak dikenali. Pilih bank dari daftar.');
 
-        // Cek nama pemilik rekening ke bank (tidak memindahkan uang).
+        // Cek nama pemilik rekening ke bank (tidak memindahkan uang). Dibatasi per branch per hari:
+        // tiap cek berbiaya di Duitku dan bisa disalahgunakan untuk mencari nama pemilik rekening orang lain.
+        $limiter = 'disbursement-account-check:'.$branch->getKey();
+
+        if (RateLimiter::tooManyAttempts($limiter, self::ACCOUNT_CHECKS_PER_DAY)) {
+            throw new RuntimeException('Batas cek rekening hari ini ('.self::ACCOUNT_CHECKS_PER_DAY.'x) sudah tercapai. Coba lagi besok.');
+        }
+
+        RateLimiter::hit($limiter, 86400);
         $inquiry = $client->inquiry($bank['bankCode'], $number, 10000, 'Verifikasi rekening');
 
         if (($inquiry['responseCode'] ?? null) !== self::SUCCESS || blank($inquiry['accountName'])) {
@@ -98,8 +109,8 @@ class DisbursementService
             throw new RuntimeException('Disbursement sedang tidak tersedia. Silakan coba lagi nanti.');
         }
 
-        if ($amount < $setting->min_amount) {
-            throw new RuntimeException('Minimal disbursement '.$this->rupiah($setting->min_amount).'.');
+        if ($amount < $setting->min_amount || $amount > Disbursement::MAX_AMOUNT) {
+            throw new RuntimeException('Jumlah disbursement harus antara '.$this->rupiah($setting->min_amount).' dan '.$this->rupiah(Disbursement::MAX_AMOUNT).'.');
         }
 
         $net = $amount - $setting->withdrawal_fee;
@@ -117,6 +128,11 @@ class DisbursementService
             $branch = UserBranch::with('user')->whereKey($recipient->branch_id)->lockForUpdate()->firstOrFail();
 
             if ($externalId && $existing = Disbursement::where('branch_id', $branch->getKey())->where('external_id', $externalId)->first()) {
+                // Kiriman ulang yang sama = jawab dengan kiriman lama. Isi berbeda = salah pakai external_id, jangan diam-diam dianggap sukses.
+                if ($existing->recipient_id !== $recipient->getKey() || $existing->amount !== $amount) {
+                    throw new RuntimeException('external_id '.$externalId.' sudah dipakai untuk kiriman lain (rekening/jumlah berbeda). Gunakan external_id baru.', 409);
+                }
+
                 return [$existing, false];
             }
 

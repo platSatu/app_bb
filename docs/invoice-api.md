@@ -401,10 +401,11 @@ Semua error berbentuk:
 
 | HTTP | Arti |
 |---|---|
+| `400` | Request tulis (POST) membawa query string. Kirim semua data di body JSON. |
 | `401` | Header kurang, API key/signature salah, atau timestamp lewat 5 menit. |
 | `403` | API dinonaktifkan pemilik akun, atau branch tidak aktif. |
 | `404` | Invoice/endpoint tidak ditemukan (atau bukan milik API key ini). |
-| `409` | Aksi tidak bisa dilakukan pada status sekarang (mis. membatalkan invoice lunas). |
+| `409` | Aksi tidak bisa dilakukan pada status sekarang (mis. membatalkan invoice lunas), atau `external_id` payout dipakai ulang dengan rekening/jumlah berbeda. |
 | `422` | Data tidak valid; lihat `errors`. |
 | `429` | Terlalu banyak request; tunggu beberapa detik. |
 
@@ -500,6 +501,7 @@ Biaya **dipotong dari jumlah yang dikirim**: `net_amount = amount - fee`.
 - `external_id` (opsional): ID penerima di sistem Anda. Mengirim ulang dengan `external_id` yang sama **memperbarui** rekeningnya.
 - `account_name` (opsional): kalau diisi, harus sama dengan nama pemilik di bank. Kalau berbeda, rekening ditolak.
 - Nama yang disimpan selalu nama dari bank (`data.account_name`).
+- Setiap pendaftaran mengecek rekening ke bank; dibatasi **100 kali per hari per branch**.
 
 Respons: `{ "success": true, "data": { "id": "...", "external_id": "USER-123", "bank_name": "...", "account_last4": "7890", "account_name": "ANDI SAPUTRA", "status": "active" } }`.
 Cek ulang: `GET /api/v1/payout-accounts/{id}` (`{id}` boleh id bizbos atau `external_id`).
@@ -515,8 +517,9 @@ Cek ulang: `GET /api/v1/payout-accounts/{id}` (`{id}` boleh id bizbos atau `exte
 }
 ```
 
-- `external_id` **wajib** dan unik. Mengirim ulang dengan `external_id` yang sama **tidak mengirim dana lagi**, hanya mengembalikan kiriman yang sudah ada (`created: false`). Aman di-retry.
+- `external_id` **wajib** dan unik. Mengirim ulang dengan `external_id` yang sama **tidak mengirim dana lagi**, hanya mengembalikan kiriman yang sudah ada (`created: false`). Aman di-retry. Kalau `external_id` itu dikirim ulang dengan rekening atau `amount` **berbeda**, ditolak `409` (pakai `external_id` baru).
 - `payout_account_id`: id bizbos atau `external_id` rekening penerima.
+- `amount` maksimal Rp 1.000.000.000 per kiriman (atau batas per transaksi yang Anda atur, mana yang lebih kecil).
 - Saldo langsung ditahan. Respons `201` dengan `status: "pending"`, transfer diproses di antrean beberapa detik kemudian.
 
 ### 13.5 Cek kiriman — `GET /api/v1/payouts/{id}`

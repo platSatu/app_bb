@@ -16,6 +16,7 @@ use App\Support\Menu;
 use App\Support\XlsxExport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use RuntimeException;
@@ -75,9 +76,15 @@ class DisbursementController extends Controller
             'recipient_id' => ['required', 'uuid'],
             'amount' => ['required', 'integer', 'min:1'],
             'description' => ['nullable', 'string', 'max:255'],
+            'request_token' => ['required', 'uuid'],
         ], [], ['recipient_id' => 'rekening penerima', 'amount' => 'jumlah']);
 
         $recipient = DisbursementRecipient::accessibleBy($request->user(), Menu::ABILITY_MANAGE)->where('branch_id', $data['branch_id'])->findOrFail($data['recipient_id']);
+
+        // Satu form = satu kiriman: klik ganda, dua tab, atau kirim ulang form yang sama tidak menahan saldo dua kali.
+        if (! Cache::add('disbursement-form:'.$data['request_token'], true, now()->addDay())) {
+            return back()->with('info', 'Permintaan ini sudah diterima sebelumnya dan tidak dikirim dua kali. Cek statusnya di riwayat.');
+        }
 
         try {
             [$disbursement] = $this->service->send($recipient, (int) $data['amount'], $data['description'] ?? null, Disbursement::SOURCE_DASHBOARD, null, null, $request->user());
@@ -158,8 +165,8 @@ class DisbursementController extends Controller
     {
         $model = InvoiceApiClient::accessibleBy($request->user(), Menu::ABILITY_MANAGE)->findOrFail($client);
         $data = $request->validate([
-            'payout_max_amount' => ['nullable', 'integer', 'min:10000'],
-            'payout_daily_limit' => ['nullable', 'integer', 'min:10000'],
+            'payout_max_amount' => ['nullable', 'integer', 'min:10000', 'max:'.Disbursement::MAX_AMOUNT],
+            'payout_daily_limit' => ['nullable', 'integer', 'min:10000', 'max:'.Disbursement::MAX_AMOUNT * 100],
         ], [], ['payout_max_amount' => 'batas per transaksi', 'payout_daily_limit' => 'batas per hari']);
 
         $model->forceFill([...$data, 'payout_enabled' => $request->boolean('payout_enabled')])->save();

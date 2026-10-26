@@ -17,7 +17,9 @@ class ProcessDisbursement implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 120;
+    // Inquiry + transfer masing-masing maks 30 detik. Harus di bawah retry_after antrean (90 detik),
+    // supaya job yang masih berjalan tidak dianggap macet lalu diambil worker lain.
+    public int $timeout = 80;
 
     public function __construct(public string $disbursementId)
     {

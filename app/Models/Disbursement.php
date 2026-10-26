@@ -14,6 +14,9 @@ class Disbursement extends Model
 
     public const ADMIN_PERMISSION = 'superadmin.invoices';
 
+    // Batas wajar satu kiriman (Rp 1 miliar): menolak angka tidak masuk akal sebelum menyentuh saldo.
+    public const MAX_AMOUNT = 1_000_000_000;
+
     public const SOURCE_DASHBOARD = 'dashboard';
     public const SOURCE_API = 'api';
 

@@ -77,7 +77,7 @@ class DisbursementApiController extends Controller
         try {
             [$disbursement, $created] = $this->service->send($recipient, (int) $data['amount'], $data['description'] ?? null, Disbursement::SOURCE_API, $data['external_id'], $client);
         } catch (RuntimeException $e) {
-            return $this->error($e->getMessage(), 422);
+            return $this->error($e->getMessage(), $e->getCode() === 409 ? 409 : 422);
         }
 
         return response()->json(['success' => true, 'created' => $created, 'data' => $disbursement->load('recipient')->toApi()], $created ? 201 : 200);

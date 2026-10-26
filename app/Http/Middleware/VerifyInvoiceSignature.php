@@ -30,6 +30,11 @@ class VerifyInvoiceSignature
             return $this->deny('Header X-Bizbos-Key, X-Bizbos-Timestamp, dan X-Bizbos-Signature wajib diisi.', 401);
         }
 
+        // Query string tidak ikut ditandatangani: pada request tulis, tolak supaya data tambahan tidak bisa disisipkan lewat URL.
+        if (! $request->isMethod('GET') && $request->getQueryString() !== null) {
+            return $this->deny('Query string tidak diizinkan pada request ini. Kirim semua data di body.', 400);
+        }
+
         if (! ctype_digit($timestamp) || abs(time() - (int) $timestamp) > self::TOLERANCE_SECONDS) {
             return $this->deny('Timestamp tidak valid atau selisih lebih dari 5 menit. Pastikan jam server Anda benar.', 401);
         }
