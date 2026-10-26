@@ -8,10 +8,10 @@
 
     <div class="card">
         <div class="card-body">
-            <div class="d-flex align-items-end justify-content-between mb-3 flex-wrap gap-2">
+            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <form method="GET" class="d-flex gap-2 flex-wrap">
-                    <input type="text" name="search" class="form-control" style="max-width: 260px;" placeholder="Cari nama package" value="{{ request('search') }}">
-                    <select name="category" class="form-select" style="max-width: 220px;">
+                    <input type="text" name="search" class="form-control" style="width: 260px; max-width: 100%;" placeholder="Cari nama package" value="{{ request('search') }}">
+                    <select name="category" class="form-select" style="width: 220px; max-width: 100%;">
                         <option value="">Semua kategori</option>
                         @foreach ($categories as $category)
                             <option value="{{ $category->id }}" @selected(request('category') === $category->id)>{{ $category->name }}</option>
@@ -73,14 +73,13 @@
                                 @if ($canManage)
                                     <td class="text-end text-nowrap">
                                         <a href="{{ route('superadmin.packages.edit', $package) }}" class="btn btn-sm rounded-pill btn-outline-secondary"><i class="ri-edit-line"></i> Edit</a>
-                                        @unless ($package->vouchers_count)
-                                            <form action="{{ route('superadmin.packages.destroy', $package) }}" method="POST" class="d-inline"
-                                                onsubmit="return confirm({{ \Illuminate\Support\Js::from('Hapus package '.$package->name.'?') }});">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="btn btn-sm rounded-pill btn-outline-danger"><i class="ri-delete-bin-line"></i> Hapus</button>
-                                            </form>
-                                        @endunless
+                                        {{-- Paket yang sudah dibeli/dipakai ditolak saat dihapus (pesan dari controller): nonaktifkan lewat Edit. --}}
+                                        <form action="{{ route('superadmin.packages.destroy', $package) }}" method="POST" class="d-inline"
+                                            onsubmit="return confirm({{ \Illuminate\Support\Js::from('Hapus package '.$package->name.'?') }});">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm rounded-pill btn-outline-danger"><i class="ri-delete-bin-line"></i> Hapus</button>
+                                        </form>
                                     </td>
                                 @endif
                             </tr>

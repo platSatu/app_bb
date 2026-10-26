@@ -19,7 +19,6 @@ class PackageController extends Controller
 
         $packages = Package::query()
             ->with('category:id,name')
-            ->withCount('vouchers')
             ->when($request->query('category'), fn ($q, $id) => $q->where('category_application_id', $id))
             ->when($search !== '', fn ($q) => $q->where('name', 'like', "%{$search}%"))
             ->orderBy('category_application_id')
