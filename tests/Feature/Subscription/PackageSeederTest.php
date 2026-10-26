@@ -4,7 +4,7 @@ use App\Models\Package;
 use App\Models\User;
 use Database\Seeders\PackageSeeder;
 
-it('seeder paket: 5 kombinasi x 4 durasi, 12 bulan Populer, aman dijalankan ulang tanpa menimpa hasil edit', function () {
+it('seeder paket: 5 kombinasi x 4 durasi, 12 bulan Populer, aman dijalankan ulang tanpa menimpa hasil edit; katalog per tab durasi', function () {
     $this->seed(PackageSeeder::class);
 
     expect(Package::count())->toBe(20)
@@ -21,5 +21,7 @@ it('seeder paket: 5 kombinasi x 4 durasi, 12 bulan Populer, aman dijalankan ulan
 
     expect(Package::count())->toBe(20)->and($complete->fresh()->price)->toBe(299000);
 
-    $this->actingAs(User::factory()->create())->get(route('packages.catalog'))->assertOk()->assertSee('Populer');
+    $this->actingAs(User::factory()->create())->get(route('packages.catalog'))->assertOk()
+        ->assertSeeInOrder(['data-bs-target="#pkg-tab-0"', 'data-bs-target="#pkg-tab-30"', 'data-bs-target="#pkg-tab-180"', 'data-bs-target="#pkg-tab-365"'], false)
+        ->assertSee('Populer');
 });
