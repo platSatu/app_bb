@@ -109,7 +109,7 @@ class PageCategoryController extends Controller
             'types' => PageType::query()
                 ->where(fn ($q) => $q->active()->when($page->page_type_id, fn ($w) => $w->orWhere('id', $page->page_type_id)))
                 ->orderBy('name')
-                ->get(['id', 'name', 'status']),
+                ->get(['id', 'name', 'status', 'template']),
             'routes' => self::ROUTES,
         ]);
     }

@@ -40,7 +40,7 @@ class TicketOrder extends Model
 
     protected function casts(): array
     {
-        return ['total' => 'integer', 'expires_at' => 'datetime', 'paid_at' => 'datetime', 'email_sent_at' => 'datetime', 'terms_accepted_at' => 'datetime'];
+        return ['total' => 'integer', 'subtotal' => 'integer', 'fee' => 'integer', 'fee_percent' => 'decimal:2', 'expires_at' => 'datetime', 'paid_at' => 'datetime', 'email_sent_at' => 'datetime', 'terms_accepted_at' => 'datetime'];
     }
 
     public function page(): BelongsTo
@@ -66,6 +66,17 @@ class TicketOrder extends Model
     public function tickets(): HasMany
     {
         return $this->hasMany(Ticket::class, 'order_id')->orderBy('sequence');
+    }
+
+    /** Yang masuk saldo penyelenggara: dibayar pembeli dikurangi biaya layanan bizbos. */
+    public function netAmount(): int
+    {
+        return $this->total - $this->fee;
+    }
+
+    public function buyerPaysFee(): bool
+    {
+        return $this->fee_payer === TicketSetting::PAYER_BUYER;
     }
 
     public function isPending(): bool

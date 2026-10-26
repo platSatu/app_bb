@@ -11,6 +11,7 @@ use App\Http\Controllers\Superadmin\Deposit\DepositController;
 use App\Http\Controllers\Superadmin\Package\PackageController;
 use App\Http\Controllers\Superadmin\Page\PageController;
 use App\Http\Controllers\Superadmin\Page\PageTypeController;
+use App\Http\Controllers\Superadmin\Page\TicketFeeController;
 use App\Http\Controllers\Superadmin\PaymentGateway\PaymentGatewayController;
 use App\Http\Controllers\Superadmin\Referral\ReferralController;
 use App\Http\Controllers\Superadmin\Role\RoleController;
@@ -38,6 +39,9 @@ Route::middleware(['auth', 'superadmin'])
             'pages' => ['superadmin.pages', PageController::class],
             'page-types' => ['superadmin.page-types', PageTypeController::class],
         ];
+
+        Route::get('ticket-fee', [TicketFeeController::class, 'edit'])->middleware('permission:superadmin.pages,view')->name('ticket-fee.edit');
+        Route::put('ticket-fee', [TicketFeeController::class, 'update'])->middleware('permission:superadmin.pages,manage')->name('ticket-fee.update');
 
         Route::get('pages/{page}/qrcode', [PageController::class, 'qrcode'])
             ->middleware('permission:superadmin.pages,view')

@@ -16,6 +16,7 @@ use App\Http\Controllers\Page\PublicTicketController;
 use App\Http\Controllers\Page\Ticket\TicketCardController;
 use App\Http\Controllers\Page\Ticket\TicketCategoryController;
 use App\Http\Controllers\Page\Ticket\TicketDesignController;
+use App\Http\Controllers\Page\Ticket\TicketFeeController;
 use App\Http\Controllers\Page\Ticket\TicketOrderController;
 use App\Http\Controllers\Page\Ticket\TicketReportController;
 use App\Http\Controllers\Page\Ticket\TicketScannerController;
@@ -100,6 +101,7 @@ $write = function () {
 
 Route::middleware(['auth', 'permission:pages.list'])->group(function () use ($read, $write) {
     Route::get('pages/{page}/qrcode', [PageCategoryController::class, 'qrcode'])->name('pages.qrcode');
+    Route::get('pages/ticket-fee', [TicketFeeController::class, 'show'])->name('pages.ticket-fee');
     Route::resource('pages', PageCategoryController::class)->except('show');
     Route::prefix('pages')->name('pages.')->group(function () use ($read, $write) {
         $read();

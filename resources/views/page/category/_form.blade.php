@@ -4,7 +4,7 @@
         <select id="page_type_id" name="page_type_id" class="form-select @error('page_type_id') is-invalid @enderror" required>
             <option value="">-- Pilih kategori --</option>
             @foreach ($types as $type)
-                <option value="{{ $type->id }}" @selected(old('page_type_id', $page->page_type_id) === $type->id)>
+                <option value="{{ $type->id }}" data-template="{{ $type->template }}" @selected(old('page_type_id', $page->page_type_id ?? request('type')) === $type->id)>
                     {{ $type->name }}{{ $type->isActive() ? '' : ' (tidak aktif)' }}
                 </option>
             @endforeach
@@ -68,6 +68,8 @@
         <div class="form-text">Kosongkan kalau page berlaku terus.</div>
         @error('end_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
+
+    @include('page.ticket._fee-payer')
 
     <div class="col-12">
         <label for="description" class="form-label">Deskripsi (opsional)</label>

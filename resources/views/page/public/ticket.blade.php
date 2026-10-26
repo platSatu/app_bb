@@ -1,4 +1,8 @@
-@php($rupiah = fn ($n) => 'Rp '.number_format($n, 0, ',', '.'))
+@php
+    $rupiah = fn ($n) => 'Rp '.number_format($n, 0, ',', '.');
+    // Hanya tampilan; jumlah yang ditagih tetap dihitung ulang di server (TicketOrderService).
+    $feeBps = $page->ticketFeePayer() === \App\Models\TicketSetting::PAYER_BUYER ? (int) round((float) \App\Models\TicketSetting::current()->fee_percent * 100) : 0;
+@endphp
 @push('head')
     <style>
         .ticket-grid { display: grid; gap: 1.25rem; grid-template-columns: 1fr; grid-template-areas: "tickets" "buyer" "summary"; }
@@ -44,7 +48,7 @@
 @if ($ticketCategories->isEmpty())
     <div class="card border-0 shadow-sm rounded-4"><div class="card-body p-4 text-center text-muted">Tiket belum dibuka. Pantau terus halaman ini ya.</div></div>
 @else
-    <form method="POST" action="{{ route('page.tickets.checkout', $page->slug) }}" id="ticket-form" enctype="multipart/form-data" onsubmit="this.querySelector('[type=submit]').disabled = true">
+    <form method="POST" action="{{ route('page.tickets.checkout', $page->slug) }}" id="ticket-form" data-fee-bps="{{ $feeBps }}" enctype="multipart/form-data" onsubmit="this.querySelector('[type=submit]').disabled = true">
         @csrf
         @include('page.public._honeypot')
 
@@ -107,6 +111,7 @@
                     <h2 class="h6 fw-semibold mb-3">Ringkasan Pesanan</h2>
                     <div id="ticket-lines" class="small"></div>
                     <div id="ticket-empty" class="small text-muted">Belum ada tiket dipilih.</div>
+                    <div id="ticket-fee" class="small d-flex justify-content-between gap-2 d-none"><span>Biaya layanan</span><span class="text-nowrap" id="ticket-fee-amount"></span></div>
                     <hr>
                     <div class="d-flex justify-content-between align-items-center fw-semibold mb-3">
                         <span>Total</span><span class="fs-5" id="ticket-total">Rp 0</span>
@@ -151,7 +156,12 @@
                     total += qty * price; count += qty;
                     lines += '<div class="d-flex justify-content-between gap-2 mb-1"><span>' + escape(input.dataset.name) + ' × ' + qty + '</span><span class="text-nowrap">' + (price ? money(qty * price) : 'Gratis') + '</span></div>';
                 });
+                var bps = Number(form.dataset.feeBps) || 0;
+                var fee = total > 0 && bps > 0 ? Math.floor((total * bps + 9999) / 10000) : 0;
+                document.getElementById('ticket-fee').classList.toggle('d-none', fee === 0);
+                document.getElementById('ticket-fee-amount').textContent = money(fee);
                 var free = count > 0 && total === 0;
+                total += fee;
                 document.getElementById('ticket-lines').innerHTML = lines;
                 document.getElementById('ticket-empty').classList.toggle('d-none', count > 0);
                 document.getElementById('ticket-total').textContent = free ? 'Gratis' : money(total);

@@ -28,7 +28,17 @@
                                 <tr><td>{{ $item->name }}</td><td class="text-end">Rp {{ number_format($item->price, 0, ',', '.') }}</td><td class="text-center">{{ $item->quantity }}</td><td class="text-end">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td></tr>
                             @endforeach
                         </tbody>
-                        <tfoot><tr><th colspan="3" class="text-end">Total</th><th class="text-end">Rp {{ number_format($order->total, 0, ',', '.') }}</th></tr></tfoot>
+                        @php($rp = fn ($n) => 'Rp '.number_format($n, 0, ',', '.'))
+                        <tfoot>
+                            @if ($order->fee > 0)
+                                <tr><td colspan="3" class="text-end">Harga tiket</td><td class="text-end">{{ $rp($order->subtotal) }}</td></tr>
+                                <tr><td colspan="3" class="text-end">Biaya layanan {{ (float) $order->fee_percent }}% ({{ $order->buyerPaysFee() ? 'ditanggung pembeli' : 'ditanggung penyelenggara' }})</td><td class="text-end">{{ $rp($order->fee) }}</td></tr>
+                            @endif
+                            <tr><th colspan="3" class="text-end">Dibayar pembeli</th><th class="text-end">{{ $rp($order->total) }}</th></tr>
+                            @if ($order->fee > 0)
+                                <tr class="table-success"><th colspan="3" class="text-end">Masuk ke Saldo Anda</th><th class="text-end">{{ $rp($order->netAmount()) }}</th></tr>
+                            @endif
+                        </tfoot>
                     </table>
 
                     @if ($order->tickets->isNotEmpty())

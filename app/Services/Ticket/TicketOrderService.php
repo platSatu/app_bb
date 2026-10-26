@@ -11,6 +11,7 @@ use App\Models\TicketCategory;
 use App\Models\TicketEmailLog;
 use App\Models\TicketOrder;
 use App\Models\TicketOrderItem;
+use App\Models\TicketSetting;
 use App\Models\TicketStockLog;
 use App\Models\UserBranch;
 use App\Models\WalletTransaction;
@@ -33,6 +34,9 @@ use Throwable;
 /**
  * Alur uang tiket: checkout (kuota DITAHAN) -> Duitku -> callback lunas
  * (tahanan jadi terjual, e-ticket dibuat, saldo owner bertambah, email dikirim).
+ * Biaya layanan bizbos dihitung & DIKUNCI saat checkout (subtotal, fee, fee_percent, fee_payer):
+ * pembeli membayar `total` (subtotal + fee kalau pembeli yang menanggung); saldo penyelenggara
+ * bertambah `total - fee`; fee tetap di bizbos (tidak masuk saldo siapa pun).
  * Lewat batas bayar = tahanan dilepas. Kuota hanya berubah lewat UPDATE bersyarat / lockForUpdate,
  * jadi aman walau ribuan checkout terjadi bersamaan (war ticket).
  */
@@ -94,7 +98,9 @@ class TicketOrderService
                 'product' => Str::limit('Tiket '.$page->name, 250, ''),
                 'customer' => ['name' => $order->name, 'email' => $order->email, 'phone' => $order->phone],
                 // Duitku: price per baris = harga x jumlah, dan totalnya harus sama dengan paymentAmount.
-                'items' => $order->items()->get()->map(fn ($item) => ['name' => $item->name, 'price' => $item->subtotal, 'quantity' => $item->quantity])->all(),
+                'items' => $order->items()->get()->map(fn ($item) => ['name' => $item->name, 'price' => $item->subtotal, 'quantity' => $item->quantity])
+                    ->when($order->buyerPaysFee() && $order->fee > 0, fn ($items) => $items->push(['name' => 'Biaya layanan', 'price' => $order->fee, 'quantity' => 1]))
+                    ->all(),
                 'returnUrl' => route('eticket.order', [$page->slug, $order->access_token]),
             ]);
         } catch (Throwable $e) {
@@ -220,7 +226,11 @@ class TicketOrderService
         $this->assertAvailable($categories, $quantities);
 
         $customer = $this->customers->resolve($branch, 'pages', $buyer['name'], $buyer['phone'], $buyer['email'], 'Tiket: '.Str::limit($page->name, 200, ''));
-        $total = array_sum(array_map(fn ($id, $qty) => $qty * $categories[$id]->price, array_keys($quantities), $quantities));
+        $subtotal = array_sum(array_map(fn ($id, $qty) => $qty * $categories[$id]->price, array_keys($quantities), $quantities));
+        $feePercent = TicketSetting::current()->fee_percent;
+        $feePayer = $page->ticketFeePayer();
+        $fee = TicketSetting::feeFor($subtotal, $feePercent);
+        $total = $feePayer === TicketSetting::PAYER_BUYER ? $subtotal + $fee : $subtotal;
 
         // Tiket gratis: 1 orang (email/WA yang sama = customer yang sama) cukup sekali per page, supaya tidak diborong.
         // Baris customer sudah terkunci oleh resolve(), jadi 2 klik bersamaan dari orang yang sama antre di sini,
@@ -240,6 +250,10 @@ class TicketOrderService
             'name' => $buyer['name'],
             'email' => $buyer['email'],
             'phone' => $buyer['phone'],
+            'subtotal' => $subtotal,
+            'fee' => $fee,
+            'fee_percent' => $feePercent,
+            'fee_payer' => $feePayer,
             'total' => $total,
             'status' => TicketOrder::STATUS_PENDING,
             'expires_at' => now()->addMinutes(PaymentGatewaySetting::duitku()->expiry_minutes),
@@ -434,15 +448,16 @@ class TicketOrderService
                 }
             }
 
-            // Uang sudah diterima Duitku bizbos -> tercatat sebagai saldo owner event. Tiket gratis tidak ada uang masuk.
-            if ($locked->total > 0) {
+            // Uang sudah diterima Duitku bizbos -> saldo owner event = dibayar pembeli dikurangi biaya layanan
+            // (angka yang dikunci saat checkout). Biaya layanan tetap di bizbos. Tiket gratis tidak ada uang masuk.
+            if ($locked->netAmount() > 0) {
                 $this->wallets->credit(
                     $locked->page->branch->user,
-                    $locked->total,
+                    $locked->netAmount(),
                     WalletTransaction::TYPE_TICKET_SALE,
                     'ticket:'.$locked->getKey(),
                     $locked,
-                    'Penjualan tiket '.$locked->reference,
+                    'Penjualan tiket '.$locked->reference.($locked->fee > 0 ? ' (dikurangi biaya layanan Rp '.number_format($locked->fee, 0, ',', '.').')' : ''),
                     paymentMethod: $locked->payment_method,
                     availableAt: SettlementCalendar::availableAt($locked->payment_method),
                 );

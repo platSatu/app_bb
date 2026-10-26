@@ -3,6 +3,8 @@
 namespace App\Services\Page;
 
 use App\Models\PageCategory;
+use App\Models\PageType;
+use App\Models\TicketSetting;
 use App\Models\UserBranch;
 use App\Services\Media\ImageUploader;
 use App\Services\Media\QrCodeGenerator;
@@ -10,6 +12,7 @@ use App\Services\Subscription\PlanLimits;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
 
@@ -25,6 +28,7 @@ class PageCategoryService
         $page->fill($data);
         $page->branch_id = $branch->getKey();
         $page->{$page->getKeyName()} ??= $page->newUniqueId();
+        $this->ticketFeePayer($page, $data['ticket_fee_payer'] ?? null);
 
         $slug = filled($data['slug'] ?? null) ? Str::slug($data['slug']) : ($page->slug ?? $this->uniqueSlug($page->name));
         $linkChanged = ! $page->exists || $slug !== $page->slug;
@@ -61,6 +65,28 @@ class PageCategoryService
         DB::afterCommit(fn () => array_map(fn ($path) => $this->images->delete($path), array_filter($replaced)));
 
         return $page;
+    }
+
+    /** Penanggung biaya layanan tiket disimpan di settings.ticket.fee_payer; dikunci setelah ada penjualan berbayar. */
+    private function ticketFeePayer(PageCategory $page, ?string $payer): void
+    {
+        if (PageType::whereKey($page->page_type_id)->value('template') !== PageType::TEMPLATE_TICKET) {
+            return;
+        }
+
+        $payer = array_key_exists((string) $payer, TicketSetting::PAYER_LABELS) ? $payer : $page->ticketFeePayer();
+
+        if ($page->setting('ticket.fee_payer') === $payer) {
+            return;
+        }
+
+        if ($payer !== $page->ticketFeePayer() && $page->ticketFeeLocked()) {
+            throw ValidationException::withMessages(['ticket_fee_payer' => 'Penanggung biaya layanan tidak bisa diganti karena tiket berbayar sudah ada yang terjual.']);
+        }
+
+        $settings = $page->settings ?? [];
+        data_set($settings, 'ticket.fee_payer', $payer);
+        $page->settings = $settings;
     }
 
     /**

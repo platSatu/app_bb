@@ -4,6 +4,7 @@ namespace App\Http\Requests\Page\Category;
 
 use App\Models\PageCategory;
 use App\Models\PageType;
+use App\Models\TicketSetting;
 use App\Models\UserBranch;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
@@ -37,6 +38,11 @@ class PageCategoryRequest extends FormRequest
             'meta_title' => ['nullable', 'string', 'max:70'],
             'meta_description' => ['nullable', 'string', 'max:160'],
             'ga_id' => ['nullable', 'regex:'.PageCategory::GA_PATTERN],
+            // Page tiket wajib memilih siapa yang menanggung biaya layanan.
+            'ticket_fee_payer' => [
+                Rule::requiredIf(fn () => PageType::whereKey((string) $this->input('page_type_id'))->value('template') === PageType::TEMPLATE_TICKET),
+                'nullable', Rule::in(array_keys(TicketSetting::PAYER_LABELS)),
+            ],
         ];
     }
 
@@ -47,6 +53,7 @@ class PageCategoryRequest extends FormRequest
             'page_type_id.exists' => 'Kategori page ini tidak tersedia.',
             'slug.unique' => 'Link ini sudah dipakai, coba yang lain.',
             'end_date.after_or_equal' => 'Tanggal selesai tidak boleh sebelum tanggal mulai.',
+            'ticket_fee_payer.required' => 'Pilih dulu siapa yang menanggung biaya layanan tiket.',
             'ga_id.regex' => 'Measurement ID Google Analytics diawali G-, contoh G-AB12CD34EF.',
         ];
     }

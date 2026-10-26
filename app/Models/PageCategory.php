@@ -84,6 +84,20 @@ class PageCategory extends Model
         return data_get($this->settings, $key, $default);
     }
 
+    /** Siapa yang menanggung biaya layanan tiket (dipilih penyelenggara; default penyelenggara). */
+    public function ticketFeePayer(): string
+    {
+        $payer = $this->setting('ticket.fee_payer');
+
+        return array_key_exists((string) $payer, TicketSetting::PAYER_LABELS) ? $payer : TicketSetting::PAYER_ORGANIZER;
+    }
+
+    /** Setelah ada pesanan tiket berbayar, penanggung biaya tidak bisa diganti (semua pembeli dapat aturan yang sama). */
+    public function ticketFeeLocked(): bool
+    {
+        return $this->exists && $this->ticketOrders()->where('subtotal', '>', 0)->exists();
+    }
+
     public function template(): ?string
     {
         return $this->type?->template;

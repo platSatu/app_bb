@@ -104,6 +104,9 @@
                             <span class="text-nowrap">{{ $rupiah($item->subtotal) }}</span>
                         </div>
                     @endforeach
+                    @if ($order->buyerPaysFee() && $order->fee > 0)
+                        <div class="d-flex justify-content-between gap-2 small mb-2"><span>Biaya layanan</span><span class="text-nowrap">{{ $rupiah($order->fee) }}</span></div>
+                    @endif
                     <hr>
                     <div class="d-flex justify-content-between align-items-center fw-semibold mb-3">
                         <span>Total</span><span class="fs-5">{{ $rupiah($order->total) }}</span>

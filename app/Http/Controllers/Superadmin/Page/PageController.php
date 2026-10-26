@@ -96,7 +96,7 @@ class PageController extends Controller
             'page' => $page,
             'branches' => UserBranch::with('company:id,name')->orderBy('name')->get(['id', 'name', 'status', 'company_id'])
                 ->sortBy(fn ($b) => $b->company?->name)->values(),
-            'types' => PageType::orderBy('name')->get(['id', 'name', 'status']),
+            'types' => PageType::orderBy('name')->get(['id', 'name', 'status', 'template']),
             'routes' => self::ROUTES,
         ]);
     }

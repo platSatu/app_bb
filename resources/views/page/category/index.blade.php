@@ -38,7 +38,10 @@
             </form>
 
             @if ($canManage)
-                <div class="d-flex justify-content-end mb-3">
+                <div class="d-flex justify-content-end gap-2 mb-3">
+                    @if ($isAdmin)
+                        <a href="{{ route('superadmin.ticket-fee.edit') }}" class="btn btn-outline-primary"><i class="ri-percent-line"></i> Biaya Layanan Tiket</a>
+                    @endif
                     <a href="{{ route($routes.'.create') }}" class="btn btn-primary"><i class="ri-add-line"></i> Buat Page</a>
                 </div>
             @endif
