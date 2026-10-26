@@ -1,7 +1,6 @@
 @extends('layouts.auth')
 
 @section('title', 'Daftar')
-@section('image', 'login_new.jpg')
 
 @section('content')
     <div class="mb-6">

@@ -15,6 +15,10 @@
         @media (min-width: 1200px) {
             .main-wrapper { max-height: none; }
         }
+        /* Gambar tidak ikut memanjang saat form tinggi (register): ukurannya sama seperti di halaman login. */
+        @media (min-width: 992px) {
+            .decoration-section { align-self: flex-start; height: 600px; position: sticky; top: 1.25rem; }
+        }
     </style>
 </head>
 
