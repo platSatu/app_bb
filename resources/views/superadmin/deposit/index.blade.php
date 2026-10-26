@@ -17,19 +17,24 @@
             (bool) $until => 'Sampai '.$until,
             default => 'Semua waktu',
         };
+        // Klik kotak = rincian dengan filter cari & tanggal yang sama.
+        $filters = array_filter(request()->only(['search', 'date_from', 'date_to']));
         $cards = [
             ['Total Deposit Masuk', $rp($summary['top_up']['total']), 'ri-wallet-3-line', 'primary',
-                $summary['top_up']['trx'].' deposit berhasil dari '.$summary['top_up']['users'].' user · '.$period],
+                $summary['top_up']['trx'].' deposit berhasil dari '.$summary['top_up']['users'].' user · '.$period,
+                route('superadmin.deposits.index', [...$filters, 'status' => \App\Models\Deposit::STATUS_SUCCESS])],
             ['Sisa Saldo User', $rp($summary['balance']['total']), 'ri-safe-2-line', 'success',
-                $summary['balance']['users'].' user masih punya saldo · '.($until ? 'per '.$until : 'saat ini')],
+                $summary['balance']['users'].' user masih punya saldo · '.($until ? 'per '.$until : 'saat ini'),
+                route('superadmin.deposits.balances', array_filter(request()->only(['search', 'date_to'])))],
             ['Penjualan Paket', $rp($summary['sales']['total']), 'ri-shopping-bag-3-line', 'warning',
-                $summary['sales']['trx'].' paket terjual · '.$period],
+                $summary['sales']['trx'].' paket terjual · '.$period,
+                route('superadmin.deposits.history', [...$filters, 'type' => \App\Models\WalletTransaction::TYPE_PURCHASE])],
         ];
     @endphp
     <div class="row g-3 mb-3">
-        @foreach ($cards as [$label, $value, $icon, $color, $note])
+        @foreach ($cards as [$label, $value, $icon, $color, $note, $link])
             <div class="col-sm-6 col-xl-4">
-                <div class="card h-100 mb-0">
+                <div class="card h-100 mb-0 position-relative">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between mb-2">
                             <span class="text-muted">{{ $label }}</span>
@@ -37,6 +42,7 @@
                         </div>
                         <h4 class="mb-1">{{ $value }}</h4>
                         <div class="small text-muted">{{ $note }}</div>
+                        <a href="{{ $link }}" class="stretched-link small fw-medium d-inline-block mt-2">Lihat detail <i class="ri-arrow-right-line"></i></a>
                     </div>
                 </div>
             </div>

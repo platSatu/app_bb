@@ -70,6 +70,7 @@ Route::middleware(['auth', 'superadmin'])
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::get('history', 'history')->name('history');
+                Route::get('balances', 'balances')->name('balances');
             });
 
         Route::controller(AdjustmentController::class)

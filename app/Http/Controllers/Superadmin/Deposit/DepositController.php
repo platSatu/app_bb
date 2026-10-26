@@ -41,6 +41,20 @@ class DepositController extends Controller
         return view('superadmin.deposit.history', compact('transactions'));
     }
 
+    /** Rincian kotak "Sisa Saldo User": saldo tiap user per tanggal akhir filter (atau saat ini), terbesar di atas. */
+    public function balances(Request $request): View
+    {
+        $balances = DB::query()->fromSub($this->perUserBalances($request), 'per_user')
+            ->join('users', 'users.id', '=', 'per_user.user_id')
+            ->where('per_user.balance', '>', 0)
+            ->select('users.id', 'users.name', 'users.email', 'per_user.balance')
+            ->orderByDesc('per_user.balance')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('superadmin.deposit.balances', ['balances' => $balances, 'until' => $request->date('date_to')?->endOfDay()]);
+    }
+
     /**
      * Kotak ringkasan Data Deposit, mengikuti pencarian & rentang tanggal yang sama dengan tabel:
      * deposit berhasil, sisa saldo user per akhir rentang, dan penjualan paket.
@@ -54,15 +68,8 @@ class DepositController extends Controller
             ->tap(fn ($q) => $this->applyCommonFilters($q, $request, 'description'))->toBase()
             ->selectRaw('COALESCE(SUM(amount), 0) AS total, COUNT(*) AS trx')->first();
 
-        // Saldo per "sampai tanggal" dihitung dari buku besar (kredit - debit sampai hari itu); tanpa tanggal = saldo saat ini.
         $until = $request->date('date_to')?->endOfDay();
-        $perUser = ($until
-            ? WalletTransaction::query()->where('created_at', '<=', $until)->groupBy('user_id')->selectRaw(
-                "user_id, SUM(CASE WHEN direction = 'credit' THEN amount ELSE 0 END) - SUM(CASE WHEN direction = 'debit' THEN amount ELSE 0 END) AS balance")
-            : Wallet::query()->select('user_id', 'balance')
-        )->tap(fn ($q) => $this->searchUsers($q, $request));
-
-        $balance = DB::query()->fromSub($perUser, 'per_user')
+        $balance = DB::query()->fromSub($this->perUserBalances($request), 'per_user')
             ->selectRaw('COALESCE(SUM(balance), 0) AS total, SUM(CASE WHEN balance > 0 THEN 1 ELSE 0 END) AS users')->first();
 
         return [
@@ -72,6 +79,18 @@ class DepositController extends Controller
             'balance' => ['total' => (int) $balance->total, 'users' => (int) $balance->users],
             'sales' => ['total' => (int) $sales->total, 'trx' => (int) $sales->trx],
         ];
+    }
+
+    /** Saldo per user. Dengan "sampai tanggal": dari buku besar (kredit - debit sampai hari itu); tanpa tanggal: saldo saat ini. */
+    private function perUserBalances(Request $request): Builder
+    {
+        $until = $request->date('date_to')?->endOfDay();
+
+        return ($until
+            ? WalletTransaction::query()->where('created_at', '<=', $until)->groupBy('user_id')->selectRaw(
+                "user_id, SUM(CASE WHEN direction = 'credit' THEN amount ELSE 0 END) - SUM(CASE WHEN direction = 'debit' THEN amount ELSE 0 END) AS balance")
+            : Wallet::query()->select('user_id', 'balance')
+        )->tap(fn ($q) => $this->searchUsers($q, $request));
     }
 
     /** Filter yang sama untuk tab Deposit & History: cari user/kode + rentang tanggal. */
