@@ -33,16 +33,28 @@
                         </button>
                         <div class="dropdown-menu dropdown-menu-clickable dropdown-mega-md dropdown-menu-end header-dropdown-menu shadow-sm border p-0">
                             <div class="card mb-0 border-0">
-                                <div class="card-header d-flex align-items-center justify-content-between gap-2">
-                                    <h5 class="card-title mb-0">Notifikasi
-                                        <span class="h-20px ms-1 px-1 d-inline-flex align-items-center justify-content-center border fs-12 text-muted rounded-1" data-count>0</span>
-                                    </h5>
-                                    <a href="{{ route('whatsapp.devices.index') }}" class="fw-medium fs-13">Buka WhatsApp</a>
+                                <div class="card-header pb-5">
+                                    <h5 class="card-title">Notifikasi</h5>
+                                    <a href="{{ route('whatsapp.devices.index') }}" class="fw-medium">Lihat Semua</a>
                                 </div>
                                 <div class="card-body p-0">
-                                    <div class="notification-panel" data-simplebar style="max-height: 324px;" data-list></div>
-                                    <div class="text-center text-muted p-4" data-empty>
-                                        <i class="ri-notification-off-line fs-2 d-block mb-2"></i>Tidak ada pesan baru.
+                                    <ul class="nav nav-tabs-bordered nav-dark justify-content-evenly" role="tablist">
+                                        @foreach (['notif-all' => 'Semua', 'notif-messages' => 'Pesan'] as $tabId => $tabLabel)
+                                            <li class="nav-item" role="presentation">
+                                                <a class="nav-link px-2 {{ $loop->first ? 'active' : '' }}" data-bs-toggle="tab" href="#{{ $tabId }}" role="tab">
+                                                    <span>{{ $tabLabel }}</span>
+                                                    <span class="h-20px min-w-20px px-1 ms-1 d-inline-flex align-items-center justify-content-center border fs-12 text-muted rounded-1" data-count>0</span>
+                                                </a>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                    <div class="tab-content norification-tab">
+                                        @foreach (['notif-all', 'notif-messages'] as $tabId)
+                                            <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}" id="{{ $tabId }}" role="tabpanel">
+                                                <div class="notification-panel" data-simplebar style="max-height: 324px;" data-list></div>
+                                                <div class="text-center text-muted p-4" data-empty>Tidak ada pesan baru.</div>
+                                            </div>
+                                        @endforeach
                                     </div>
                                 </div>
                             </div>
