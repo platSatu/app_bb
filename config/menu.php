@@ -156,6 +156,12 @@ return [
                         'route' => 'superadmin.users.index',
                         'active' => ['superadmin.users.*', 'superadmin.companies.*', 'superadmin.branches.*', 'superadmin.referral.*'],
                     ],
+                    // Semua customer milik owner (semua aplikasi), lengkap dengan export/import Excel.
+                    'superadmin.customers' => [
+                        'label' => 'Customer',
+                        'route' => 'superadmin.contacts.index',
+                        'active' => 'superadmin.contacts.*',
+                    ],
                     // Tiga item ini tampil sebagai tab di halaman User, bukan di sidebar.
                     'superadmin.companies' => [
                         'label' => 'Company',
@@ -222,16 +228,6 @@ return [
                                 'route' => 'superadmin.invoices.settings',
                                 'active' => 'superadmin.invoices.settings*',
                                 'superadmin_only' => true,
-                            ],
-                        ],
-                    ],
-                    'contacts' => [
-                        'label' => 'Kontak',
-                        'items' => [
-                            'superadmin.customers' => [
-                                'label' => 'Buku Kontak',
-                                'route' => 'superadmin.contacts.index',
-                                'active' => 'superadmin.contacts.*',
                             ],
                         ],
                     ],

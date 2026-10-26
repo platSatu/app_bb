@@ -9,6 +9,9 @@ use App\Services\Contact\ContactBookService;
 use App\Services\Customer\CustomerAccount;
 use App\Services\Customer\CustomerService;
 use App\Services\Subscription\AppAccess;
+use App\Support\Apps;
+use App\Support\XlsxExport;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -18,11 +21,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Customers per aplikasi: Pages (/pages/customers), Invoice (/invoices/customers),
- * dan superadmin (/superadmin/contacts, semua aplikasi, hanya lihat). Customers WhatsApp ada di Phone Book.
+ * dan superadmin (Data User › Customer, /superadmin/customers: semua aplikasi, export & import). Customers WhatsApp ada di Phone Book.
  */
 class CustomerController extends Controller
 {
     private const ROUTE_APPS = ['pages.customers' => 'pages', 'invoices.customers' => 'invoices'];
+
+    /** Batas baris sekali export supaya server tetap ringan; lebih dari itu persempit dengan filter. */
+    public const EXPORT_LIMIT = 20000;
 
     public function index(Request $request): View
     {
@@ -30,13 +36,10 @@ class CustomerController extends Controller
         [$base, $app] = $this->context($request);
         $filterApp = $app ?? (array_key_exists((string) $request->query('app'), Customer::APPS) ? $request->query('app') : null);
 
-        $customers = Customer::accessibleBy($user)
+        $customers = $this->filtered($request, $filterApp)
             ->with(['branch:id,name', 'company:id,name'])
-            ->when($filterApp, fn ($q, $a) => $q->forApp($a))
             ->when($app === 'pages', fn ($q) => $q->withCount('submissions'))
             ->when($app === 'invoices', fn ($q) => $q->withCount('invoices'))
-            ->search($request->query('search'))
-            ->when($request->query('branch'), fn ($q, $id) => $q->where('branch_id', $id))
             ->latest('last_seen_at')
             ->paginate(20)
             ->withQueryString();
@@ -46,8 +49,9 @@ class CustomerController extends Controller
             'app' => $app,
             // Superadmin memfilter lewat pencarian; owner memilih dari branch miliknya.
             'branches' => $user->isPlatformTeam() ? collect() : UserBranch::where('user_id', $user->getKey())->orderBy('name')->get(['id', 'name']),
-            // Branch yang boleh ditambah customer: paket aplikasinya aktif.
-            'writable' => $app ? $this->writableBranches($request, $app) : collect(),
+            // Branch yang boleh ditambah customer: paket aplikasinya aktif. Superadmin: semua branch aktif, dicek lagi per aplikasi saat import.
+            'writable' => $app ? $this->writableBranches($request, $app)
+                : ($user->canAccess('superadmin.customers', \App\Support\Menu::ABILITY_MANAGE) ? $this->activeBranches(Apps::ANY) : collect()),
             'accounts' => CustomerAccount::emailsWithAccount($customers->items()),
             'base' => $base,
         ]);
@@ -104,9 +108,36 @@ class CustomerController extends Controller
         return back()->with('success', "{$model->displayName()} dihapus dari Customers. Riwayat transaksi/invoice tetap tersimpan.");
     }
 
+    /** Export Excel sesuai filter yang sedang dipakai (superadmin). */
+    public function export(Request $request): StreamedResponse|RedirectResponse
+    {
+        $filterApp = array_key_exists((string) $request->query('app'), Customer::APPS) ? $request->query('app') : null;
+        $query = $this->filtered($request, $filterApp);
+
+        if (($total = (clone $query)->count()) > self::EXPORT_LIMIT) {
+            return back()->with('error', 'Ada '.number_format($total, 0, ',', '.').' customer. Maksimal '.number_format(self::EXPORT_LIMIT, 0, ',', '.').' per export, persempit dulu dengan filter aplikasi atau pencarian.');
+        }
+
+        $rows = $query->with(['branch:id,name', 'company:id,name'])->lazyById(500)->chunk(500)
+            ->flatMap(function ($chunk) {
+                $accounts = CustomerAccount::emailsWithAccount($chunk);
+
+                return $chunk->map(fn (Customer $c) => [
+                    $c->name, $c->phone ? '+'.$c->phone : '', $c->email, $c->appLabel(), $c->company?->name, $c->branch?->name,
+                    $c->source, $c->email && isset($accounts[strtolower($c->email)]) ? 'Ya' : 'Tidak',
+                    $c->first_seen_at?->format('Y-m-d H:i'), $c->last_seen_at?->format('Y-m-d H:i'),
+                ]);
+            });
+
+        return XlsxExport::download('customers-'.now()->format('Ymd-His'),
+            ['Nama', 'WhatsApp', 'Email', 'Aplikasi', 'Perusahaan', 'Branch', 'Sumber', 'Punya Akun', 'Pertama Masuk', 'Terakhir'], $rows);
+    }
+
     public function import(Request $request, ContactBookService $book): RedirectResponse
     {
         [, $app] = $this->context($request);
+        // Superadmin memilih aplikasi tujuan; owner sudah ditentukan oleh menunya.
+        $app ??= $request->validate(['app' => ['required', Rule::in(array_keys(Customer::APPS))]], ['app.*' => 'Pilih aplikasi tujuan.'])['app'];
         $branch = $this->writableBranch($request, $app);
         $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:5120']], ['file.mimes' => 'File harus Excel (.xlsx/.xls) atau CSV.', 'file.max' => 'Ukuran file maksimal 5 MB.']);
 
@@ -117,6 +148,10 @@ class CustomerController extends Controller
 
         $result = $book->addMany($branch, $rows, null, 'import', $app);
 
+        if ($request->user()->isPlatformTeam()) {
+            return redirect()->route('superadmin.contacts.index', ['app' => $app, 'search' => null])->with('success', "{$result['saved']} customer diimpor ke {$branch->name} (".Customer::APPS[$app].')'.($result['skipped'] ? ", {$result['skipped']} baris dilewati karena tanpa WhatsApp dan email." : '.'));
+        }
+
         return back()->with('success', "{$result['saved']} customer diimpor".($result['skipped'] ? ", {$result['skipped']} baris dilewati karena tanpa WhatsApp dan email." : '.'));
     }
 
@@ -124,7 +159,7 @@ class CustomerController extends Controller
     {
         [, $app] = $this->context($request);
 
-        return $book->template("contoh-customers-{$app}.xlsx");
+        return $book->template('contoh-customers-'.($app ?? 'bizbos').'.xlsx');
     }
 
     public function account(Request $request, string $customer, CustomerAccount $accounts): RedirectResponse
@@ -153,9 +188,27 @@ class CustomerController extends Controller
         return [$base, self::ROUTE_APPS[$base] ?? null];
     }
 
+    /** Filter cari, aplikasi, dan branch yang sama untuk tabel dan export. */
+    private function filtered(Request $request, ?string $app): Builder
+    {
+        return Customer::accessibleBy($request->user())
+            ->when($app, fn ($q, $a) => $q->forApp($a))
+            ->search($request->query('search'))
+            ->when($request->query('branch'), fn ($q, $id) => $q->where('branch_id', $id));
+    }
+
     private function writableBranches(Request $request, string $app)
     {
-        return UserBranch::whereIn('id', app(AppAccess::class)->ownerBranchIds($request->user(), $app))->orderBy('name')->get(['id', 'name', 'company_id']);
+        // Superadmin boleh import ke branch mana pun yang paket aplikasinya aktif; owner hanya branch miliknya.
+        return $request->user()->isPlatformTeam()
+            ? $this->activeBranches($app)
+            : UserBranch::whereIn('id', app(AppAccess::class)->ownerBranchIds($request->user(), $app))->orderBy('name')->get(['id', 'name', 'company_id']);
+    }
+
+    private function activeBranches(string $app)
+    {
+        return UserBranch::with('company:id,name')->where('status', 'active')->whereIn('id', AppAccess::activeBranches($app))
+            ->orderBy('name')->get(['id', 'name', 'company_id']);
     }
 
     private function writableBranch(Request $request, string $app): UserBranch

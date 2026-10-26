@@ -1,4 +1,4 @@
-{{-- Impor Excel/CSV. $action, $template (URL contoh), $branches (branch tujuan), $groups (opsional, Group WhatsApp) --}}
+{{-- Impor Excel/CSV. $action, $template (URL contoh), $branches (branch tujuan), $groups (opsional, Group WhatsApp), $apps (opsional, superadmin memilih aplikasi) --}}
 <div class="modal fade" id="customer-import-modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <form method="POST" action="{{ $action }}" enctype="multipart/form-data" class="modal-content">
@@ -13,6 +13,14 @@
                     <li>Simpan sebagai .xlsx (CSV juga bisa), lalu pilih di bawah.</li>
                 </ol>
                 <p class="small text-muted">Maksimal {{ number_format(\App\Services\Contact\ContactBookService::MAX_ROWS) }} baris, file 5 MB. Nomor/email yang sudah ada tidak dibuat dua kali.</p>
+                @if (! empty($apps))
+                    <label class="form-label">Aplikasi</label>
+                    <select name="app" class="form-select mb-3" required>
+                        @foreach ($apps as $key => $label)
+                            <option value="{{ $key }}" @selected(old('app', request('app')) === $key)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                @endif
                 @include('contact.customer._branch-field', ['branches' => $branches])
                 <input type="file" name="file" accept=".xlsx,.xls,.csv" required class="form-control mb-3">
                 @if (! empty($groups) && $groups->isNotEmpty())

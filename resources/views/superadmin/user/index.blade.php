@@ -6,6 +6,10 @@
 @section('content')
     @include('superadmin.user._tabs', ['active' => 'superadmin.users'])
 
+    @error('password')
+        <div class="alert alert-danger">{{ $message }}</div>
+    @enderror
+
     <div class="row g-3 mb-3">
         @foreach ([
             ['Total User', $stats->total, 'ri-group-line', 'primary'],
@@ -89,14 +93,10 @@
                                         </a>
                                     @endcan
                                     @can('delete', $user)
-                                        <form action="{{ route('superadmin.users.destroy', $user) }}" method="POST" class="d-inline"
-                                            onsubmit="return confirm({{ \Illuminate\Support\Js::from('Hapus user '.$user->name.'? Tindakan ini tidak bisa dibatalkan.') }});">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-sm rounded-pill btn-outline-danger">
-                                                <i class="ri-delete-bin-line"></i> Hapus
-                                            </button>
-                                        </form>
+                                        <button type="button" class="btn btn-sm rounded-pill btn-outline-danger" data-bs-toggle="modal" data-bs-target="#user-delete-modal"
+                                            data-action="{{ route('superadmin.users.destroy', $user) }}" data-name="{{ $user->name }}" data-email="{{ $user->email }}">
+                                            <i class="ri-delete-bin-line"></i> Hapus
+                                        </button>
                                     @endcan
                                 </td>
                             </tr>
@@ -114,4 +114,45 @@
             <div class="mt-3">{{ $users->links() }}</div>
         </div>
     </div>
+
+    {{-- Hapus permanen (reset total): ketik ulang email user + password login Anda. --}}
+    <div class="modal fade" id="user-delete-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="POST" class="modal-content" autocomplete="off" data-user-delete-form onsubmit="this.querySelector('[type=submit]').disabled = true">
+                @csrf
+                @method('DELETE')
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger"><i class="ri-error-warning-line me-1"></i>Hapus Permanen <span data-user-name></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger small">
+                        User ini beserta <b>SEMUA</b> datanya (perusahaan, branch, pages, tiket, invoice, WhatsApp, jadwal, customer, saldo &amp; riwayat) akan dihapus dan <b>tidak bisa dikembalikan</b>.
+                    </div>
+                    <label class="form-label">Ketik email user: <code data-user-email></code></label>
+                    <input type="text" name="confirm_email" class="form-control mb-3" required autocomplete="off">
+                    <label class="form-label">Password login Anda</label>
+                    <input type="password" name="password" class="form-control @error('password') is-invalid @enderror" required autocomplete="current-password">
+                    @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger">Hapus Permanen</button>
+                </div>
+            </form>
+        </div>
+    </div>
 @endsection
+
+@push('scripts')
+    <script>
+        document.getElementById('user-delete-modal').addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget, form = this.querySelector('[data-user-delete-form]');
+            form.action = button.dataset.action;
+            form.reset();
+            form.querySelector('[type=submit]').disabled = false;
+            this.querySelector('[data-user-name]').textContent = button.dataset.name;
+            this.querySelector('[data-user-email]').textContent = button.dataset.email;
+        });
+    </script>
+@endpush

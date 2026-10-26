@@ -5,13 +5,23 @@
     $appLabel = $app ? \App\Models\Customer::APPS[$app] : null;
 @endphp
 
-@section('title', $isAdmin ? 'Buku Kontak' : 'Customers')
+@section('title', $isAdmin ? 'Customer' : 'Customers')
 @section('page-section', $isAdmin ? 'Superadmin' : $appLabel)
 
 @section('content')
     <div class="card">
         <div class="card-body">
-            @unless ($isAdmin)
+            @if ($isAdmin)
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                    <div class="text-muted small">Semua customer milik owner di semua aplikasi. Export mengikuti filter yang sedang dipakai.</div>
+                    <div class="d-flex gap-2">
+                        <a href="{{ route('superadmin.contacts.export', request()->only(['search', 'app'])) }}" class="btn btn-outline-success btn-sm"><i class="ri-file-excel-2-line"></i> Export Excel</a>
+                        @if ($writable->isNotEmpty())
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#customer-import-modal"><i class="ri-upload-2-line"></i> Impor Excel</button>
+                        @endif
+                    </div>
+                </div>
+            @else
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                     <div class="text-muted small">
                         @if ($app === 'pages')
@@ -28,7 +38,7 @@
                         </div>
                     @endif
                 </div>
-            @endunless
+            @endif
 
             <form method="GET" class="row g-2 align-items-center mb-3">
                 <div class="col-12 col-md">
@@ -71,6 +81,11 @@
                             <th>Email</th>
                             <th>{{ $isAdmin ? 'Perusahaan / Branch' : 'Branch' }}</th>
                             <th class="text-center">{{ $isAdmin ? 'Aplikasi' : ($app === 'pages' ? 'Transaksi' : 'Invoice') }}</th>
+                            @if ($isAdmin)
+                                <th>Sumber</th>
+                                <th class="text-center">Akun</th>
+                                <th>Pertama</th>
+                            @endif
                             <th>Terakhir</th>
                             <th class="text-end">Aksi</th>
                         </tr>
@@ -96,7 +111,18 @@
                                         {{ $app === 'pages' ? $customer->submissions_count : $customer->invoices_count }}
                                     @endif
                                 </td>
-                                <td class="text-nowrap small">{{ $customer->last_seen_at->translatedFormat('d M Y H:i') }}</td>
+                                @if ($isAdmin)
+                                    <td class="small">{{ ucfirst((string) $customer->source) ?: '-' }}</td>
+                                    <td class="text-center">
+                                        @if ($customer->email && isset($accounts[strtolower($customer->email)]))
+                                            <span class="badge bg-success-subtle text-success">Ya</span>
+                                        @else
+                                            <span class="text-muted small">-</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-nowrap small">{{ $customer->first_seen_at?->translatedFormat('d M Y H:i') ?? '-' }}</td>
+                                @endif
+                                <td class="text-nowrap small">{{ $customer->last_seen_at?->translatedFormat('d M Y H:i') ?? '-' }}</td>
                                 <td class="text-end text-nowrap">
                                     <div class="d-inline-flex flex-nowrap gap-1 align-items-center">
                                         <a href="{{ route($base.'.show', $customer) }}" class="btn btn-sm rounded-pill btn-outline-secondary" title="Detail"><i class="ri-eye-line"></i></a>
@@ -112,7 +138,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-4">
+                                <td colspan="{{ $isAdmin ? 10 : 7 }}" class="text-center text-muted py-4">
                                     @if (request()->hasAny(['search', 'branch', 'app']))
                                         Tidak ada customer yang cocok.
                                     @elseif ($app === 'pages')
@@ -158,5 +184,9 @@
 
         @include('contact.customer._import-modal', ['action' => route($base.'.import'), 'template' => route($base.'.template'), 'branches' => $writable])
         @include('contact.customer._modal-script')
+    @endif
+
+    @if ($isAdmin && $writable->isNotEmpty())
+        @include('contact.customer._import-modal', ['action' => route('superadmin.contacts.import'), 'template' => route('superadmin.contacts.template'), 'branches' => $writable, 'apps' => \App\Models\Customer::APPS])
     @endif
 @endsection

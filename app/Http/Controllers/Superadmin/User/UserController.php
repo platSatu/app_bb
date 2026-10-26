@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Superadmin\User\UserRequest;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\User\UserPurger;
 use App\Services\User\UserService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\View\View;
 
 class UserController extends Controller
@@ -68,18 +70,35 @@ class UserController extends Controller
             ->with('success', "Data {$user->name} berhasil diperbarui.");
     }
 
-    public function destroy(User $user): RedirectResponse
+    /**
+     * Reset total: user beserta SEMUA datanya. Wajib ketik ulang email user + password login admin yang menghapus,
+     * dan ditolak kalau masih ada uang yang berjalan.
+     */
+    public function destroy(Request $request, User $user, UserPurger $purger): RedirectResponse
     {
         Gate::authorize('delete', $user);
 
-        if ($user->company()->exists()) {
-            return back()->with('error', "User {$user->name} masih punya data perusahaan, jadi belum bisa dihapus. Nonaktifkan saja akunnya.");
+        // Salah password berulang dikunci sebentar supaya tidak bisa ditebak.
+        $limiter = 'user-purge:'.$request->user()->getKey();
+        if (RateLimiter::tooManyAttempts($limiter, 5)) {
+            return back()->with('error', 'Terlalu banyak percobaan. Coba lagi dalam '.RateLimiter::availableIn($limiter).' detik.');
+        }
+        RateLimiter::hit($limiter, 60);
+
+        $request->validate(['password' => ['required', 'current_password']], ['password.current_password' => 'Password login Anda salah. User tidak dihapus.']);
+
+        if (strtolower(trim((string) $request->input('confirm_email'))) !== strtolower($user->email)) {
+            return back()->with('error', "Email konfirmasi tidak cocok. User {$user->name} tidak dihapus.");
         }
 
-        $user->delete();
+        if ($blockers = $purger->blockers($user)) {
+            return back()->with('error', "User {$user->name} belum bisa dihapus karena ".implode(', ', $blockers).'. Selesaikan dulu, lalu coba lagi.');
+        }
+
+        $rows = array_sum($purger->purge($user));
 
         return redirect()->route('superadmin.users.index')
-            ->with('success', "User {$user->name} sudah dihapus.");
+            ->with('success', "User {$user->name} beserta seluruh datanya sudah dihapus permanen (".number_format($rows, 0, ',', '.').' baris data).');
     }
 
     private function platformRoles()

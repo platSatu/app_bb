@@ -5,7 +5,7 @@
     <label class="form-label">Branch</label>
     <select name="branch_id" class="form-select mb-3" required>
         @foreach ($branches as $branch)
-            <option value="{{ $branch->id }}" @selected(old('branch_id', request('branch')) === $branch->id)>{{ $branch->name }}</option>
+            <option value="{{ $branch->id }}" @selected(old('branch_id', request('branch')) === $branch->id)>{{ $branch->relationLoaded('company') && $branch->company ? $branch->company->name.' — ' : '' }}{{ $branch->name }}</option>
         @endforeach
     </select>
 @endif

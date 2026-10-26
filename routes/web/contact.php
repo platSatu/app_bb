@@ -25,8 +25,14 @@ $manage = function () use ($read) {
 Route::middleware(['auth', 'permission:pages.customers'])->prefix('pages/customers')->name('pages.customers.')->group($manage);
 Route::middleware(['auth', 'permission:invoices.customers'])->prefix('invoices/customers')->name('invoices.customers.')->group($manage);
 
-// Superadmin: semua aplikasi, hanya lihat.
-Route::middleware(['auth', 'superadmin', 'permission:superadmin.customers,view'])
-    ->prefix('superadmin/contacts')
-    ->name('superadmin.contacts.')
-    ->group($read);
+// Superadmin (Data User › Customer): semua aplikasi. Lihat & export; import ke branch mana pun butuh izin kelola.
+Route::middleware(['auth', 'superadmin'])->prefix('superadmin/customers')->name('superadmin.contacts.')->group(function () use ($read) {
+    Route::middleware('permission:superadmin.customers,view')->group(function () use ($read) {
+        Route::get('export', [CustomerController::class, 'export'])->middleware('throttle:10,1')->name('export');
+        $read();
+    });
+    Route::middleware('permission:superadmin.customers,manage')->controller(CustomerController::class)->group(function () {
+        Route::get('contoh-excel', 'template')->name('template');
+        Route::post('import', 'import')->middleware('throttle:10,1')->name('import');
+    });
+});
