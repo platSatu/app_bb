@@ -47,13 +47,16 @@ class PackageController extends Controller implements HasMiddleware
 
     public function catalog(Request $request): View
     {
-        $packages = $this->forSale($request)->get();
-        $category = $request->query('kategori');
+        // Satu tab per kategori (urut dari harga termurah); di dalamnya trial dulu, lalu durasi terpendek.
+        $tabs = $this->forSale($request)->get()
+            ->sortBy(fn (Package $package) => [$package->is_trial ? 0 : 1, $package->duration, $package->price])
+            ->groupBy('category_application_id')
+            ->sortBy(fn ($items) => $items->where('is_trial', false)->min('price') ?? 0);
+        $category = (string) $request->query('kategori');
 
         return view('profile.packages.catalog', [
-            'categories' => $packages->pluck('category')->filter()->unique('id')->sortBy('name')->values(),
-            'packages' => $category ? $packages->where('category_application_id', $category)->values() : $packages,
-            'activeCategory' => $category,
+            'tabs' => $tabs,
+            'activeCategory' => $tabs->has($category) ? $category : $tabs->keys()->first(),
             'balance' => (int) $request->user()->wallet?->balance,
         ]);
     }

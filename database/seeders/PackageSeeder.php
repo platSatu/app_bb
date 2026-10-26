@@ -7,9 +7,9 @@ use App\Models\Package;
 use Illuminate\Database\Seeder;
 
 /**
- * Paket awal bizbos: 5 kombinasi layanan x (Trial 7 hari, 1, 6, 12 bulan). 12 bulan ditandai Populer.
+ * Paket awal bizbos: 5 kategori (tab di halaman Beli Paket) x (Trial 7 hari, 1, 6, 12 bulan). 12 bulan ditandai Populer.
  * Jalankan: php artisan db:seed --class=PackageSeeder
- * Aman dijalankan ulang: paket yang namanya sudah ada TIDAK ditimpa, jadi hasil edit di superadmin tetap.
+ * Aman dijalankan ulang: kategori & paket yang namanya sudah ada TIDAK ditimpa, jadi hasil edit di superadmin tetap.
  */
 class PackageSeeder extends Seeder
 {
@@ -56,10 +56,9 @@ class PackageSeeder extends Seeder
 
     public function run(): void
     {
-        $category = CategoryApplication::where('status', 'active')->orderBy('created_at')->first()
-            ?? CategoryApplication::create(['name' => 'Bizbos', 'status' => 'active']);
-
         foreach (self::PLANS as $plan => $config) {
+            $category = CategoryApplication::firstOrCreate(['name' => $plan], ['status' => 'active']);
+
             foreach (self::DURATIONS as $days => $label) {
                 $trial = $days === 7;
                 $limits = $trial ? array_intersect_key(self::TRIAL_LIMITS, $config['limits']) : $config['limits'];
