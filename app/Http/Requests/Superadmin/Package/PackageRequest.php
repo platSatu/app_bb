@@ -24,6 +24,7 @@ class PackageRequest extends FormRequest
             'apps' => ['required', 'array', 'min:1'],
             'apps.*' => ['required', 'distinct', Rule::in(Apps::keys())],
             'is_trial' => ['boolean'],
+            'is_featured' => ['boolean'],
             // Batas paket; kosong = tanpa batas. Key pages = id kategori page (sudah disaring di prepareForValidation).
             'limits' => ['array'],
             'limits.pages' => ['array'],
@@ -35,7 +36,7 @@ class PackageRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge(['is_trial' => $this->boolean('is_trial')]);
+        $this->merge(['is_trial' => $this->boolean('is_trial'), 'is_featured' => $this->boolean('is_featured')]);
 
         // Isian kosong dibuang (= tanpa batas); kategori page yang tidak dikenal diabaikan.
         $limits = (array) $this->input('limits');

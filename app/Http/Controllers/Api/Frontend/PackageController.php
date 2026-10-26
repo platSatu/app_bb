@@ -9,8 +9,7 @@ use Illuminate\Http\JsonResponse;
 /**
  * Daftar paket aktif untuk halaman harga fe-konexa. Bentuk JSON sama dengan API teleios
  * (category_application, category_applications, limits, is_featured, is_trial) supaya
- * fe-konexa tidak perlu diubah; bizbos belum punya batas paket & paket unggulan,
- * jadi limits kosong dan is_featured/is_trial = false.
+ * fe-konexa tidak perlu diubah. limits tetap kosong (batas paket bizbos ditulis di deskripsi).
  */
 class PackageController extends Controller
 {
@@ -20,7 +19,7 @@ class PackageController extends Controller
             ->active()
             ->with('category:id,name')
             ->orderBy('price')
-            ->get(['id', 'category_application_id', 'name', 'description', 'duration', 'price'])
+            ->get(['id', 'category_application_id', 'name', 'description', 'duration', 'price', 'is_trial', 'is_featured'])
             ->map(fn (Package $package) => [
                 'id' => $package->id,
                 'category_application_id' => $package->category_application_id,
@@ -28,8 +27,8 @@ class PackageController extends Controller
                 'description' => $package->description,
                 'duration' => $package->duration,
                 'price' => $package->price,
-                'is_featured' => false,
-                'is_trial' => false,
+                'is_featured' => $package->is_featured,
+                'is_trial' => $package->is_trial,
                 'category_application' => $package->category?->only(['id', 'name']),
                 'category_applications' => $package->category ? [$package->category->only(['id', 'name'])] : [],
                 'limits' => [],

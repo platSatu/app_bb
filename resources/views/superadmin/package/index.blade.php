@@ -43,6 +43,7 @@
                                 <td>
                                     <div class="fw-semibold">{{ $package->name }}</div>
                                     @if ($package->is_trial) <span class="badge bg-info-subtle text-info">Trial</span> @endif
+                                    @if ($package->is_featured) <span class="badge bg-warning-subtle text-warning">Populer</span> @endif
                                 </td>
                                 <td>
                                     <div>{{ $package->category?->name ?? '-' }}</div>

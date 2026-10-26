@@ -34,11 +34,12 @@
         <div class="row g-3">
             @forelse ($packages as $package)
                 <div class="col-sm-6 col-xl-4">
-                    <div class="card pkg-card h-100 mb-0 {{ $package->is_trial ? 'is-trial' : '' }}">
+                    <div class="card pkg-card h-100 mb-0 {{ $package->is_trial ? 'is-trial' : '' }} {{ $package->is_featured ? 'border border-warning' : '' }}">
                         <div class="pkg-head">
                             <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
                                 <span class="small text-muted">{{ $package->category?->name }}</span>
                                 @if ($package->is_trial) <span class="badge bg-info">Gratis</span> @endif
+                                @if ($package->is_featured) <span class="badge bg-warning text-dark"><i class="ri-star-fill"></i> Populer</span> @endif
                             </div>
                             <h5 class="mb-2">{{ $package->name }}</h5>
                             <div class="pkg-price text-primary">{{ $package->price ? $rupiah($package->price) : 'Gratis' }}</div>

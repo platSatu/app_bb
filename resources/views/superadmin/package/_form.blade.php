@@ -111,6 +111,15 @@
     </div>
 
     <div class="col-12">
+        <div class="form-check form-switch">
+            <input type="hidden" name="is_featured" value="0">
+            <input class="form-check-input" type="checkbox" role="switch" id="is_featured" name="is_featured" value="1" @checked(old('is_featured', $package->is_featured))>
+            <label class="form-check-label" for="is_featured">Tandai Populer</label>
+        </div>
+        <div class="form-text">Tampil dengan badge "Populer" di katalog paket dan halaman harga website.</div>
+    </div>
+
+    <div class="col-12">
         <label for="description" class="form-label">Fitur / Deskripsi</label>
         <textarea id="description" name="description" rows="6" class="form-control @error('description') is-invalid @enderror"
             placeholder="Tulis satu fitur per baris, mis.&#10;1 nomor WhatsApp&#10;Broadcast 1.000 pesan/bulan&#10;Auto reply">{{ old('description', $package->description) }}</textarea>

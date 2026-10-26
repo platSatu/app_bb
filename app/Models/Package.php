@@ -12,11 +12,11 @@ class Package extends Model
 {
     use HasActiveStatus, HasUuids;
 
-    protected $fillable = ['category_application_id', 'name', 'price', 'description', 'duration', 'apps', 'limits', 'is_trial', 'status'];
+    protected $fillable = ['category_application_id', 'name', 'price', 'description', 'duration', 'apps', 'limits', 'is_trial', 'is_featured', 'status'];
 
     protected function casts(): array
     {
-        return ['price' => 'integer', 'duration' => 'integer', 'apps' => 'array', 'limits' => 'array', 'is_trial' => 'boolean'];
+        return ['price' => 'integer', 'duration' => 'integer', 'apps' => 'array', 'limits' => 'array', 'is_trial' => 'boolean', 'is_featured' => 'boolean'];
     }
 
     public function category(): BelongsTo
