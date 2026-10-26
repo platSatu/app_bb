@@ -3,10 +3,47 @@
 @section('title', 'Disbursement Owner')
 @section('page-section', 'Superadmin')
 
-@php($rupiah = fn ($v) => 'Rp '.number_format($v, 0, ',', '.'))
-
 @section('content')
     @include('superadmin.withdrawal._tabs', ['active' => 'payouts'])
+
+    {{-- Ringkasan disbursement berhasil, mengikuti filter cari & tanggal (filter status hanya untuk tabel). Klik = rinciannya. --}}
+    @php
+        $rupiah = fn ($v) => 'Rp '.number_format($v, 0, ',', '.');
+        $from = request()->date('date_from')?->translatedFormat('d M Y');
+        $until = request()->date('date_to')?->translatedFormat('d M Y');
+        $period = match (true) {
+            $from && $until => $from.' – '.$until,
+            (bool) $from => 'Sejak '.$from,
+            (bool) $until => 'Sampai '.$until,
+            default => 'Semua waktu',
+        };
+        $detail = route('superadmin.payouts.index', [...array_filter(request()->only(['search', 'date_from', 'date_to'])), 'status' => \App\Models\Disbursement::STATUS_SUCCESS]);
+        $cards = [
+            ['Total Penarikan', $rupiah($summary['amount']), 'ri-bank-line', 'primary',
+                $summary['trx'].' disbursement berhasil · '.$rupiah($summary['net']).' diterima rekening · '.$period],
+            ['Rekening Penerima', number_format($summary['accounts'], 0, ',', '.').' rekening', 'ri-user-received-2-line', 'success',
+                'Berhasil dikirimi dana dari '.$summary['branches'].' branch · '.$period],
+            ['Total Fee', $rupiah($summary['fee']), 'ri-percent-line', 'warning',
+                'Biaya dari '.$summary['trx'].' disbursement berhasil · '.$period],
+        ];
+    @endphp
+    <div class="row g-3 mb-3">
+        @foreach ($cards as [$label, $value, $icon, $color, $note])
+            <div class="col-sm-6 col-xl-4">
+                <div class="card h-100 mb-0 position-relative">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between mb-2">
+                            <span class="text-muted">{{ $label }}</span>
+                            <span class="rounded-circle bg-{{ $color }}-subtle text-{{ $color }} d-flex align-items-center justify-content-center" style="width:36px;height:36px"><i class="{{ $icon }} fs-5"></i></span>
+                        </div>
+                        <h4 class="mb-1">{{ $value }}</h4>
+                        <div class="small text-muted">{{ $note }}</div>
+                        <a href="{{ $detail }}" class="stretched-link small fw-medium d-inline-block mt-2">Lihat detail <i class="ri-arrow-right-line"></i></a>
+                    </div>
+                </div>
+            </div>
+        @endforeach
+    </div>
 
     <div class="card">
         <div class="card-body">
