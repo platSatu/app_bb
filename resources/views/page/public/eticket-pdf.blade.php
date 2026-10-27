@@ -2,7 +2,8 @@
 <html lang="id">
 <head>
     <meta charset="utf-8">
-    {{-- Versi PDF dari e-ticket landscape (dompdf: tanpa flex/grid, ukuran px tetap 880×322). --}}
+    {{-- Versi PDF dari e-ticket landscape (dompdf: tanpa flex/grid). Kertas 660×242pt = 880×322px; isi dibuat 880×318px
+         supaya selalu muat satu halaman (kalau lebih sedikit saja, dompdf memindah ke halaman baru = halaman kosong). --}}
     @php
         $color = $page->setting('ticket.color') ?: '#e36666';
         $meta = collect([$page->start_date?->translatedFormat('D, d M Y'), $page->branch?->name])->filter()->join(' · ');
@@ -11,17 +12,18 @@
         @page { margin: 0; }
         body { margin: 0; font-family: DejaVu Sans, sans-serif; color: #1f1f2b; }
         table { border-collapse: collapse; }
-        .main { width: 650px; height: 322px; vertical-align: top; color: #fff; background-color: {{ $color }}; background-size: cover; background-position: center; }
-        .shade { height: 270px; padding: 26px 30px; background-color: {{ $background ? 'rgba(17,17,27,0.55)' : 'transparent' }}; }
+        td { padding: 0; }
+        .main { width: 647px; height: 318px; vertical-align: top; color: #fff; background-color: {{ $color }}; background-size: cover; background-position: center; }
+        .shade { height: 266px; padding: 26px 30px; background-color: {{ $background ? 'rgba(17,17,27,0.55)' : 'transparent' }}; }
         .badge { display: inline-block; background: #fff; color: {{ $color }}; font-weight: bold; font-size: 12px; padding: 3px 12px; border-radius: 10px; }
         .kicker { font-size: 10px; letter-spacing: 3px; margin-left: 8px; }
         .title { font-size: 30px; font-weight: bold; line-height: 1.1; margin-top: 70px; }
         .meta { font-size: 12px; margin-top: 6px; }
         .info { margin-top: 18px; border-top: 1px solid rgba(255,255,255,0.4); padding-top: 12px; }
-        .info td { padding-right: 34px; vertical-align: top; }
+        .info td { padding: 0 34px 0 0; vertical-align: top; }
         .label { font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; }
         .value { font-size: 14px; font-weight: bold; }
-        .stub { width: 230px; height: 322px; text-align: center; vertical-align: middle; border-left: 3px dashed {{ $color }}; background: #fff; }
+        .stub { width: 230px; height: 318px; text-align: center; vertical-align: middle; border-left: 3px dashed {{ $color }}; background: #fff; }
         .admit { font-size: 9px; letter-spacing: 3px; font-weight: bold; color: {{ $color }}; }
         .code { font-size: 16px; font-weight: bold; letter-spacing: 2px; margin-top: 6px; }
         .seq { font-size: 9px; color: #8a8a96; margin-top: 2px; }

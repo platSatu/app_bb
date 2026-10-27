@@ -5,7 +5,7 @@
 @endphp
 @push('head')
     <style>
-        .ticket-grid { display: grid; gap: 1.25rem; grid-template-columns: 1fr; grid-template-areas: "tickets" "buyer" "summary"; }
+        .ticket-grid { display: grid; gap: 1.25rem; grid-template-columns: 1fr; grid-template-areas: "buyer" "tickets" "summary"; }
         @media (min-width: 992px) {
             .ticket-grid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); grid-template-areas: "buyer tickets" "buyer summary"; align-items: start; }
             .ticket-summary { position: sticky; top: 1.5rem; }
@@ -14,8 +14,24 @@
         .ticket-hero { border: 0; border-radius: 1.25rem; background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 16%, #fff), #fff 65%); }
         .ticket-chip { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .75rem; border-radius: 999px; background: #fff; font-size: .875rem; color: #555; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
         .ticket-chip i { color: var(--brand); }
-        .ticket-option { border: 1px solid #e9ecef; border-radius: .75rem; padding: .875rem 1rem; transition: border-color .15s, background .15s; }
-        .ticket-option.is-picked { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 5%, #fff); }
+        /* Pilihan tiket bergaya karcis: pita warna di kiri, garis sobek putus-putus, dan lubang setengah lingkaran. */
+        .ticket-option { position: relative; display: flex; align-items: stretch; margin-bottom: .75rem; border-radius: 14px; overflow: hidden; background: #fff; box-shadow: inset 0 0 0 1px #ebeaf0, 0 2px 6px rgba(16,24,40,.05); transition: box-shadow .15s, transform .15s; }
+        .ticket-option::before { content: ''; flex: 0 0 8px; background: linear-gradient(180deg, var(--brand), color-mix(in srgb, var(--brand) 60%, #fff)); }
+        .ticket-option.is-picked { box-shadow: inset 0 0 0 2px var(--brand), 0 6px 16px color-mix(in srgb, var(--brand) 18%, transparent); transform: translateY(-1px); }
+        .ticket-option.is-off { opacity: .6; filter: grayscale(.6); }
+        .karcis-body { flex: 1; min-width: 0; padding: .9rem 1rem; }
+        .karcis-kicker { font-size: .65rem; letter-spacing: .25em; color: #9a98a6; font-weight: 600; }
+        .karcis-price { font-size: 1.1rem; font-weight: 700; color: var(--brand); }
+        .karcis-stub { position: relative; display: flex; align-items: center; padding: .9rem; border-left: 2px dashed #dddbe4; background: color-mix(in srgb, var(--brand) 4%, #fff); }
+        .karcis-stub::before, .karcis-stub::after { content: ''; position: absolute; left: -9px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 1px #ebeaf0; }
+        .karcis-stub::before { top: -8px; }
+        .karcis-stub::after { bottom: -8px; }
+        /* Warna tombol ditulis langsung (tidak lewat variabel Bootstrap) supaya selalu terlihat. */
+        .btn-order { background-color: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+        .btn-order:hover, .btn-order:focus { background-color: color-mix(in srgb, var(--brand) 88%, #000); border-color: color-mix(in srgb, var(--brand) 88%, #000); color: #fff; }
+        .btn-order:disabled { background-color: color-mix(in srgb, var(--brand) 40%, #fff); border-color: transparent; color: #fff; opacity: 1; }
+        .terms-dialog { border: 0; border-radius: 1rem; padding: 0; width: min(560px, calc(100% - 2rem)); box-shadow: 0 20px 60px rgba(16,24,40,.25); }
+        .terms-dialog::backdrop { background: rgba(17,17,27,.45); }
         .qty { width: 116px; }
         .qty .btn { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 35%, #fff); }
         .qty .btn:hover { background: color-mix(in srgb, var(--brand) 10%, #fff); }
@@ -55,13 +71,14 @@
         <div class="ticket-grid">
             <div class="card shadow-sm" style="grid-area: tickets;">
                 <div class="card-body p-4">
-                    <h2 class="h6 fw-semibold mb-3 d-flex align-items-center gap-2"><span class="step-number">1</span> Pilih Tiket</h2>
+                    <h2 class="h6 fw-semibold mb-3 d-flex align-items-center gap-2"><span class="step-number">2</span> Pilih Tiket</h2>
                     @foreach ($ticketCategories as $category)
                         @php($reason = $category->unavailableReason())
-                        <div class="ticket-option d-flex align-items-center justify-content-between gap-3 mb-2 {{ $reason ? 'bg-light opacity-75' : '' }}" data-option>
-                            <div class="min-w-0">
+                        <div class="ticket-option {{ $reason ? 'is-off' : '' }}" data-option>
+                            <div class="karcis-body">
+                                <div class="karcis-kicker">TIKET</div>
                                 <div class="fw-semibold">{{ $category->name }}</div>
-                                <div class="small">{!! $category->price > 0 ? e($rupiah($category->price)) : '<span class="badge bg-success">Gratis</span>' !!}</div>
+                                <div class="karcis-price">{!! $category->price > 0 ? e($rupiah($category->price)) : '<span class="badge bg-success">Gratis</span>' !!}</div>
                                 @if ($category->description) <div class="small text-muted">{{ $category->description }}</div> @endif
                                 @if ($reason)
                                     <div class="small text-danger">{{ $reason }}</div>
@@ -70,12 +87,14 @@
                                 @endif
                             </div>
                             @unless ($reason)
+                                <div class="karcis-stub">
                                 <div class="input-group input-group-sm qty flex-shrink-0">
                                     <button type="button" class="btn btn-outline-secondary" data-step="-1" aria-label="Kurangi">−</button>
                                     <input type="number" name="tickets[{{ $category->id }}]" class="form-control" inputmode="numeric" min="0" max="{{ $category->maxBuyable() }}"
                                         value="{{ min((int) old('tickets.'.$category->id), $category->maxBuyable()) }}"
                                         data-price="{{ $category->price }}" data-name="{{ $category->name }}" aria-label="Jumlah tiket {{ $category->name }}">
                                     <button type="button" class="btn btn-outline-secondary" data-step="1" aria-label="Tambah">+</button>
+                                </div>
                                 </div>
                             @endunless
                         </div>
@@ -85,7 +104,7 @@
 
             <div class="card shadow-sm" style="grid-area: buyer;">
                 <div class="card-body p-4">
-                    <h2 class="h6 fw-semibold mb-3 d-flex align-items-center gap-2"><span class="step-number">2</span> Data Pemesan</h2>
+                    <h2 class="h6 fw-semibold mb-3 d-flex align-items-center gap-2"><span class="step-number">1</span> Data Pemesan</h2>
                     <div class="row g-3">
                         @foreach (['name' => ['Nama lengkap', 'text', 'col-12'], 'email' => ['Email', 'email', 'col-md-6'], 'phone' => ['No. WhatsApp', 'tel', 'col-md-6']] as $field => [$label, $type, $col])
                             <div class="{{ $col }}">
@@ -99,7 +118,7 @@
 
                     @if ($page->fields->isNotEmpty())
                         <hr class="my-4">
-                        <h2 class="h6 fw-semibold mb-3 d-flex align-items-center gap-2"><span class="step-number">3</span> Data Tambahan</h2>
+                        <h2 class="h6 fw-semibold mb-3">Data Tambahan</h2>
                         @include('page.public._fields', ['fields' => $page->fields, 'preview' => false])
                     @endif
 
@@ -108,7 +127,7 @@
 
             <div class="card shadow-sm ticket-summary" style="grid-area: summary;">
                 <div class="card-body p-4">
-                    <h2 class="h6 fw-semibold mb-3">Ringkasan Pesanan</h2>
+                    <h2 class="h6 fw-semibold mb-3 d-flex align-items-center gap-2"><span class="step-number">3</span> Ringkasan & Persetujuan</h2>
                     <div id="ticket-lines" class="small"></div>
                     <div id="ticket-empty" class="small text-muted">Belum ada tiket dipilih.</div>
                     <div id="ticket-fee" class="small d-flex justify-content-between gap-2 d-none"><span>Biaya layanan</span><span class="text-nowrap" id="ticket-fee-amount"></span></div>
@@ -117,17 +136,21 @@
                         <span>Total</span><span class="fs-5" id="ticket-total">Rp 0</span>
                     </div>
                     @if ($terms = $page->setting('ticket.terms'))
-                        <details class="small border rounded-3 px-3 py-2 mb-2">
-                            <summary class="fw-semibold">Baca Syarat & Ketentuan</summary>
-                            <div class="text-muted mt-2" style="white-space: pre-line; max-height: 240px; overflow-y: auto;">{{ $terms }}</div>
-                        </details>
+                        {{-- S&K dibuka sebagai popup supaya halaman tidak memanjang; menutup popup = sudah dibaca, otomatis tercentang. --}}
                         <div class="form-check small mb-3">
                             <input class="form-check-input @error('terms') is-invalid @enderror" type="checkbox" name="terms" value="1" id="terms" @checked(old('terms')) required>
-                            <label class="form-check-label" for="terms">Saya sudah membaca dan menyetujui Syarat & Ketentuan.</label>
+                            <label class="form-check-label" for="terms">Saya sudah membaca dan menyetujui <a href="#" data-open-terms class="fw-semibold text-brand">Syarat & Ketentuan</a>.</label>
                         </div>
+                        <dialog class="terms-dialog" id="terms-dialog">
+                            <div class="p-4">
+                                <h3 class="h6 fw-semibold mb-3">Syarat & Ketentuan</h3>
+                                <div class="small text-muted" style="white-space: pre-line; max-height: 60vh; overflow-y: auto;">{{ $terms }}</div>
+                                <button type="button" class="btn btn-order w-100 mt-4" data-close-terms>Saya Mengerti & Setuju</button>
+                            </div>
+                        </dialog>
                     @endif
                     <div class="mb-3">@include('auth.partials.turnstile')</div>
-                    <button type="submit" class="btn btn-brand w-100 py-2" id="ticket-submit" disabled>Lanjut ke Pembayaran</button>
+                    <button type="submit" class="btn btn-order w-100 py-2" id="ticket-submit" disabled>Pesan Sekarang</button>
                     <div class="form-text text-center mt-2" id="ticket-note">Tiket ditahan selama batas waktu pembayaran. Kalau tidak dibayar, tiket dilepas otomatis.</div>
                 </div>
             </div>
@@ -165,7 +188,6 @@
                 document.getElementById('ticket-lines').innerHTML = lines;
                 document.getElementById('ticket-empty').classList.toggle('d-none', count > 0);
                 document.getElementById('ticket-total').textContent = free ? 'Gratis' : money(total);
-                document.getElementById('ticket-submit').textContent = free ? 'Daftar Sekarang' : 'Lanjut ke Pembayaran';
                 document.getElementById('ticket-note').classList.toggle('d-none', free);
                 var terms = document.getElementById('terms');
                 document.getElementById('ticket-submit').disabled = count === 0 || (terms && !terms.checked);
@@ -178,6 +200,15 @@
                 input.value = (parseInt(input.value, 10) || 0) + Number(button.dataset.step);
                 update();
             });
+            var dialog = document.getElementById('terms-dialog');
+            if (dialog) {
+                form.querySelector('[data-open-terms]').addEventListener('click', function (event) { event.preventDefault(); dialog.showModal(); });
+                dialog.querySelector('[data-close-terms]').addEventListener('click', function () {
+                    dialog.close();
+                    document.getElementById('terms').checked = true;
+                    update();
+                });
+            }
             form.addEventListener('input', update);
             form.addEventListener('change', update);
             update();
