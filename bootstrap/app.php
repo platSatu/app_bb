@@ -18,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('web', \App\Http\Middleware\SecurityHeaders::class);
         // Riwayat aktivitas pengguna yang login (Settings > Aktivitas & Pengunjung).
         $middleware->appendToGroup('web', \App\Http\Middleware\LogUserActivity::class);
-        $middleware->validateCsrfTokens(except: ['payment/duitku/callback']);
+        $middleware->preventRequestForgery(except: ['payment/duitku/callback']);
 
         $middleware->alias([
             'superadmin' => \App\Http\Middleware\EnsureSuperadmin::class,

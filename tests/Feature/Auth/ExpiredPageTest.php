@@ -1,11 +1,11 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 
 // Di testing Laravel melewati cek CSRF; di sini dinyalakan supaya 419 benar-benar terjadi.
 beforeEach(function () {
-    $this->app->instance(ValidateCsrfToken::class, new class($this->app, $this->app['encrypter']) extends ValidateCsrfToken {
+    $this->app->instance(PreventRequestForgery::class, new class($this->app, $this->app['encrypter']) extends PreventRequestForgery {
         protected function runningUnitTests() { return false; }
     });
 });
