@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\WebFooter;
 use App\Models\WebPage;
 use Illuminate\Database\Seeder;
 
@@ -29,6 +30,8 @@ class WebPageContentSeeder extends Seeder
 
     public function run(): void
     {
+        $this->addCookiePolicy();
+
         foreach (self::PAGES as $slug => [$originalHash, $subtitle]) {
             $page = WebPage::where('slug', $slug)->first();
 
@@ -44,6 +47,49 @@ class WebPageContentSeeder extends Seeder
                 'meta_description' => $subtitle,
             ]);
             $this->command?->info("  diperbarui: {$slug}");
+        }
+    }
+
+    /**
+     * Halaman baru "Kebijakan Cookie" (content/pages/kebijakan-cookie.md) + link di footer website.
+     * Tampilan (grup footer, urutan) mengikuti halaman Kebijakan Privasi. Hanya dibuat kalau belum ada,
+     * jadi hasil edit superadmin tidak pernah tertimpa.
+     */
+    private function addCookiePolicy(): void
+    {
+        $slug = 'kebijakan-cookie';
+        $privacy = WebPage::where('slug', 'kebijakan-privasi')->first();
+
+        if (! WebPage::where('slug', $slug)->exists()) {
+            $subtitle = 'Cookie apa saja yang kami pakai, untuk apa, dan cara Anda mengaturnya.';
+            WebPage::create([
+                'title' => 'Kebijakan Cookie',
+                'slug' => $slug,
+                'type' => 'document',
+                'subtitle' => $subtitle,
+                'meta_description' => $subtitle,
+                'content' => trim(file_get_contents(database_path("seeders/content/pages/{$slug}.md"))),
+                'show_in_footer' => (bool) $privacy?->show_in_footer,
+                'footer_group' => $privacy?->footer_group,
+                'footer_order' => (int) $privacy?->footer_order + 1,
+                'status' => 'active',
+            ]);
+            $this->command?->info('  dibuat: Kebijakan Cookie');
+        }
+
+        $privacyLink = WebFooter::where('link', 'like', '%kebijakan-privasi%')->first();
+
+        if ($privacyLink && ! WebFooter::where('link', 'like', "%{$slug}%")->exists()) {
+            WebFooter::create([
+                'name' => 'Kebijakan Cookie',
+                'link' => str_replace('kebijakan-privasi', $slug, $privacyLink->link),
+                'group_name' => $privacyLink->group_name,
+                'column_width' => $privacyLink->column_width,
+                'target_blank' => $privacyLink->target_blank,
+                'sort_order' => (int) $privacyLink->sort_order + 1,
+                'status' => 'active',
+            ]);
+            $this->command?->info('  dibuat: link footer Kebijakan Cookie');
         }
     }
 }
