@@ -61,7 +61,11 @@
             --bs-btn-active-color: #fff; --bs-btn-active-bg: color-mix(in srgb, var(--brand) 80%, #000); --bs-btn-active-border-color: color-mix(in srgb, var(--brand) 80%, #000);
             --bs-btn-focus-shadow-rgb: 0, 0, 0;
             --bs-btn-disabled-color: #fff; --bs-btn-disabled-bg: color-mix(in srgb, var(--brand) 45%, #fff); --bs-btn-disabled-border-color: transparent; --bs-btn-disabled-opacity: 1;
+            /* Warna juga ditulis langsung: tema Bootstrap yang dipakai tidak selalu membaca variabel di atas (tombol jadi transparan). */
+            background-color: var(--brand); border-color: var(--brand); color: #fff;
         }
+        .btn-brand:hover, .btn-brand:focus, .btn-brand:active { background-color: color-mix(in srgb, var(--brand) 88%, #000); border-color: color-mix(in srgb, var(--brand) 88%, #000); color: #fff; }
+        .btn-brand:disabled, .btn-brand.disabled { background-color: color-mix(in srgb, var(--brand) 45%, #fff); border-color: transparent; color: #fff; opacity: 1; }
         .text-brand { color: var(--brand) !important; }
         .bg-brand-soft { background: color-mix(in srgb, var(--brand) 8%, #fff); }
         .site-nav .nav-link.active { color: var(--brand); font-weight: 600; }
