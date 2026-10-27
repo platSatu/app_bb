@@ -85,7 +85,7 @@
                 <div class="card scan-card shadow-sm mb-4">
                     <div class="card-body p-4">
                         <h2 class="h6 fw-semibold mb-1">2. Scan ID card peserta</h2>
-                        <p class="small text-muted mb-3" id="scan-hint">Arahkan scanner ke QR di ID card. QR rusak? Ketik kode booking 6 angka lalu Enter.</p>
+                        <p class="small text-muted mb-3" id="scan-hint">Arahkan scanner ke QR di ID card. Langsung terkirim otomatis. QR rusak? Ketik kode booking 6 angka.</p>
                         <form id="scan-form" autocomplete="off">
                             <div class="scan-input-wrap">
                                 <i class="ri-id-card-line"></i>
@@ -276,5 +276,6 @@
                 setInterval(tick, 1000);
             })();
         </script>
+        <script src="{{ asset('be/assets/js/scan-autosubmit.js') }}"></script>
     @endpush
 @endsection

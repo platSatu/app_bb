@@ -110,7 +110,7 @@
                 <h2 class="h5 fw-bold mb-0">Registrasi Ulang</h2>
                 <span class="small text-muted d-inline-flex align-items-center gap-2"><span class="live-dot"></span>Siap menerima scan</span>
             </div>
-            <p class="small text-muted mb-3">Arahkan scanner ke QR e-ticket atau QR ID card, atau ketik kode booking 6 angka lalu tekan Enter.</p>
+            <p class="small text-muted mb-3">Arahkan alat scan ke QR e-ticket atau QR ID card, langsung terkirim otomatis tanpa tekan Enter. QR rusak? Ketik kode booking 6 angka.</p>
             <form id="scan-form" autocomplete="off">
                 <div class="scan-input-wrap">
                     <i class="ri-qr-code-line"></i>
@@ -284,5 +284,6 @@
                 document.addEventListener('click', function (event) { if (event.target !== confirmButton && !event.target.closest('form[method=POST]') && !event.target.closest('#card-actions')) input.focus(); });
             })();
         </script>
+        <script src="{{ asset('be/assets/js/scan-autosubmit.js') }}"></script>
     @endpush
 @endsection

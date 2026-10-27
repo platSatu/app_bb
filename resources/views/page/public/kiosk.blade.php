@@ -213,5 +213,6 @@
                 setInterval(function () { if (document.activeElement !== input) input.focus(); }, 1500);
             })();
         </script>
+        <script src="{{ asset('be/assets/js/scan-autosubmit.js') }}"></script>
     @endpush
 @endsection
