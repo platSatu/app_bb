@@ -19,10 +19,12 @@ Cookie ini dibutuhkan supaya website dan aplikasi bisa berjalan dengan aman. Tan
 
 ## 3. Cookie Analitik dan Pemasaran (Butuh Persetujuan Anda)
 
-Cookie ini **hanya aktif kalau Anda memilih "Terima Semua"** di banner cookie website bizbos.id. Kalau Anda memilih "Hanya yang Diperlukan", cookie ini tidak dipasang sama sekali.
+Cookie ini **hanya aktif kalau Anda mengizinkannya** di banner cookie website bizbos.id. Anda bisa memilih "Terima Semua", "Hanya yang Diperlukan", atau klik **Atur** untuk menyalakan masing-masing kategori sendiri:
 
-- **Google Analytics dan Google Tag Manager**: membantu kami memahami halaman mana yang paling sering dibuka dan dari mana pengunjung datang, dalam bentuk data gabungan.
-- **Google Ads, Meta (Facebook dan Instagram) Pixel, serta TikTok Pixel**: membantu kami mengukur iklan dan menampilkan informasi bizbos kepada orang yang pernah mengunjungi website kami.
+- **Analitik (Google Analytics)**: membantu kami memahami halaman mana yang paling sering dibuka dan dari mana pengunjung datang, dalam bentuk data gabungan.
+- **Pemasaran (Google Ads, Meta Pixel untuk Facebook dan Instagram, serta TikTok Pixel)**: membantu kami mengukur iklan dan menampilkan informasi bizbos kepada orang yang pernah mengunjungi website kami.
+
+Google Tag Manager hanya dimuat kalau Anda mengizinkan kedua kategori tersebut. Kalau Anda memilih "Hanya yang Diperlukan", cookie analitik dan pemasaran tidak dipasang sama sekali.
 
 Data dari cookie ini diproses oleh masing-masing penyedia sesuai kebijakan privasi mereka. Kami tidak menjual data Anda kepada siapa pun.
 
@@ -36,7 +38,7 @@ Saat Anda membayar, Anda akan diarahkan ke halaman Mitra Pembayaran (Duitku). Ha
 
 ## 6. Cara Mengatur Cookie
 
-1. **Di website bizbos.id**: klik **Pengaturan Cookie** di bagian bawah halaman, lalu pilih ulang "Terima Semua" atau "Hanya yang Diperlukan" kapan saja.
+1. **Di website bizbos.id**: klik **Pengaturan Cookie** di bagian bawah halaman untuk mengubah pilihan kapan saja, termasuk menyalakan atau mematikan Analitik dan Pemasaran satu per satu.
 2. **Di browser Anda**: Anda bisa melihat dan menghapus cookie lewat menu pengaturan privasi browser. Kalau cookie yang diperlukan dihapus, Anda perlu masuk ke akun lagi.
 
 Menolak cookie analitik dan pemasaran tidak mengurangi fitur apa pun yang bisa Anda pakai di bizbos.

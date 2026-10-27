@@ -28,6 +28,9 @@ class WebPageContentSeeder extends Seeder
         'affiliate' => ['1884c0dd6d1ce4c24e86d7a80e09f7d23a03df42', 'Ajak usaha lain memakai bizbos dan dapatkan komisi dari setiap pembelian mereka.'],
     ];
 
+    /** Sidik jari isi Kebijakan Cookie versi pertama (sebelum ada pilihan "Atur"); hanya versi ini yang diperbarui. */
+    private const COOKIE_POLICY_V1 = 'e319ff535a3350b5274e572d5eb5802a8bac3bc5';
+
     public function run(): void
     {
         $this->addCookiePolicy();
@@ -60,7 +63,15 @@ class WebPageContentSeeder extends Seeder
         $slug = 'kebijakan-cookie';
         $privacy = WebPage::where('slug', 'kebijakan-privasi')->first();
 
-        if (! WebPage::where('slug', $slug)->exists()) {
+        $content = trim(file_get_contents(database_path("seeders/content/pages/{$slug}.md")));
+        $existing = WebPage::where('slug', $slug)->first();
+
+        if ($existing && sha1(str_replace("\r\n", "\n", trim((string) $existing->content))) === self::COOKIE_POLICY_V1) {
+            $existing->update(['content' => $content]);
+            $this->command?->info('  diperbarui: Kebijakan Cookie');
+        }
+
+        if (! $existing) {
             $subtitle = 'Cookie apa saja yang kami pakai, untuk apa, dan cara Anda mengaturnya.';
             WebPage::create([
                 'title' => 'Kebijakan Cookie',
@@ -68,7 +79,7 @@ class WebPageContentSeeder extends Seeder
                 'type' => 'document',
                 'subtitle' => $subtitle,
                 'meta_description' => $subtitle,
-                'content' => trim(file_get_contents(database_path("seeders/content/pages/{$slug}.md"))),
+                'content' => $content,
                 'show_in_footer' => (bool) $privacy?->show_in_footer,
                 'footer_group' => $privacy?->footer_group,
                 'footer_order' => (int) $privacy?->footer_order + 1,
