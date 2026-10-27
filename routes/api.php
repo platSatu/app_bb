@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\Frontend\HomeSectionController as FrontendHomeSecti
 use App\Http\Controllers\Api\Frontend\PackageController as FrontendPackageController;
 use App\Http\Controllers\Api\Frontend\PageController as FrontendPageController;
 use App\Http\Controllers\Api\Frontend\TermConditionController as FrontendTermConditionController;
+use App\Http\Controllers\Api\Frontend\TicketFeeController as FrontendTicketFeeController;
 use App\Http\Controllers\Api\Frontend\VideoController as FrontendVideoController;
 use App\Http\Controllers\Api\Frontend\VisitorLogController as FrontendVisitorLogController;
 use App\Http\Controllers\Api\Frontend\WebSettingController as FrontendWebSettingController;
@@ -76,6 +77,7 @@ Route::prefix('frontend')->middleware('frontend.api-key')->group(function () {
     Route::get('headers', [FrontendHeaderController::class, 'index']);
     Route::get('footers', [FrontendFooterController::class, 'index']);
     Route::get('home-sections', [FrontendHomeSectionController::class, 'index']);
+    Route::get('ticket-fee', FrontendTicketFeeController::class);
     Route::get('pages', [FrontendPageController::class, 'index']);
     Route::get('pages/{slug}', [FrontendPageController::class, 'show'])->where('slug', '[a-z0-9-]+');
 
