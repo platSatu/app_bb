@@ -10,6 +10,8 @@ use Illuminate\Database\Seeder;
  * Paket awal bizbos: 5 kategori (tab di halaman Beli Paket) x (Trial 7 hari, 6 bulan, 12 bulan). 12 bulan ditandai Populer.
  * Jalankan: php artisan db:seed --class=PackageSeeder
  * Aman dijalankan ulang: harga, fitur, kuota, dll. yang sudah diedit di superadmin TIDAK ditimpa.
+ * Fitur = ringkasan per layanan (5 baris pertama, tampil di kartu) + rincian sesuai menu yang ada.
+ * Paket yang deskripsinya masih ringkasan versi lama (belum pernah diedit) dilengkapi otomatis.
  * Hanya kategorinya yang selalu disamakan (paket dari seeder versi lama masuk ke satu kategori).
  */
 class PackageSeeder extends Seeder
@@ -55,6 +57,48 @@ class PackageSeeder extends Seeder
         'whatsapp' => 'WhatsApp: inbox tim CS, broadcast, auto reply & chatbot',
     ];
 
+    /** Rincian per layanan, mengikuti menu di sidebar (config/menu.php). */
+    private const DETAILS = [
+        'pages' => [
+            'Landing page & bio link tanpa coding',
+            'Katalog online dengan pembayaran',
+            'Tiket event, e-ticket QR & scan registrasi ulang',
+            'ID card peserta',
+            'Form pendaftaran dengan pembayaran',
+            'Kuis & tes online dengan skor otomatis',
+            'Pengunjung yang mengisi otomatis jadi customer',
+        ],
+        'schedules' => [
+            'Jadwal rutin mingguan, sesi dibuat otomatis',
+            'Cek bentrok jadwal pengajar & ruangan',
+            'Absensi, izin & sesi pengganti',
+            'Data murid, pengajar, ruangan & kelas',
+            'Honor pengajar tercatat dari absensi',
+            'Link pendaftaran murid & pengajar',
+            'Portal orang tua/murid & pengajar',
+        ],
+        'invoices' => [
+            'Link bayar online: Virtual Account, e-wallet, QRIS',
+            'Invoice periode untuk banyak pelanggan sekaligus',
+            'Kategori & daftar pelanggan berlangganan',
+            'Pengingat jatuh tempo otomatis',
+            'Denda keterlambatan otomatis',
+            'Halaman Tagihan Saya untuk pelanggan',
+            'Kirim dana ke banyak rekening (disbursement)',
+            'API & webhook untuk developer',
+        ],
+        'whatsapp' => [
+            'Hubungkan banyak nomor dengan scan QR',
+            'Inbox bersama: bagi chat, label & catatan',
+            'Broadcast & pesan terjadwal',
+            'Chatbot menu & auto reply kata kunci',
+            'AI bot dengan pengetahuan bisnis Anda',
+            'Template pesan & quick reply',
+            'Import kontak, grup & grup WhatsApp',
+            'Integrasi Google Form & API',
+        ],
+    ];
+
     public function run(): void
     {
         foreach (self::PLANS as $plan => $config) {
@@ -83,12 +127,23 @@ class PackageSeeder extends Seeder
                 if ($package->category_application_id !== $category->id) {
                     $package->update(['category_application_id' => $category->id]);
                 }
+
+                // Masih ringkasan versi lama (belum diedit superadmin): lengkapi dengan rincian fitur.
+                if ($package->description === $this->summary($config['apps'], $limits)) {
+                    $package->update(['description' => $this->features($config['apps'], $limits)]);
+                }
             }
         }
     }
 
-    /** Satu baris per layanan (kuota ikut di barisnya), supaya muat di 5 poin pertama kartu katalog. */
+    /** Ringkasan (5 baris pertama kartu katalog) lalu rincian fitur setiap layanan. */
     private function features(array $apps, array $limits): string
+    {
+        return implode("\n", [$this->summary($apps, $limits), ...array_merge(...array_map(fn ($app) => self::DETAILS[$app], $apps))]);
+    }
+
+    /** Satu baris per layanan (kuota ikut di barisnya), supaya muat di 5 poin pertama kartu katalog. */
+    private function summary(array $apps, array $limits): string
     {
         $units = ['invoices' => 'invoice', 'whatsapp' => 'pesan'];
         $lines = array_map(fn ($app) => self::FEATURES[$app]
