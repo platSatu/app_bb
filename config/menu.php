@@ -316,6 +316,13 @@ return [
                         'active' => 'superadmin.monitor.*',
                         'superadmin_only' => true,
                     ],
+                    // Tab Pengunjung Website (bizbos.id) & Aktivitas Pengguna (app.bizbos). Berisi IP, jadi khusus superadmin.
+                    'superadmin.activity' => [
+                        'label' => 'Aktivitas & Pengunjung',
+                        'route' => 'superadmin.activity.visitors',
+                        'active' => 'superadmin.activity.*',
+                        'superadmin_only' => true,
+                    ],
                     // Berisi seluruh data, jadi khusus superadmin.
                     'superadmin.backups' => [
                         'label' => 'Backup Database',

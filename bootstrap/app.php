@@ -16,6 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('web', \App\Http\Middleware\RequireVerifiedEmail::class);
         // Header keamanan (anti-clickjacking, nosniff, referrer) untuk semua halaman web; /page/* tetap boleh di-embed.
         $middleware->appendToGroup('web', \App\Http\Middleware\SecurityHeaders::class);
+        // Riwayat aktivitas pengguna yang login (Settings > Aktivitas & Pengunjung).
+        $middleware->appendToGroup('web', \App\Http\Middleware\LogUserActivity::class);
         $middleware->validateCsrfTokens(except: ['payment/duitku/callback']);
 
         $middleware->alias([

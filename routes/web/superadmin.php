@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Superadmin\Activity\ActivityController;
 use App\Http\Controllers\Superadmin\Ai\AiController;
 use App\Http\Controllers\Superadmin\Backup\BackupController;
 use App\Http\Controllers\Superadmin\Monitor\MonitorController;
@@ -152,6 +153,15 @@ Route::middleware(['auth', 'superadmin'])
                 Route::delete('failed', 'forget')->name('forget');
                 Route::delete('jobs/{job}', 'destroyJob')->whereNumber('job')->name('jobs.destroy');
                 Route::post('process', 'process')->middleware('throttle:5,1')->name('process');
+            });
+
+        Route::controller(ActivityController::class)
+            ->prefix('activity')
+            ->name('activity.')
+            ->middleware('permission:superadmin.activity,view')
+            ->group(function () {
+                Route::get('/', 'visitors')->name('visitors');
+                Route::get('users', 'users')->name('users');
             });
 
         Route::controller(BackupController::class)
