@@ -27,7 +27,7 @@ beforeEach(function () {
         '*/transactionStatus' => fn (Request $r) => Http::response(['statusCode' => '00', 'amount' => (string) TicketOrder::where('reference', $r['merchantOrderId'])->value('total')]),
     ]);
     PaymentGatewaySetting::duitku()->forceFill(['sandbox_merchant_code' => 'DS123', 'sandbox_api_key' => 'secret-key', 'is_active' => true])->save();
-    TicketSetting::current()->update(['fee_percent' => 1, 'free_allowance' => 50, 'free_unit_price' => 500]);
+    TicketSetting::current()->update(['fee_percent' => 1, 'free_allowance' => 1000]);
 });
 
 /** Event tiket berbayar Rp100.000, penanggung biaya sesuai $payer. */
@@ -143,101 +143,113 @@ it('penanggung biaya dikunci setelah ada tiket berbayar terjual', function () {
 it('superadmin: persen dibatasi 0 sampai 20, user biasa tidak bisa mengubah', function () {
     $admin = User::factory()->create(['user_type' => User::TYPE_SUPERADMIN]);
 
-    $form = fn (array $data) => $data + ['fee_percent' => 1, 'free_allowance' => 50, 'free_unit_price' => 500];
+    $form = fn (array $data) => $data + ['fee_percent' => 1, 'free_allowance' => 1000];
 
     $this->actingAs($admin)->put(route('superadmin.ticket-fee.update'), $form(['fee_percent' => 25]))->assertSessionHasErrors('fee_percent');
-    $this->actingAs($admin)->put(route('superadmin.ticket-fee.update'), $form(['free_unit_price' => -1]))->assertSessionHasErrors('free_unit_price');
-    $this->actingAs($admin)->put(route('superadmin.ticket-fee.update'), $form(['fee_percent' => 1.5, 'free_allowance' => 20, 'free_unit_price' => 1000]))->assertSessionHas('success');
-    expect((float) TicketSetting::current()->fee_percent)->toBe(1.5)
-        ->and(TicketSetting::current()->only(['free_allowance', 'free_unit_price']))->toBe(['free_allowance' => 20, 'free_unit_price' => 1000]);
+    $this->actingAs($admin)->put(route('superadmin.ticket-fee.update'), $form(['free_allowance' => 0]))->assertSessionHasErrors('free_allowance');
+    $this->actingAs($admin)->put(route('superadmin.ticket-fee.update'), $form(['fee_percent' => 1.5, 'free_allowance' => 500]))->assertSessionHas('success');
+    expect((float) TicketSetting::current()->fee_percent)->toBe(1.5)->and(TicketSetting::current()->free_allowance)->toBe(500);
 
     $this->actingAs(User::factory()->create())->put(route('superadmin.ticket-fee.update'), $form(['fee_percent' => 0]));
     expect((float) TicketSetting::current()->fee_percent)->toBe(1.5);
 });
 
-/* ---------- Tiket gratis: bayar di depan dari Saldo ---------- */
-
-function freeRows(array $categories): array
-{
-    return ['categories' => array_map(fn ($c) => $c + ['max_per_order' => 5, 'status' => 'active'], $categories)];
-}
-
-function topUp(User $owner, int $amount): void
-{
-    app(\App\Services\Wallet\WalletService::class)->credit($owner, $amount, WalletTransaction::TYPE_DEPOSIT, 'tes-topup:'.Str::random(8));
-}
+/* ---------- Kategori tiket: event gratis, kunci nama & harga, riwayat ---------- */
 
 function saldo(User $owner): int
 {
     return app(\App\Services\Wallet\WalletService::class)->balanceOf($owner);
 }
 
+function rows(array $categories): array
+{
+    return ['categories' => array_map(fn ($c) => $c + ['max_per_order' => 5, 'status' => 'active'], $categories)];
+}
 
-it('tiket gratis: wajib disetujui & saldo cukup; kalau tidak, kategori tidak tersimpan dan saldo utuh', function () {
-    [$owner, $page, $category] = paidEvent(TicketSetting::PAYER_ORGANIZER, 0);
-    $rows = freeRows([['id' => $category->id, 'name' => 'Reguler', 'price' => 0, 'quota' => 500]]);
-    $sync = fn (array $extra = []) => $this->actingAs($owner)->put(route('pages.ticket.categories.sync', $page), $rows + $extra);
+it('event gratis: harga wajib Rp0 dan TOTAL kuota semua kategori tidak boleh melewati batas', function () {
+    [$owner, $page, $category] = paidEvent(TicketSetting::PAYER_FREE, 0);
+    $sync = fn (array $categories) => $this->actingAs($owner)->put(route('pages.ticket.categories.sync', $page), rows($categories));
 
-    $sync()->assertSessionHasErrors('free_fee');                                   // belum menyetujui nominal
-    $sync(['free_fee_confirm' => 225000])->assertSessionHasErrors('free_fee');     // saldo 0
-    expect($category->fresh()->quota)->toBe(50)->and(saldo($owner))->toBe(0);
+    $sync([['id' => $category->id, 'name' => 'Reguler', 'price' => 50000, 'quota' => 10]])->assertSessionHasErrors('categories.0.price');
+    // Dipecah jadi banyak kategori kecil tetap dijumlahkan: 600 + 300 + 200 = 1.100 > 1.000.
+    $sync([
+        ['id' => $category->id, 'name' => 'Pagi', 'price' => 0, 'quota' => 600],
+        ['name' => 'Siang', 'price' => 0, 'quota' => 300],
+        ['name' => 'Malam', 'price' => 0, 'quota' => 200],
+    ])->assertSessionHasErrors('categories');
+    expect($page->ticketCategories()->count())->toBe(1)->and($category->fresh()->quota)->toBe(50);   // tidak ada yang tersimpan
 
-    topUp($owner, 300000);
-    $sync(['free_fee_confirm' => 1000])->assertSessionHasErrors('free_fee');       // nominal yang disetujui beda
-    $sync(['free_fee_confirm' => 225000])->assertSessionHasNoErrors();             // (500 - 50) x 500
-    $sync(['free_fee_confirm' => 225000])->assertSessionHasNoErrors();             // simpan ulang: tidak dipotong lagi
-
-    expect($category->fresh()->quota)->toBe(500)->and(saldo($owner))->toBe(75000)
-        ->and(\App\Models\TicketFreeFee::where('page_id', $page->id)->value('paid_units'))->toBe(450);
+    $sync([['id' => $category->id, 'name' => 'Pagi', 'price' => 0, 'quota' => 600], ['name' => 'Siang', 'price' => 0, 'quota' => 400]])->assertSessionHasNoErrors();
+    expect((int) $page->ticketCategories()->sum('quota'))->toBe(1000)->and(saldo($owner))->toBe(0);   // tanpa biaya apa pun
 });
 
-it('jatah gratis dihitung per event: dipecah jadi banyak kategori tetap kena biaya', function () {
-    [$owner, $page, $category] = paidEvent(TicketSetting::PAYER_ORGANIZER, 0);
-    topUp($owner, 100000);
+it('event berbayar: kategori baru wajib punya harga', function () {
+    [$owner, $page, $category] = paidEvent(TicketSetting::PAYER_ORGANIZER);
 
-    $this->actingAs($owner)->put(route('pages.ticket.categories.sync', $page), freeRows([
-        ['id' => $category->id, 'name' => 'Pagi', 'price' => 0, 'quota' => 40],
-        ['name' => 'Siang', 'price' => 0, 'quota' => 40],
-        ['name' => 'Malam', 'price' => 0, 'quota' => 40],
-    ]) + ['free_fee_confirm' => 35000])->assertSessionHasNoErrors();               // 120 - 50 = 70 x 500
-
-    expect(saldo($owner))->toBe(65000);
+    $this->actingAs($owner)->put(route('pages.ticket.categories.sync', $page), rows([
+        ['id' => $category->id, 'name' => 'Reguler', 'price' => 100000, 'quota' => 50],
+        ['name' => 'Undangan', 'price' => 0, 'quota' => 500],
+    ]))->assertSessionHasErrors('categories.1.price');
+    expect($page->ticketCategories()->count())->toBe(1);
 });
 
-it('kuota dikurangi = selisih kembali; tutup pendaftaran = sisa kembali dan tidak bisa dibuka lagi', function () {
-    [$owner, $page, $category] = paidEvent(TicketSetting::PAYER_ORGANIZER, 0);
-    topUp($owner, 300000);
-    $sync = fn (int $quota, array $extra = []) => $this->actingAs($owner)->put(route('pages.ticket.categories.sync', $page),
-        freeRows([['id' => $category->id, 'name' => 'Reguler', 'price' => 0, 'quota' => $quota]]) + $extra);
-
-    $sync(500, ['free_fee_confirm' => 225000])->assertSessionHasNoErrors();
-    $sync(300)->assertSessionHasNoErrors();                                         // 200 x 500 kembali
-    expect(saldo($owner))->toBe(175000);
-
-    $category->forceFill(['sold' => 120])->save();                                  // 120 terdaftar = 70 berbayar
-    $this->actingAs($owner)->post(route('pages.ticket.free.close', $page))->assertSessionHas('success');
-    $this->actingAs($owner)->post(route('pages.ticket.free.close', $page))->assertSessionHas('error');   // tidak dobel
-
-    // dibayar 250, terpakai 70 -> 180 x 500 = 90.000 kembali
-    expect(saldo($owner))->toBe(265000)->and($category->fresh()->status)->toBe('inactive');
-    $sync(300)->assertSessionHasErrors('categories');                               // diaktifkan lagi: ditolak
-    expect(saldo($owner))->toBe(265000);
-});
-
-it('kategori yang sudah ada pembelinya tidak bisa pindah antara gratis dan berbayar', function () {
-    [$owner, $page, $category] = paidEvent(TicketSetting::PAYER_ORGANIZER, 100000);
+it('sudah ada pembeli: nama & harga dikunci, kolom lain boleh diubah dan tercatat di riwayat', function () {
+    [$owner, $page, $category] = paidEvent(TicketSetting::PAYER_ORGANIZER);
     $category->forceFill(['sold' => 3])->save();
+    $sync = fn (array $row) => $this->actingAs($owner)->put(route('pages.ticket.categories.sync', $page), rows([$row + ['id' => $category->id]]));
 
-    $this->actingAs($owner)->put(route('pages.ticket.categories.sync', $page), freeRows([['id' => $category->id, 'name' => 'Reguler', 'price' => 0, 'quota' => 500]]))
-        ->assertSessionHasErrors('categories.0.price');
-    expect($category->fresh()->price)->toBe(100000);
+    $sync(['name' => 'Reguler', 'price' => 1000, 'quota' => 50])->assertSessionHasErrors('categories.0.price');
+    $sync(['name' => 'VIP Baru', 'price' => 100000, 'quota' => 50])->assertSessionHasErrors('categories.0.price');
+    expect($category->fresh()->only(['name', 'price']))->toBe(['name' => 'Reguler', 'price' => 100000]);
+
+    $sync(['name' => 'Reguler', 'price' => 100000, 'quota' => 80, 'description' => 'Termasuk snack'])->assertSessionHasNoErrors();
+    $change = \App\Models\TicketCategoryChange::sole();
+    expect($category->fresh()->quota)->toBe(80)
+        ->and($change->actor_id)->toBe($owner->id)
+        ->and($change->changes)->toBe(['quota' => ['50', '80'], 'description' => ['-', 'Termasuk snack']]);
+    $this->actingAs($owner)->get(route('pages.ticket.categories.index', $page))->assertOk()->assertSee('Riwayat Perubahan')->assertSee('Termasuk snack');
 });
 
-it('event yang sudah ada sebelum fitur ini tetap bebas biaya tiket gratis', function () {
-    [$owner, $page, $category] = paidEvent(TicketSetting::PAYER_ORGANIZER, 0);
-    (new \App\Models\TicketFreeFee())->forceFill(['page_id' => $page->id, 'unit_price' => 0, 'free_allowance' => 0, 'exempt' => true])->save();
+it('jenis event dikunci setelah ada pesanan', function () {
+    [, $page, $category] = paidEvent(TicketSetting::PAYER_BUYER);
+    buyTickets($page, $category, 1);
 
-    $this->actingAs($owner)->put(route('pages.ticket.categories.sync', $page), freeRows([['id' => $category->id, 'name' => 'Reguler', 'price' => 0, 'quota' => 1000]]))
-        ->assertSessionHasNoErrors();
-    expect($category->fresh()->quota)->toBe(1000)->and(saldo($owner))->toBe(0);
+    expect(fn () => app(PageCategoryService::class)->save($page->fresh(), $page->branch, ['name' => $page->name, 'ticket_fee_payer' => TicketSetting::PAYER_FREE]))
+        ->toThrow(ValidationException::class);
+    expect($page->fresh()->ticketFeePayer())->toBe(TicketSetting::PAYER_BUYER);
+});
+
+/* ---------- Checkout & callback: manipulasi data ---------- */
+
+it('checkout: jumlah melebihi batas per orang / sisa kuota / kategori event lain ditolak', function () {
+    [, $page, $category] = paidEvent(TicketSetting::PAYER_ORGANIZER);
+    [, , $other] = paidEvent(TicketSetting::PAYER_ORGANIZER);
+    $category->forceFill(['quota' => 3])->save();
+
+    expect(fn () => buyTickets($page, $category, 6))->toThrow(ValidationException::class)     // maks 5 per orang
+        ->and(fn () => buyTickets($page, $category, 4))->toThrow(ValidationException::class)  // sisa 3
+        ->and(fn () => app(TicketOrderService::class)->create($page, [$other->id => 1], ['name' => 'X', 'email' => 'x@mail.test', 'phone' => '081200000000'], [], null, null))
+        ->toThrow(ValidationException::class);
+    expect(TicketOrder::count())->toBe(0)->and($category->fresh()->reserved)->toBe(0);
+});
+
+it('event gratis tidak pernah menagih walau harga di database diubah paksa', function () {
+    [, $page, $category] = paidEvent(TicketSetting::PAYER_FREE, 0);
+    $category->forceFill(['price' => 100000])->save();
+
+    expect(fn () => buyTickets($page, $category, 1))->toThrow(ValidationException::class);
+    expect(TicketOrder::count())->toBe(0);
+});
+
+it('callback dengan nominal yang diubah tidak dianggap lunas dan saldo tidak bertambah', function () {
+    [$owner, $page, $category] = paidEvent(TicketSetting::PAYER_BUYER);
+    $order = buyTickets($page, $category, 1);
+    $amount = '1000';   // seharusnya 101.000
+
+    $this->post(route('payment.duitku.callback'), [
+        'merchantCode' => 'DS123', 'amount' => $amount, 'merchantOrderId' => $order->reference, 'paymentCode' => 'BC',
+        'resultCode' => '00', 'reference' => 'X', 'signature' => hash_hmac('sha256', 'DS123'.$amount.$order->reference, 'secret-key'),
+    ]);
+
+    expect($order->fresh()->status)->toBe(TicketOrder::STATUS_PENDING)->and(ticketCredits($owner))->toBe(0);
 });

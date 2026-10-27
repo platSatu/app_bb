@@ -80,7 +80,6 @@ $write = function () {
     Route::put('{page}/quiz/settings', [QuizSettingController::class, 'update'])->name('quiz.settings.update');
 
     Route::put('{page}/tickets/categories', [TicketCategoryController::class, 'sync'])->middleware('throttle:30,1')->name('ticket.categories.sync');
-    Route::post('{page}/tickets/free/close', [TicketCategoryController::class, 'closeFree'])->middleware('throttle:10,1')->name('ticket.free.close');
     Route::post('{page}/tickets/orders/{order}/resend', [TicketOrderController::class, 'resend'])->middleware('throttle:10,1')->name('ticket.orders.resend');
     Route::put('{page}/tickets/design', [TicketDesignController::class, 'update'])->name('ticket.design.update');
     Route::put('{page}/tickets/terms', [TicketTermsController::class, 'update'])->name('ticket.terms.update');

@@ -13,7 +13,7 @@
         <p class="text-muted mb-0">Sebelum membuat page tiket, coba hitung dulu berapa yang akan Anda terima. Isi harga dan perkiraan jumlah tiket, angkanya langsung muncul di sebelah kanan.</p>
     </div>
 
-    <form method="GET" action="{{ route('pages.create') }}" id="fee-sim" data-bps="{{ (int) round((float) $percent * 100) }}" data-free-allowance="{{ $freeAllowance }}" data-free-unit="{{ $freeUnit }}">
+    <form method="GET" action="{{ route('pages.create') }}" id="fee-sim" data-bps="{{ (int) round((float) $percent * 100) }}" data-free-limit="{{ $freeAllowance }}">
         <input type="hidden" name="type" value="{{ $type->id }}">
 
         <div class="row g-4">
@@ -54,11 +54,12 @@
 
                         <hr class="my-4">
 
-                        <h6 class="mb-1">Siapa yang menanggung biaya layanan?</h6>
-                        <p class="small text-muted mb-3">Bisa diubah lagi di pengaturan page selama belum ada tiket berbayar yang terjual.</p>
+                        <h6 class="mb-1">Pilih jenis event</h6>
+                        <p class="small text-muted mb-3">Bisa diubah lagi di Informasi Page selama belum ada pesanan.</p>
                         @foreach ([
-                            \App\Models\TicketSetting::PAYER_ORGANIZER => ['Saya (penyelenggara)', "Harga di halaman tiket tetap. Biaya layanan {$percentLabel} dipotong dari hasil penjualan."],
-                            \App\Models\TicketSetting::PAYER_BUYER => ['Pembeli', "Biaya layanan {$percentLabel} ditambahkan saat pembeli checkout. Anda menerima harga tiket utuh."],
+                            \App\Models\TicketSetting::PAYER_ORGANIZER => ['Berbayar, biaya ditanggung saya', "Harga di halaman tiket tetap. Biaya layanan {$percentLabel} dipotong dari hasil penjualan."],
+                            \App\Models\TicketSetting::PAYER_BUYER => ['Berbayar, biaya ditanggung pembeli', "Biaya layanan {$percentLabel} ditambahkan saat pembeli checkout. Anda menerima harga tiket utuh."],
+                            \App\Models\TicketSetting::PAYER_FREE => ['Event gratis', 'Semua tiket Rp0, tanpa biaya apa pun. Total maksimal '.number_format($freeAllowance, 0, ',', '.').' tiket untuk semua kategori.'],
                         ] as $value => [$label, $hint])
                             <label class="d-flex gap-3 border rounded-3 p-3 mb-2" style="cursor:pointer">
                                 <input class="form-check-input mt-1 flex-shrink-0" type="radio" name="fee_payer" value="{{ $value }}" @checked($payer === $value)>
@@ -85,7 +86,7 @@
 
                         <div class="alert alert-primary small mb-3">
                             <div class="fw-semibold mb-1"><i class="ri-information-line"></i> Cara kerja biaya layanan</div>
-                            Biaya layanan bizbos <strong>{{ $percentLabel }}</strong> dari harga setiap tiket berbayar yang terjual. Untuk tiket gratis, {{ $freeAllowance }} tiket pertama per event tidak dikenai biaya; selebihnya Rp {{ number_format($freeUnit, 0, ',', '.') }} per tiket, dibayar di depan dari Saldo.
+                            Biaya layanan bizbos <strong>{{ $percentLabel }}</strong> dari harga setiap tiket berbayar yang terjual, dipotong dari uang yang masuk atau ditambahkan ke pembeli. Event gratis tidak dikenai biaya.
                         </div>
 
                         <div class="bg-light rounded-3 p-3 mb-2">
@@ -96,11 +97,7 @@
                             <div class="d-flex justify-content-between small text-muted"><span>Biaya layanan ({{ $percentLabel }})</span><span data-out="payer"></span></div>
                             <div class="fs-4 fw-semibold text-danger" data-out="fee">Rp 0</div>
                         </div>
-                        <div class="bg-light rounded-3 p-3 mb-2" data-free-only>
-                            <div class="small text-muted">Biaya tiket gratis (dibayar di depan dari Saldo)</div>
-                            <div class="fs-5 fw-semibold text-danger" data-out="free">Rp 0</div>
-                            <div class="small text-muted" data-out="free-note"></div>
-                        </div>
+                        <div class="alert alert-success small mb-2" data-free-only data-out="free-note"></div>
                         <div class="bg-light rounded-3 p-3 mb-2" data-buyer-only>
                             <div class="small text-muted">Total yang dibayar semua pembeli</div>
                             <div class="fs-5 fw-semibold" data-out="paid">Rp 0</div>
@@ -121,13 +118,14 @@
                         <h6 class="mb-3">Yang perlu Anda ketahui</h6>
                         <ul class="small text-muted mb-0 ps-3" style="line-height:1.8">
                             <li>Biaya layanan {{ $percentLabel }} dihitung dari harga tiket berbayar di setiap pesanan.</li>
-                            <li><strong>Tiket gratis:</strong> {{ $freeAllowance }} tiket gratis pertama di setiap event tidak dikenai biaya. Selebihnya Rp {{ number_format($freeUnit, 0, ',', '.') }} per tiket, dibayar di depan dari Saldo saat Anda menyimpan kategori tiket. Tiket yang tidak terpakai dikembalikan ke Saldo saat Anda menutup pendaftaran.</li>
+                            <li><strong>Event gratis:</strong> semua tiket Rp0 dan tidak ada biaya apa pun. Total jumlah tiket dari semua kategori maksimal {{ number_format($freeAllowance, 0, ',', '.') }}. Butuh lebih banyak? Pilih event berbayar.</li>
+                            <li>Setelah ada pembeli, <strong>nama dan harga</strong> kategori tiket dikunci. Kolom lain masih boleh diubah dan setiap perubahan tercatat di riwayat.</li>
                             <li><strong>Ditanggung Anda:</strong> pembeli membayar sesuai harga tiket. Biaya layanan dipotong otomatis sebelum hasil penjualan masuk ke Saldo Anda.</li>
                             <li><strong>Ditanggung pembeli:</strong> di halaman pembayaran muncul baris <em>Biaya layanan</em> sehingga pembeli membayar harga tiket + biaya layanan. Anda menerima harga tiket utuh.</li>
                             <li>Biaya metode pembayaran (Virtual Account, e-wallet, dan lainnya) mengikuti metode yang dipilih pembeli dan tidak mengurangi pendapatan Anda.</li>
                             <li>Hasil penjualan masuk ke Saldo setiap kali tiket lunas, dan bisa ditarik ke rekening setelah dana selesai diproses bank (lihat menu Tarik Saldo).</li>
                             <li>Persen biaya yang berlaku dikunci di setiap pesanan. Kalau suatu saat tarifnya berubah, pesanan yang sudah ada tidak ikut berubah.</li>
-                            <li>Pilihan penanggung biaya bisa diganti selama belum ada tiket berbayar yang terjual. Setelah itu dikunci supaya semua pembeli mendapat aturan yang sama.</li>
+                            <li>Jenis event bisa diganti selama belum ada pesanan. Setelah itu dikunci supaya semua pembeli mendapat aturan yang sama.</li>
                         </ul>
                     </div>
                 </div>
@@ -155,26 +153,27 @@
             var feeFor = function (subtotal) { return subtotal > 0 && bps > 0 ? Math.floor((subtotal * bps + 9999) / 10000) : 0; };
 
             function update() {
-                var sales = 0, freeQty = 0;
+                var mode = (form.querySelector('[name=fee_payer]:checked') || {}).value, free = mode === 'free', buyer = mode === 'buyer';
+                var sales = 0, qtyTotal = 0, limit = Number(form.dataset.freeLimit) || 0;
                 rows.querySelectorAll('[data-row]').forEach(function (row) {
-                    var price = Math.max(0, parseInt(row.querySelector('[data-price]').value, 10) || 0);
+                    var priceInput = row.querySelector('[data-price]');
+                    // Event gratis: harga dikunci Rp0 (sama seperti di menu Kategori Tiket).
+                    if (free) priceInput.value = 0;
+                    priceInput.readOnly = free;
+                    var price = Math.max(0, parseInt(priceInput.value, 10) || 0);
                     var qty = Math.max(0, parseInt(row.querySelector('[data-qty]').value, 10) || 0);
                     sales += price * qty;
-                    if (price === 0) freeQty += qty;
+                    qtyTotal += qty;
                 });
-                // Tiket gratis: jatah gratis per event, selebihnya dibayar di depan (sama dengan FreeTicketFeeService).
-                var allowance = Number(form.dataset.freeAllowance) || 0, unit = Number(form.dataset.freeUnit) || 0;
-                var freePaid = Math.max(0, freeQty - allowance), freeCost = freePaid * unit;
-                out('free', '−' + money(freeCost));
-                out('free-note', freeQty ? freeQty + ' tiket gratis: ' + Math.min(freeQty, allowance) + ' gratis, ' + freePaid + ' × ' + money(unit) + '. Yang tidak terpakai dikembalikan saat pendaftaran ditutup.' : '');
-                form.querySelector('[data-free-only]').classList.toggle('d-none', freeQty === 0);
-                var buyer = (form.querySelector('[name=fee_payer]:checked') || {}).value === 'buyer';
+                form.querySelector('[data-free-only]').classList.toggle('d-none', !free);
+                form.querySelector('[data-free-only]').innerHTML = 'Total ' + qtyTotal.toLocaleString('id-ID') + ' dari maksimal ' + limit.toLocaleString('id-ID') + ' tiket gratis.'
+                    + (qtyTotal > limit ? ' <strong class="text-danger">Melebihi batas.</strong> Kurangi jumlahnya atau pilih event berbayar.' : ' Tidak ada biaya apa pun.');
                 var fee = feeFor(sales);
                 out('sales', money(sales));
                 out('fee', (buyer ? '+' : '−') + money(fee));
-                out('payer', buyer ? 'Ditanggung pembeli' : 'Ditanggung Anda');
+                out('payer', free ? 'Event gratis' : (buyer ? 'Ditanggung pembeli' : 'Ditanggung Anda'));
                 out('paid', money(sales + fee));
-                out('net', money((buyer ? sales : sales - fee) - freeCost));
+                out('net', money(buyer ? sales : sales - fee));
                 form.querySelector('[data-buyer-only]').classList.toggle('d-none', !buyer);
             }
 

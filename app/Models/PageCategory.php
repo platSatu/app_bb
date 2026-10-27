@@ -84,7 +84,7 @@ class PageCategory extends Model
         return data_get($this->settings, $key, $default);
     }
 
-    /** Siapa yang menanggung biaya layanan tiket (dipilih penyelenggara; default penyelenggara). */
+    /** Mode biaya event tiket: organizer / buyer / free (lihat TicketSetting). Default penyelenggara. */
     public function ticketFeePayer(): string
     {
         $payer = $this->setting('ticket.fee_payer');
@@ -92,10 +92,21 @@ class PageCategory extends Model
         return array_key_exists((string) $payer, TicketSetting::PAYER_LABELS) ? $payer : TicketSetting::PAYER_ORGANIZER;
     }
 
-    /** Setelah ada pesanan tiket berbayar, penanggung biaya tidak bisa diganti (semua pembeli dapat aturan yang sama). */
+    public function isFreeEvent(): bool
+    {
+        return $this->ticketFeePayer() === TicketSetting::PAYER_FREE;
+    }
+
+    /** Batas total kuota event gratis; null = tanpa batas (event gratis lama, sebelum aturan ini). */
+    public function freeTicketLimit(): ?int
+    {
+        return $this->setting('ticket.free_unlimited') ? null : TicketSetting::current()->free_allowance;
+    }
+
+    /** Setelah ada pesanan, mode biaya tidak bisa diganti (semua pembeli dapat aturan yang sama). */
     public function ticketFeeLocked(): bool
     {
-        return $this->exists && $this->ticketOrders()->where('subtotal', '>', 0)->exists();
+        return $this->exists && $this->ticketOrders()->exists();
     }
 
     public function template(): ?string

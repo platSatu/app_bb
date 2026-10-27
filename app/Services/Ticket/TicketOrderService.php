@@ -227,8 +227,14 @@ class TicketOrderService
 
         $customer = $this->customers->resolve($branch, 'pages', $buyer['name'], $buyer['phone'], $buyer['email'], 'Tiket: '.Str::limit($page->name, 200, ''));
         $subtotal = array_sum(array_map(fn ($id, $qty) => $qty * $categories[$id]->price, array_keys($quantities), $quantities));
-        $feePercent = TicketSetting::current()->fee_percent;
         $feePayer = $page->ticketFeePayer();
+
+        // Event gratis tidak boleh menagih apa pun (penjagaan kedua; kategori sudah dipaksa Rp0 saat disimpan).
+        if ($feePayer === TicketSetting::PAYER_FREE && $subtotal > 0) {
+            throw ValidationException::withMessages(['tickets' => 'Tiket ini sedang diperbarui penyelenggara. Silakan muat ulang halaman ya.']);
+        }
+
+        $feePercent = TicketSetting::current()->fee_percent;
         $fee = TicketSetting::feeFor($subtotal, $feePercent);
         $total = $feePayer === TicketSetting::PAYER_BUYER ? $subtotal + $fee : $subtotal;
 

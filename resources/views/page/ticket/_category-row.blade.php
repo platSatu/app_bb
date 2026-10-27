@@ -1,9 +1,17 @@
-@php($err = fn ($key) => $errors->first("categories.{$i}.{$key}"))
+@php
+    $err = fn ($key) => $errors->first("categories.{$i}.{$key}");
+    // Hanya tampilan; server tetap menolak perubahan nama/harga yang dikunci (TicketCategoryController::sync).
+    $locked = (bool) ($row['locked'] ?? false);
+    $priceLocked = $locked || ($freeEvent ?? false);
+    // Kategori gratis lama di event berbayar tetap boleh disimpan apa adanya.
+    $minPrice = ($freeEvent ?? false) || (filled($row['id'] ?? null) && (string) ($row['price'] ?? '') === '0') ? 0 : 1;
+@endphp
 <div class="bg-white border rounded-3 shadow-sm p-3 mb-3" data-row>
     <input type="hidden" name="categories[{{ $i }}][id]" value="{{ $row['id'] ?? '' }}">
     <div class="d-flex align-items-center gap-2 mb-2">
         <span class="text-muted" data-drag-handle style="cursor: grab; touch-action: none;" title="Geser untuk mengubah urutan"><i class="ri-draggable fs-5"></i></span>
-        <input type="text" name="categories[{{ $i }}][name]" value="{{ $row['name'] ?? '' }}" maxlength="100" class="form-control form-control-sm fw-semibold @if ($err('name')) is-invalid @endif" placeholder="Nama kategori, mis. VIP" required>
+        <input type="text" name="categories[{{ $i }}][name]" value="{{ $row['name'] ?? '' }}" maxlength="100" class="form-control form-control-sm fw-semibold @if ($err('name')) is-invalid @endif" placeholder="Nama kategori, mis. VIP" required @readonly($locked)>
+        @if ($locked) <span class="badge bg-light text-muted text-nowrap" title="Sudah ada pembeli: nama dan harga dikunci"><i class="ri-lock-line"></i> Terkunci</span> @endif
         <select name="categories[{{ $i }}][status]" class="form-select form-select-sm" style="max-width: 140px;">
             @foreach (\App\Models\TicketCategory::STATUS_LABELS as $value => $label)
                 <option value="{{ $value }}" @selected(($row['status'] ?? 'active') === $value)>{{ $label }}</option>
@@ -14,8 +22,12 @@
     <div class="row g-2">
         <div class="col-6 col-md-3">
             <label class="form-label small mb-1">Harga per tiket (Rp)</label>
-            <input type="number" name="categories[{{ $i }}][price]" min="0" value="{{ $row['price'] ?? '' }}" class="form-control form-control-sm" placeholder="0 = gratis" required>
-            <div class="form-text small">Isi 0 kalau tiket ini gratis.</div>
+            <input type="number" name="categories[{{ $i }}][price]" min="{{ $minPrice }}" value="{{ ($freeEvent ?? false) ? 0 : ($row['price'] ?? '') }}" class="form-control form-control-sm @if ($err('price')) is-invalid @endif" required @readonly($priceLocked)>
+            @if ($err('price'))
+                <div class="invalid-feedback">{{ $err('price') }}</div>
+            @else
+                <div class="form-text small">{{ ($freeEvent ?? false) ? 'Event gratis: harga selalu Rp0.' : ($locked ? 'Dikunci karena sudah ada pembeli.' : 'Harga yang dibayar pembeli per tiket.') }}</div>
+            @endif
         </div>
         <div class="col-6 col-md-3">
             <label class="form-label small mb-1">Jumlah tiket dijual</label>

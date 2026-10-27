@@ -5,26 +5,32 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
-/** Biaya layanan bizbos untuk setiap tiket berbayar yang terjual (diatur superadmin). */
+/**
+ * Biaya layanan tiket (diatur superadmin). Setiap event memilih satu mode (settings.ticket.fee_payer):
+ * organizer = biaya dipotong dari uang yang masuk, buyer = biaya ditambahkan ke pembeli,
+ * free = semua tiket gratis dengan total kuota maksimal free_allowance.
+ */
 class TicketSetting extends Model
 {
     use HasUuids;
 
     public const PAYER_ORGANIZER = 'organizer';
     public const PAYER_BUYER = 'buyer';
+    public const PAYER_FREE = 'free';
 
     public const PAYER_LABELS = [
         self::PAYER_ORGANIZER => 'Ditanggung penyelenggara',
         self::PAYER_BUYER => 'Ditanggung pembeli',
+        self::PAYER_FREE => 'Event gratis',
     ];
 
     public const MAX_PERCENT = 20;
 
-    protected $fillable = ['fee_percent', 'free_allowance', 'free_unit_price'];
+    protected $fillable = ['fee_percent', 'free_allowance'];
 
     protected function casts(): array
     {
-        return ['fee_percent' => 'decimal:2', 'free_allowance' => 'integer', 'free_unit_price' => 'integer'];
+        return ['fee_percent' => 'decimal:2', 'free_allowance' => 'integer'];
     }
 
     public static function current(): self

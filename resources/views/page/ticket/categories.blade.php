@@ -6,6 +6,7 @@
 @php
     $fmt = fn ($date) => $date?->format('Y-m-d\TH:i');
     $rows = old('categories', $categories->map(fn ($c) => [
+        'locked' => $c->sold + $c->reserved > 0,
         'id' => $c->id, 'name' => $c->name, 'description' => $c->description, 'price' => $c->price, 'quota' => $c->quota,
         'max_per_order' => $c->max_per_order, 'sale_starts_at' => $fmt($c->sale_starts_at), 'sale_ends_at' => $fmt($c->sale_ends_at), 'status' => $c->status,
     ])->all());
@@ -83,7 +84,15 @@
                         @foreach ($errors->all() as $message) <div>{{ $message }}</div> @endforeach
                     </div>
                 @endif
-                @include('page.ticket._free-fee')
+                <div class="alert {{ $freeEvent ? 'alert-success' : 'alert-primary' }} small mb-3">
+                    @if ($freeEvent)
+                        <strong>Event gratis.</strong> Semua tiket Rp0{{ $freeLimit ? ', dengan total maksimal '.number_format($freeLimit, 0, ',', '.').' tiket untuk semua kategori' : '' }}.
+                        @if ($freeLimit) <span data-free-total data-limit="{{ $freeLimit }}"></span> @endif
+                    @else
+                        <strong>{{ \App\Models\TicketSetting::PAYER_LABELS[$page->ticketFeePayer()] }}.</strong> Biaya layanan dihitung dari harga tiket berbayar setiap pesanan.
+                    @endif
+                    Kategori yang sudah ada pembelinya tidak bisa diubah nama dan harganya. Setiap perubahan tercatat di Riwayat Perubahan.
+                </div>
                 <fieldset @disabled(! $canManage)>
                     <div data-sortable id="ticket-rows">
                         @foreach ($rows as $i => $row)
@@ -102,7 +111,32 @@
         </div>
     </form>
 
-    @include('page.ticket._free-fee-close')
+    @if ($history->isNotEmpty())
+        <div class="card mt-3">
+            <div class="card-header bg-white border-bottom px-4 py-3"><h6 class="mb-0 fw-semibold">Riwayat Perubahan Kategori</h6></div>
+            <div class="card-body p-3 p-md-4">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0 small">
+                        <thead class="table-light"><tr><th class="text-nowrap">Waktu</th><th>Kategori</th><th>Perubahan</th><th>Oleh</th></tr></thead>
+                        <tbody>
+                            @foreach ($history as $change)
+                                <tr>
+                                    <td class="text-nowrap">{{ $change->created_at->translatedFormat('d M Y H:i') }}</td>
+                                    <td>{{ $change->category_name }}</td>
+                                    <td>
+                                        @foreach ($change->changes as $field => [$from, $to])
+                                            <div>{{ \App\Models\TicketCategoryChange::FIELDS[$field] ?? $field }}: <span class="text-muted text-decoration-line-through">{{ $from }}</span> → <strong>{{ $to }}</strong></div>
+                                        @endforeach
+                                    </td>
+                                    <td class="text-nowrap">{{ $change->actor?->name ?? '-' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    @endif
 
     <script src="{{ asset('be/assets/js/sortable-rows.js') }}"></script>
     <script>
@@ -115,42 +149,23 @@
                 rows.lastElementChild.querySelector('input[type=text]').focus();
                 refresh();
             });
+            // Event gratis: tampilkan total kuota semua kategori dibanding batasnya (server tetap mengecek ulang).
+            var info = document.querySelector('[data-free-total]');
+            function freeTotal() {
+                if (!info) return;
+                var total = 0;
+                rows.querySelectorAll('[name$="[quota]"]').forEach(function (input) { total += Math.max(0, parseInt(input.value, 10) || 0); });
+                var limit = Number(info.dataset.limit);
+                info.innerHTML = 'Terpakai <strong>' + total.toLocaleString('id-ID') + '</strong> dari ' + limit.toLocaleString('id-ID') + '.' + (total > limit ? ' <span class="text-danger fw-semibold">Melebihi batas, kurangi jumlahnya.</span>' : '');
+            }
+            rows.addEventListener('input', freeTotal);
+            freeTotal();
             rows.addEventListener('click', function (event) {
                 if (!event.target.closest('[data-remove]')) return;
                 event.target.closest('[data-row]').remove();
                 refresh();
-                freeFee();
             });
         })();
 
-        // Perkiraan biaya tiket gratis, rumusnya sama dengan FreeTicketFeeService (dihitung per event).
-        function freeFee() {
-            var box = document.getElementById('free-fee');
-            if (!box || box.dataset.closed === '1') return null;
-            var unit = Number(box.dataset.unit), allowance = Number(box.dataset.allowance), paid = Number(box.dataset.paid), quota = 0;
-            document.querySelectorAll('#ticket-rows [data-row]').forEach(function (row) {
-                var price = row.querySelector('[name$="[price]"]'), qty = row.querySelector('[name$="[quota]"]');
-                if (price.value !== '' && Number(price.value) === 0) quota += Math.max(0, parseInt(qty.value, 10) || 0);
-            });
-            var needed = Math.max(0, quota - allowance), change = needed - paid, amount = Math.abs(change) * unit;
-            var rp = function (n) { return 'Rp ' + n.toLocaleString('id-ID'); };
-            var text = 'Total kuota tiket gratis: <strong>' + quota + '</strong> · gratis ' + Math.min(quota, allowance) + ' · berbayar ' + needed + ' (sudah dibayar ' + paid + ').<br>';
-            text += change > 0 && amount > 0 ? '<span class="text-danger">Saat disimpan, <strong>' + rp(amount) + '</strong> (' + change + ' tiket × ' + rp(unit) + ') dipotong dari Saldo.</span>'
-                : change < 0 && amount > 0 ? '<span class="text-success">Saat disimpan, <strong>' + rp(amount) + '</strong> dikembalikan ke Saldo.</span>'
-                : 'Tidak ada biaya tambahan.';
-            box.querySelector('[data-free-summary]').innerHTML = text;
-            box.querySelector('[data-free-confirm]').value = change > 0 ? amount : 0;
-            return change > 0 && amount > 0 ? { amount: rp(amount), count: change } : null;
-        }
-
-        (function () {
-            var form = document.getElementById('ticket-categories-form');
-            form.addEventListener('input', freeFee);
-            form.addEventListener('submit', function (event) {
-                var charge = freeFee();
-                if (charge && !confirm('Ada ' + charge.count + ' tiket gratis tambahan. ' + charge.amount + ' akan dipotong dari Saldo Anda. Lanjutkan?')) event.preventDefault();
-            });
-            freeFee();
-        })();
     </script>
 @endsection

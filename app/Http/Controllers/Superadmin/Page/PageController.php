@@ -57,6 +57,10 @@ class PageController extends Controller
     {
         $page = $this->pages->save(new PageCategory(), $request->branch(), $request->validated());
 
+        if ($page->isTemplate(PageType::TEMPLATE_TICKET)) {
+            return redirect()->route(self::ROUTES.'.ticket.categories.index', $page)->with('success', "Page {$page->name} berhasil dibuat. Sekarang isi kategori tiketnya.");
+        }
+
         return redirect()->route(self::ROUTES.'.index')->with('success', "Page {$page->name} berhasil dibuat.");
     }
 

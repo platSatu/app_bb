@@ -63,6 +63,12 @@ class PageCategoryController extends Controller
     {
         $page = $this->pages->save(new PageCategory(), $request->branch(), $request->validated());
 
+        // Page tiket: langkah berikutnya selalu mengisi kategori tiket.
+        if ($page->isTemplate(PageType::TEMPLATE_TICKET)) {
+            return redirect()->route('pages.ticket.categories.index', $page)
+                ->with('success', "Page {$page->name} berhasil dibuat. Sekarang isi kategori tiketnya, mis. Reguler atau VIP.");
+        }
+
         return redirect()->route('pages.index')
             ->with('success', "Page {$page->name} berhasil dibuat. Link dan QR code-nya sudah siap, klik Setting untuk mengatur isinya.");
     }

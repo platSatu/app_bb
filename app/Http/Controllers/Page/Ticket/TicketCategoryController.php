@@ -7,15 +7,14 @@ use App\Http\Controllers\Page\Concerns\ResolvesPage;
 use App\Models\PageCategory;
 use App\Models\PageType;
 use App\Models\TicketCategory;
+use App\Models\TicketCategoryChange;
 use App\Models\TicketStockLog;
-use App\Services\Ticket\FreeTicketFeeService;
 use App\Support\Menu;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use RuntimeException;
 use Illuminate\View\View;
 
 class TicketCategoryController extends Controller
@@ -24,7 +23,7 @@ class TicketCategoryController extends Controller
 
     private const MAX = 30;
 
-    /** Ringkasan penjualan + form atur kategori dalam satu halaman. */
+    /** Ringkasan penjualan + form atur kategori + riwayat perubahan dalam satu halaman. */
     public function index(Request $request, string $page): View
     {
         $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET);
@@ -32,13 +31,23 @@ class TicketCategoryController extends Controller
         return view('page.ticket.categories', [
             'page' => $model,
             'categories' => $model->ticketCategories()->get(),
-            'freeFee' => app(FreeTicketFeeService::class)->summary($model),
+            'freeEvent' => $model->isFreeEvent(),
+            'freeLimit' => $model->isFreeEvent() ? $model->freeTicketLimit() : null,
+            'history' => TicketCategoryChange::where('page_id', $model->getKey())->with('actor:id,name')->latest('created_at')->limit(30)->get(),
             'routes' => $this->routes($request),
             'canManage' => $this->canManage($request),
         ]);
     }
 
-    public function sync(Request $request, FreeTicketFeeService $freeFees, string $page): RedirectResponse
+    /**
+     * Simpan semua kategori sekaligus. Aturannya (semua dicek di server, apa pun yang dikirim browser):
+     *  1. Kategori yang sudah ada pembelinya: nama & harga dikunci; kolom lain boleh diubah dan dicatat di riwayat.
+     *  2. Event gratis: semua harga harus Rp0, dan TOTAL kuota semua kategori tidak boleh melewati batas superadmin.
+     *  3. Event berbayar: harga wajib diisi (kategori gratis lama tetap boleh dipertahankan).
+     *  4. Jumlah dijual tidak boleh di bawah yang sudah terjual / sedang ditahan.
+     * Semua berjalan dalam 1 transaksi dengan page & kategori dikunci: ada satu saja yang salah, tidak ada yang tersimpan.
+     */
+    public function sync(Request $request, string $page): RedirectResponse
     {
         $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET, Menu::ABILITY_MANAGE);
 
@@ -53,38 +62,42 @@ class TicketCategoryController extends Controller
             'categories.*.sale_starts_at' => ['nullable', 'date'],
             'categories.*.sale_ends_at' => ['nullable', 'date'],
             'categories.*.status' => ['required', Rule::in(array_keys(TicketCategory::STATUS_LABELS))],
-            'free_fee_confirm' => ['nullable', 'integer', 'min:0'],
         ], [
             'categories.*.name.required' => 'Nama kategori tiket belum diisi.',
-            'categories.*.price.required' => 'Harga tiket belum diisi. Isi 0 kalau tiketnya gratis.',
+            'categories.*.price.required' => 'Harga tiket belum diisi.',
             'categories.*.quota.required' => 'Jumlah tiket yang dijual belum diisi.',
             'categories.*.quota.min' => 'Jumlah tiket yang dijual minimal 1.',
             'categories.*.max_per_order.required' => 'Batas pembelian per orang belum diisi.',
             'categories.*.max_per_order.max' => 'Batas pembelian per orang maksimal 100 tiket.',
         ])['categories']);
 
-        $actor = $request->user();
-        $actorId = $actor->getKey();
-        $confirmed = $request->filled('free_fee_confirm') ? (int) $request->input('free_fee_confirm') : null;
+        $actorId = $request->user()->getKey();
 
-        $message = DB::transaction(function () use ($model, $rows, $actorId, $actor, $confirmed, $freeFees) {
-            PageCategory::whereKey($model->getKey())->lockForUpdate()->first();
+        DB::transaction(function () use ($model, $rows, $actorId) {
+            $locked = PageCategory::whereKey($model->getKey())->lockForUpdate()->firstOrFail();
             $existing = TicketCategory::where('page_id', $model->getKey())->lockForUpdate()->get()->keyBy('id');
+            $freeEvent = $locked->isFreeEvent();
             $errors = [];
             $kept = [];
 
             foreach ($rows as $position => $row) {
                 $category = $existing->get($row['id'] ?? '') ?? new TicketCategory();
                 $label = 'Kategori '.$row['name'];
+                $price = (int) $row['price'];
+                $hasBuyers = $category->exists && $category->sold + $category->reserved > 0;
+
+                if ($hasBuyers && ($row['name'] !== $category->name || $price !== $category->price)) {
+                    $errors["categories.{$position}.price"] = "{$category->name}: sudah ada pembelinya, jadi nama dan harganya tidak bisa diubah. Kolom lain tetap boleh diubah.";
+                }
+
+                if ($freeEvent && $price !== 0) {
+                    $errors["categories.{$position}.price"] = "{$label}: ini event gratis, jadi harga tiket harus Rp0.";
+                } elseif (! $freeEvent && $price === 0 && ! ($category->exists && $category->price === 0)) {
+                    $errors["categories.{$position}.price"] = "{$label}: isi harga tiketnya. Kalau tiketnya gratis, pilih jenis Event gratis di Informasi Page (selama belum ada pesanan).";
+                }
 
                 if ($category->exists && $row['quota'] < $category->sold + $category->reserved) {
                     $errors["categories.{$position}.quota"] = "{$label}: jumlah tiket minimal ".($category->sold + $category->reserved).', karena sebanyak itu sudah terjual atau sedang menunggu pembayaran.';
-                }
-
-                // Tiket gratis dibayar per kuota di depan, tiket berbayar dikenai persen: kategori yang sudah ada
-                // pembelinya tidak boleh pindah dari gratis ke berbayar atau sebaliknya.
-                if ($category->exists && $category->sold + $category->reserved > 0 && ($category->price === 0) !== ((int) $row['price'] === 0)) {
-                    $errors["categories.{$position}.price"] = "{$label}: sudah ada pembelinya, jadi tidak bisa diubah dari gratis ke berbayar atau sebaliknya. Buat kategori baru saja ya.";
                 }
 
                 if (filled($row['sale_starts_at'] ?? null) && filled($row['sale_ends_at'] ?? null) && $row['sale_ends_at'] < $row['sale_starts_at']) {
@@ -92,11 +105,17 @@ class TicketCategoryController extends Controller
                 }
 
                 $before = $category->exists ? TicketStockLog::snapshot($category) : ['quota' => 0, 'reserved' => 0, 'sold' => 0];
+                $beforeValues = $category->exists ? TicketCategoryChange::displayValues($category) : null;
                 $category->fill($row);
                 $category->page_id = $model->getKey();
                 $category->sort_order = $position;
                 $category->save();
                 TicketStockLog::record($category, $before, TicketStockLog::ACTION_QUOTA, null, $actorId, $before['quota'] === 0 ? 'Kategori baru' : null);
+
+                if ($beforeValues) {
+                    TicketCategoryChange::record($category, $beforeValues, $actorId);
+                }
+
                 $kept[] = $category->getKey();
             }
 
@@ -108,27 +127,19 @@ class TicketCategoryController extends Controller
                 }
             }
 
+            // Batas event gratis dihitung dari SEMUA kategori (aktif maupun tidak) yang tersimpan, bukan per kategori.
+            $limit = $freeEvent ? $locked->freeTicketLimit() : null;
+            $total = $limit === null ? 0 : (int) TicketCategory::where('page_id', $model->getKey())->sum('quota');
+
+            if ($limit !== null && $total > $limit) {
+                $errors['categories'] = 'Total jumlah tiket semua kategori '.number_format($total, 0, ',', '.').', melebihi batas event gratis '.number_format($limit, 0, ',', '.').' tiket. Kurangi jumlahnya, atau buat event berbayar kalau butuh lebih banyak.';
+            }
+
             if ($errors) {
                 throw ValidationException::withMessages($errors);
             }
-
-            // Biaya tiket gratis dihitung dari kategori yang baru saja disimpan, di transaksi yang sama:
-            // saldo kurang / belum disetujui = semua perubahan kategori dibatalkan.
-            return $freeFees->settle($model, $actor, $confirmed);
         });
 
-        return back()->with('success', trim('Kategori tiket sudah disimpan. '.$message));
-    }
-
-    /** Tutup pendaftaran tiket gratis: tiket yang tidak terpakai dikembalikan ke Saldo. */
-    public function closeFree(Request $request, FreeTicketFeeService $freeFees, string $page): RedirectResponse
-    {
-        $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET, Menu::ABILITY_MANAGE);
-
-        try {
-            return back()->with('success', $freeFees->close($model, $request->user()));
-        } catch (RuntimeException $e) {
-            return back()->with('error', $e->getMessage());
-        }
+        return back()->with('success', 'Kategori tiket sudah disimpan.');
     }
 }
