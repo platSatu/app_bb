@@ -1,19 +1,20 @@
 <?php
 
-test('registration screen can be rendered', function () {
-    $response = $this->get('/register');
+use App\Models\User;
 
-    $response->assertStatus(200);
+// Syarat & Ketentuan dicek terpisah di RegisterTermsTest.
+beforeEach(fn () => config(['services.turnstile.secret_key' => null]));
+
+it('halaman daftar bisa dibuka', function () {
+    $this->get(route('register'))->assertOk();
 });
 
-test('new users can register', function () {
-    $response = $this->post('/register', [
-        'name' => 'Test User',
-        'email' => 'test@example.com',
-        'password' => 'password',
-        'password_confirmation' => 'password',
-    ]);
+it('user baru bisa daftar, nomor WhatsApp dirapikan, lalu langsung masuk ke dashboard', function () {
+    $this->post(route('register'), [
+        'name' => 'Test User', 'email' => 'test@example.com', 'handphone' => '081234567890',
+        'password' => 'Rahasia#2026', 'password_confirmation' => 'Rahasia#2026', 'terms' => '1',
+    ])->assertSessionHasNoErrors()->assertRedirect(route('dashboard', absolute: false));
 
     $this->assertAuthenticated();
-    $response->assertRedirect(route('dashboard', absolute: false));
+    expect(User::where('email', 'test@example.com')->value('handphone'))->toBe('6281234567890');
 });

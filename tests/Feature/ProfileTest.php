@@ -2,84 +2,38 @@
 
 use App\Models\User;
 
-test('profile page is displayed', function () {
-    $user = User::factory()->create();
-
-    $response = $this
-        ->actingAs($user)
-        ->get('/profile');
-
-    $response->assertOk();
+it('halaman profil bisa dibuka', function () {
+    $this->actingAs(User::factory()->create())->get(route('profile.edit'))->assertOk();
 });
 
-test('profile information can be updated', function () {
+it('nama dan nomor WhatsApp bisa diubah, email tidak ikut berubah', function () {
     $user = User::factory()->create();
+    $email = $user->email;
 
-    $response = $this
-        ->actingAs($user)
-        ->patch('/profile', [
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
-
-    $response
+    $this->actingAs($user)
+        ->patch(route('profile.update'), ['name' => 'Test User', 'handphone' => '081234567890', 'email' => 'lain@example.com'])
         ->assertSessionHasNoErrors()
-        ->assertRedirect('/profile');
+        ->assertRedirect(route('profile.edit'));
 
     $user->refresh();
-
-    $this->assertSame('Test User', $user->name);
-    $this->assertSame('test@example.com', $user->email);
-    $this->assertNull($user->email_verified_at);
+    expect($user->name)->toBe('Test User')
+        ->and($user->handphone)->toBe('6281234567890')
+        ->and($user->email)->toBe($email)
+        ->and($user->email_verified_at)->not->toBeNull();
 });
 
-test('email verification status is unchanged when the email address is unchanged', function () {
+it('nomor WhatsApp wajib diisi dan tidak boleh dipakai akun lain', function () {
+    $other = User::factory()->create();
     $user = User::factory()->create();
 
-    $response = $this
-        ->actingAs($user)
-        ->patch('/profile', [
-            'name' => 'Test User',
-            'email' => $user->email,
-        ]);
-
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect('/profile');
-
-    $this->assertNotNull($user->refresh()->email_verified_at);
+    $this->actingAs($user)->patch(route('profile.update'), ['name' => 'Test User'])->assertSessionHasErrors('handphone');
+    $this->actingAs($user)->patch(route('profile.update'), ['name' => 'Test User', 'handphone' => $other->handphone])->assertSessionHasErrors('handphone');
 });
 
-test('user can delete their account', function () {
+it('user tidak bisa menghapus akunnya sendiri (hanya superadmin yang bisa)', function () {
     $user = User::factory()->create();
 
-    $response = $this
-        ->actingAs($user)
-        ->delete('/profile', [
-            'password' => 'password',
-        ]);
+    $this->actingAs($user)->delete(route('profile.edit'), ['password' => 'password'])->assertMethodNotAllowed();
 
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect('/');
-
-    $this->assertGuest();
-    $this->assertNull($user->fresh());
-});
-
-test('correct password must be provided to delete account', function () {
-    $user = User::factory()->create();
-
-    $response = $this
-        ->actingAs($user)
-        ->from('/profile')
-        ->delete('/profile', [
-            'password' => 'wrong-password',
-        ]);
-
-    $response
-        ->assertSessionHasErrorsIn('userDeletion', 'password')
-        ->assertRedirect('/profile');
-
-    $this->assertNotNull($user->fresh());
+    expect($user->fresh())->not->toBeNull();
 });

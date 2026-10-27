@@ -1,7 +1,9 @@
 <?php
 
-it('returns a successful response', function () {
-    $response = $this->get('/');
+use App\Models\User;
 
-    $response->assertStatus(200);
+it('halaman utama mengarahkan tamu ke login dan user ke dashboard', function () {
+    $this->get('/')->assertRedirect(route('login'));
+
+    $this->actingAs(User::factory()->create())->get('/')->assertRedirect(route('dashboard'));
 });

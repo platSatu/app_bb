@@ -2,40 +2,32 @@
 
 use App\Models\User;
 
-test('login screen can be rendered', function () {
-    $response = $this->get('/login');
+// Alamat login app.bizbos ada di /auth/login, jadi test memakai nama route, bukan URL bawaan Breeze.
+beforeEach(fn () => config(['services.turnstile.secret_key' => null]));
 
-    $response->assertStatus(200);
+it('halaman login bisa dibuka', function () {
+    $this->get(route('login'))->assertOk();
 });
 
-test('users can authenticate using the login screen', function () {
+it('user bisa login lalu masuk ke dashboard', function () {
     $user = User::factory()->create();
 
-    $response = $this->post('/login', [
-        'email' => $user->email,
-        'password' => 'password',
-    ]);
+    $this->post(route('login'), ['email' => $user->email, 'password' => 'password'])
+        ->assertRedirect(route('dashboard'));
 
-    $this->assertAuthenticated();
-    $response->assertRedirect(route('dashboard', absolute: false));
+    $this->assertAuthenticatedAs($user);
 });
 
-test('users can not authenticate with invalid password', function () {
+it('password salah tidak bisa login', function () {
     $user = User::factory()->create();
 
-    $this->post('/login', [
-        'email' => $user->email,
-        'password' => 'wrong-password',
-    ]);
+    $this->post(route('login'), ['email' => $user->email, 'password' => 'salah'])->assertSessionHasErrors('email');
 
     $this->assertGuest();
 });
 
-test('users can logout', function () {
-    $user = User::factory()->create();
-
-    $response = $this->actingAs($user)->post('/logout');
+it('user bisa logout', function () {
+    $this->actingAs(User::factory()->create())->post(route('logout'))->assertRedirect('/');
 
     $this->assertGuest();
-    $response->assertRedirect('/');
 });

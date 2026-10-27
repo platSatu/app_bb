@@ -2,31 +2,19 @@
 
 use App\Models\User;
 
-test('confirm password screen can be rendered', function () {
-    $user = User::factory()->create();
-
-    $response = $this->actingAs($user)->get('/confirm-password');
-
-    $response->assertStatus(200);
+it('halaman konfirmasi password bisa dibuka', function () {
+    $this->actingAs(User::factory()->create())->get(route('password.confirm'))->assertOk();
 });
 
-test('password can be confirmed', function () {
-    $user = User::factory()->create();
-
-    $response = $this->actingAs($user)->post('/confirm-password', [
-        'password' => 'password',
-    ]);
-
-    $response->assertRedirect();
-    $response->assertSessionHasNoErrors();
+it('password yang benar dikonfirmasi', function () {
+    $this->actingAs(User::factory()->create())
+        ->post(route('password.confirm'), ['password' => 'password'])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect();
 });
 
-test('password is not confirmed with invalid password', function () {
-    $user = User::factory()->create();
-
-    $response = $this->actingAs($user)->post('/confirm-password', [
-        'password' => 'wrong-password',
-    ]);
-
-    $response->assertSessionHasErrors();
+it('password yang salah ditolak', function () {
+    $this->actingAs(User::factory()->create())
+        ->post(route('password.confirm'), ['password' => 'salah'])
+        ->assertSessionHasErrors('password');
 });

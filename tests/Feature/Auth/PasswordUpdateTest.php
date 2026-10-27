@@ -3,38 +3,24 @@
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
-test('password can be updated', function () {
+it('password bisa diganti dari halaman profil', function () {
     $user = User::factory()->create();
 
-    $response = $this
-        ->actingAs($user)
-        ->from('/profile')
-        ->put('/password', [
-            'current_password' => 'password',
-            'password' => 'new-password',
-            'password_confirmation' => 'new-password',
-        ]);
-
-    $response
+    $this->actingAs($user)->from(route('profile.edit'))
+        ->put(route('password.update'), ['current_password' => 'password', 'password' => 'Rahasia#2026', 'password_confirmation' => 'Rahasia#2026'])
         ->assertSessionHasNoErrors()
-        ->assertRedirect('/profile');
+        ->assertRedirect(route('profile.edit'));
 
-    $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
+    expect(Hash::check('Rahasia#2026', $user->fresh()->password))->toBeTrue();
 });
 
-test('correct password must be provided to update password', function () {
+it('password lama yang salah ditolak dan password tidak berubah', function () {
     $user = User::factory()->create();
 
-    $response = $this
-        ->actingAs($user)
-        ->from('/profile')
-        ->put('/password', [
-            'current_password' => 'wrong-password',
-            'password' => 'new-password',
-            'password_confirmation' => 'new-password',
-        ]);
-
-    $response
+    $this->actingAs($user)->from(route('profile.edit'))
+        ->put(route('password.update'), ['current_password' => 'salah', 'password' => 'Rahasia#2026', 'password_confirmation' => 'Rahasia#2026'])
         ->assertSessionHasErrorsIn('updatePassword', 'current_password')
-        ->assertRedirect('/profile');
+        ->assertRedirect(route('profile.edit'));
+
+    expect(Hash::check('password', $user->fresh()->password))->toBeTrue();
 });
