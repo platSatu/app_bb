@@ -14,6 +14,8 @@
 @push('head')
     <meta name="referrer" content="no-referrer">
     <style>
+        /* Kartu login selalu di tengah layar, ukuran layar berapa pun. */
+        main.container { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; }
         .login-icon { width: 76px; height: 76px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 2.4rem; background: color-mix(in srgb, var(--brand) 12%, #fff); color: var(--brand); }
         .pin-input { height: 64px; border-radius: .875rem; border: 2px solid #e9ecef; letter-spacing: .5em; }
         .pin-input:focus { border-color: var(--brand); box-shadow: 0 0 0 .25rem color-mix(in srgb, var(--brand) 15%, transparent); }
@@ -33,7 +35,7 @@
                 <input type="password" id="pin" name="pin" inputmode="numeric" maxlength="6" autocomplete="one-time-code" autofocus
                     class="form-control pin-input text-center fs-3 @error('pin') is-invalid @enderror" placeholder="••••••">
                 @error('pin') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                <button type="submit" class="btn btn-brand w-100 py-2 mt-3"><i class="ri-login-box-line me-1"></i>Masuk</button>
+                <button type="submit" class="btn btn-brand btn-lg w-100 mt-3 fw-semibold"><i class="ri-login-box-line me-1"></i>Masuk</button>
             </form>
             <p class="small text-muted mt-4 mb-0">PIN diberikan oleh penyelenggara event.</p>
         </div>
