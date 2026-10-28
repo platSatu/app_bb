@@ -81,14 +81,19 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
     }
 
-    /** Email gagal terkirim (mis. server mail sedang gangguan) tidak boleh menggagalkan pendaftaran; user bisa kirim ulang. */
+    /** Lewat antrean; gagal masuk antrean pun tidak boleh menggagalkan pendaftaran (user bisa kirim ulang). */
     public function sendEmailVerificationNotification(): void
     {
         try {
-            parent::sendEmailVerificationNotification();
+            $this->notify(new \App\Notifications\QueuedVerifyEmail());
         } catch (\Throwable $e) {
             report($e);
         }
+    }
+
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $this->notify(new \App\Notifications\QueuedResetPassword($token));
     }
 
     public function isActive(): bool

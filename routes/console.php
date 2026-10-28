@@ -14,7 +14,7 @@ Schedule::command('subscriptions:remind')->dailyAt('08:10')->withoutOverlapping(
 Schedule::command('referrals:release')->hourly()->withoutOverlapping();
 Schedule::command('whatsapp:dispatch-messages')->everyMinute()->withoutOverlapping();
 Schedule::command('db:backup')->dailyAt('01:00')->withoutOverlapping();
-// Riwayat aktivitas pengguna lebih dari 180 hari dihapus (UserActivityLog::KEEP_DAYS).
-Schedule::command('model:prune', ['--model' => [\App\Models\UserActivityLog::class]])->dailyAt('02:30')->withoutOverlapping();
+// Riwayat aktivitas pengguna & riwayat email lebih dari 180 hari dihapus (KEEP_DAYS di masing-masing model).
+Schedule::command('model:prune', ['--model' => [\App\Models\UserActivityLog::class, \App\Models\EmailLog::class]])->dailyAt('02:30')->withoutOverlapping();
 // Tanda scheduler hidup, dibaca menu Settings > Antrean & Tugas.
 Schedule::call(fn () => Cache::forever(MonitorController::HEARTBEAT, now()->toIso8601String()))->everyMinute()->name('heartbeat');

@@ -2,7 +2,7 @@
 
 use App\Models\Customer;
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
+use App\Notifications\QueuedResetPassword;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -62,7 +62,7 @@ it('Jadikan User membuat akun aktif, tipe user, email terverifikasi, dan mengiri
     expect($user->name)->toBe('Citra')->and($user->handphone)->toBe('6283333333333')
         ->and($user->status)->toBe(User::STATUS_ACTIVE)->and($user->user_type)->toBe(User::TYPE_USER)
         ->and($user->email_verified_at)->not->toBeNull();
-    Notification::assertSentTo($user, ResetPassword::class);
+    Notification::assertSentTo($user, QueuedResetPassword::class);
 
     // Kedua kali: tidak membuat akun baru.
     $this->post(route('invoices.customers.account', $customer))->assertSessionHas('info');

@@ -262,9 +262,17 @@ class InvoiceCheckoutService
 
         // Webhook & email bukti bayar sama seperti bayar satu per satu.
         if ($result !== 'already_processed') {
-            foreach ($checkout->items()->where('result', 'paid')->with('invoice')->get() as $item) {
-                SendInvoiceWebhook::for($item->invoice, 'invoice.paid');
-                $this->invoices->email($item->invoice, 'paid');
+            foreach ($checkout->items()->whereIn('result', ['paid', 'refund_needed'])->with('invoice')->get() as $item) {
+                if (! $item->invoice) {
+                    continue;
+                }
+
+                if ($item->result === 'paid') {
+                    SendInvoiceWebhook::for($item->invoice, 'invoice.paid');
+                    $this->invoices->email($item->invoice, 'paid');
+                }
+
+                $this->invoices->notifyOwner($item->invoice, $item->result === 'paid' ? 'paid' : 'refund', $item->total);
             }
         }
 

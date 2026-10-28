@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
+use App\Notifications\QueuedResetPassword;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 
@@ -19,7 +19,7 @@ it('link reset dikirim ke email yang terdaftar', function () {
 
     $this->post(route('password.email'), ['email' => $user->email])->assertSessionHas('status');
 
-    Notification::assertSentTo($user, ResetPassword::class);
+    Notification::assertSentTo($user, QueuedResetPassword::class);
 });
 
 it('email yang tidak terdaftar mendapat pesan yang sama, supaya daftar email tidak bisa ditebak', function () {
@@ -34,7 +34,7 @@ it('halaman reset password dari link email bisa dibuka, lalu password baru tersi
     $user = User::factory()->create();
     $this->post(route('password.email'), ['email' => $user->email]);
 
-    Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
+    Notification::assertSentTo($user, QueuedResetPassword::class, function (QueuedResetPassword $notification) use ($user) {
         $this->get(route('password.reset', $notification->token))->assertOk();
 
         $this->post(route('password.store'), [

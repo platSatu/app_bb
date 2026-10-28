@@ -4,6 +4,7 @@ namespace App\Services\Invoice;
 
 use App\Jobs\SendInvoiceWebhook;
 use App\Mail\InvoiceMail;
+use App\Mail\InvoicePaidOwnerMail;
 use App\Models\InvoiceEmailLog;
 use App\Models\Customer;
 use App\Models\Invoice;
@@ -212,6 +213,22 @@ class InvoiceService
             $log->forceFill(['status' => InvoiceEmailLog::STATUS_FAILED, 'error' => Str::limit($e->getMessage(), 480)])->save();
 
             return false;
+        }
+    }
+
+    /** Kabar ke owner cabang: invoice lunas ($kind paid) atau uang masuk yang perlu dikembalikan ($kind refund). */
+    public function notifyOwner(Invoice $invoice, string $kind, int $amount): void
+    {
+        $email = $invoice->branch()->with('user:id,email')->first()?->user?->email;
+
+        if (! $email) {
+            return;
+        }
+
+        try {
+            Mail::to($email)->queue(new InvoicePaidOwnerMail($invoice->getKey(), $kind, $amount));
+        } catch (Throwable $e) {
+            report($e);
         }
     }
 

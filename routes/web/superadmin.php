@@ -9,6 +9,7 @@ use App\Http\Controllers\Superadmin\CategoryApplication\CategoryApplicationContr
 use App\Http\Controllers\Superadmin\Company\CompanyController;
 use App\Http\Controllers\Superadmin\Deposit\AdjustmentController;
 use App\Http\Controllers\Superadmin\Deposit\DepositController;
+use App\Http\Controllers\Superadmin\Email\EmailLogController;
 use App\Http\Controllers\Superadmin\Package\PackageController;
 use App\Http\Controllers\Superadmin\Page\PageController;
 use App\Http\Controllers\Superadmin\Page\PageTypeController;
@@ -153,6 +154,15 @@ Route::middleware(['auth', 'superadmin'])
                 Route::delete('failed', 'forget')->name('forget');
                 Route::delete('jobs/{job}', 'destroyJob')->whereNumber('job')->name('jobs.destroy');
                 Route::post('process', 'process')->middleware('throttle:5,1')->name('process');
+            });
+
+        Route::controller(EmailLogController::class)
+            ->prefix('emails')
+            ->name('emails.')
+            ->middleware('permission:superadmin.emails,manage')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('{emailLog}/resend', 'resend')->middleware('throttle:20,1')->name('resend');
             });
 
         Route::controller(ActivityController::class)

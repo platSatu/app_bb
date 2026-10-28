@@ -7,6 +7,7 @@ use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -15,12 +16,17 @@ class AppServiceProvider extends ServiceProvider
     {
         // Cache status paket per request/job; diulang dari nol di request/job berikutnya.
         $this->app->scoped(\App\Services\Subscription\AppAccess::class);
+        // Satu instance per proses: menyimpan job antrean yang sedang dikirim (lihat EmailLogRecorder).
+        $this->app->singleton(\App\Support\EmailLogRecorder::class);
     }
 
     public function boot(): void
     {
         Paginator::useBootstrapFive();
         Carbon::setLocale(config('app.locale'));
+
+        // Riwayat semua email (superadmin > Riwayat Email).
+        Event::subscribe(\App\Support\EmailLogRecorder::class);
 
         // Email akun dalam Bahasa Indonesia.
         VerifyEmail::toMailUsing(fn ($user, string $url) => (new MailMessage())

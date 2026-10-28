@@ -316,6 +316,13 @@ return [
                         'active' => 'superadmin.monitor.*',
                         'superadmin_only' => true,
                     ],
+                    // Semua email aplikasi + status kirim & kirim ulang. Berisi alamat email user, jadi khusus superadmin.
+                    'superadmin.emails' => [
+                        'label' => 'Riwayat Email',
+                        'route' => 'superadmin.emails.index',
+                        'active' => 'superadmin.emails.*',
+                        'superadmin_only' => true,
+                    ],
                     // Tab Pengunjung Website (bizbos.id) & Aktivitas Pengguna (app.bizbos). Berisi IP, jadi khusus superadmin.
                     'superadmin.activity' => [
                         'label' => 'Aktivitas & Pengunjung',

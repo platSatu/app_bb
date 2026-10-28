@@ -295,6 +295,9 @@ class InvoicePaymentService
             $invoice = $payment->invoice()->first();
             SendInvoiceWebhook::for($invoice, 'invoice.paid');
             $this->invoices->email($invoice, 'paid');
+            $this->invoices->notifyOwner($invoice, 'paid', $invoice->paid_amount);
+        } elseif ($result === 'refund_needed') {
+            $this->invoices->notifyOwner($payment->invoice()->first(), 'refund', $payment->amount);
         }
 
         return $result;
