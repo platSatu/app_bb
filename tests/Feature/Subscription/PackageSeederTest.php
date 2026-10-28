@@ -17,7 +17,7 @@ it('seeder paket: 5 kategori x 3 durasi (trial, 6, 12 bulan), 12 bulan Populer, 
         ->and(Package::where('is_featured', true)->pluck('duration')->unique()->all())->toBe([365]);
 
     $complete = Package::where('name', 'Komplit - 6 Bulan')->firstOrFail();
-    expect($complete->apps)->toBe(['pages', 'schedules', 'invoices', 'whatsapp'])
+    expect($complete->apps)->toBe(['events', 'pages', 'schedules', 'invoices', 'whatsapp'])
         ->and($complete->limits)->toBe(['invoices' => ['monthly' => 2000], 'whatsapp' => ['monthly' => 20000]])
         ->and($complete->features())->toHaveCount(35)
         ->and(array_slice($complete->features(), 0, 5))->toContain('Data customer & export Excel')

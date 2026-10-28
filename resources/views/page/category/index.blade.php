@@ -1,8 +1,13 @@
 @extends('layouts.dashboard')
 
-@section('title', 'List Page')
-@php($isAdmin = $routes !== 'pages')
-@section('page-section', $isAdmin ? 'Superadmin' : 'Pages')
+@php
+    $isAdmin = str_starts_with($routes, 'superadmin.');
+    // Halaman ini dipakai menu Event (/events) dan Pages (/pages).
+    $isEvent = in_array($routes, ['events', 'superadmin.events'], true);
+    $noun = $isEvent ? 'Event' : 'Page';
+@endphp
+@section('title', 'List '.$noun)
+@section('page-section', \App\Support\Apps::pageSection($routes))
 
 @section('content')
     <div class="card">
@@ -39,10 +44,10 @@
 
             @if ($canManage)
                 <div class="d-flex justify-content-end gap-2 mb-3">
-                    @if ($isAdmin)
+                    @if ($isAdmin && $isEvent)
                         <a href="{{ route('superadmin.ticket-fee.edit') }}" class="btn btn-outline-primary"><i class="ri-percent-line"></i> Biaya Layanan Tiket</a>
                     @endif
-                    <a href="{{ route($routes.'.create') }}" class="btn btn-primary"><i class="ri-add-line"></i> Buat Page</a>
+                    <a href="{{ route($routes.'.create') }}" class="btn btn-primary"><i class="ri-add-line"></i> Buat {{ $noun }}</a>
                 </div>
             @endif
 
@@ -51,7 +56,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>QR</th>
-                            <th>Page</th>
+                            <th>{{ $noun }}</th>
                             <th>Kategori</th>
                             <th>{{ $isAdmin ? 'Perusahaan / Branch' : 'Branch' }}</th>
                             <th>Periode</th>
@@ -104,7 +109,7 @@
                                     @if ($canManage)
                                     <a href="{{ route($routes.'.edit', $page) }}" class="btn btn-sm rounded-pill btn-outline-secondary"><i class="ri-edit-line"></i> Edit</a>
                                     <form action="{{ route($routes.'.destroy', $page) }}" method="POST" class="d-inline"
-                                        onsubmit="return confirm({{ \Illuminate\Support\Js::from('Hapus page '.$page->name.'? Link dan QR code-nya tidak bisa dipakai lagi.') }});">
+                                        onsubmit="return confirm({{ \Illuminate\Support\Js::from('Hapus '.strtolower($noun).' '.$page->name.'? Link dan QR code-nya tidak bisa dipakai lagi.') }});">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-sm rounded-pill btn-outline-danger"><i class="ri-delete-bin-line"></i> Hapus</button>
@@ -115,7 +120,7 @@
                         @empty
                             <tr>
                                 <td colspan="7" class="text-center text-muted py-4">
-                                    {{ request()->hasAny(['search', 'branch', 'type']) ? 'Tidak ada page yang cocok.' : 'Belum ada page. Yuk buat yang pertama.' }}
+                                    {{ request()->hasAny(['search', 'branch', 'type']) ? 'Tidak ada '.strtolower($noun).' yang cocok.' : 'Belum ada '.strtolower($noun).'. Yuk buat yang pertama.' }}
                                 </td>
                             </tr>
                         @endforelse

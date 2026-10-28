@@ -1,20 +1,32 @@
+@php
+    // Menu Event: kategori otomatis (kategori bertemplate tiket). Pilihan hanya muncul kalau superadmin membuat lebih dari satu.
+    $isEvent = in_array($routes, ['events', 'superadmin.events'], true);
+    $noun = $isEvent ? 'Event' : 'Page';
+    $selectedType = old('page_type_id', $page->page_type_id ?? request('type'));
+    $autoType = $isEvent && $types->count() === 1 ? $types->first() : null;
+@endphp
 <div class="row g-3">
-    <div class="col-md-6">
-        <label for="page_type_id" class="form-label">Kategori Page</label>
-        <select id="page_type_id" name="page_type_id" class="form-select @error('page_type_id') is-invalid @enderror" required>
-            <option value="">-- Pilih kategori --</option>
-            @foreach ($types as $type)
-                <option value="{{ $type->id }}" data-template="{{ $type->template }}" @selected(old('page_type_id', $page->page_type_id ?? request('type')) === $type->id)>
-                    {{ $type->name }}{{ $type->isActive() ? '' : ' (tidak aktif)' }}
-                </option>
-            @endforeach
-        </select>
-        @error('page_type_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-    </div>
+    @if ($autoType)
+        <input type="hidden" name="page_type_id" value="{{ $autoType->id }}">
+        @error('page_type_id') <div class="col-12"><div class="text-danger fs-13">{{ $message }}</div></div> @enderror
+    @else
+        <div class="col-md-6">
+            <label for="page_type_id" class="form-label">Kategori {{ $noun }}</label>
+            <select id="page_type_id" name="page_type_id" class="form-select @error('page_type_id') is-invalid @enderror" required>
+                <option value="">-- Pilih kategori --</option>
+                @foreach ($types as $type)
+                    <option value="{{ $type->id }}" data-template="{{ $type->template }}" @selected($selectedType === $type->id)>
+                        {{ $type->name }}{{ $type->isActive() ? '' : ' (tidak aktif)' }}
+                    </option>
+                @endforeach
+            </select>
+            @error('page_type_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        </div>
+    @endif
 
     <div class="col-md-6">
-        <label for="name" class="form-label">Nama Page</label>
-        <input type="text" id="name" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name', $page->name) }}" placeholder="mis. Pendaftaran Seminar Oktober" required>
+        <label for="name" class="form-label">Nama {{ $noun }}</label>
+        <input type="text" id="name" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name', $page->name) }}" placeholder="{{ $isEvent ? 'mis. Seminar Bisnis Oktober' : 'mis. Pendaftaran Seminar Oktober' }}" required>
         @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
 

@@ -22,6 +22,7 @@ $manage = function () use ($read) {
     $read();
 };
 
+Route::middleware(['auth', 'permission:events.customers'])->prefix('events/customers')->name('events.customers.')->group($manage);
 Route::middleware(['auth', 'permission:pages.customers'])->prefix('pages/customers')->name('pages.customers.')->group($manage);
 Route::middleware(['auth', 'permission:invoices.customers'])->prefix('invoices/customers')->name('invoices.customers.')->group($manage);
 

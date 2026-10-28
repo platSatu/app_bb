@@ -24,7 +24,7 @@ use Illuminate\Support\Str;
 /** Branch dengan semua layanan aktif dan batas tertentu per layanan (null = tanpa batas tercatat / langganan lama). */
 function planBranch(array $limits = []): UserBranch
 {
-    $branch = appBranch(['pages', 'invoices', 'whatsapp']);
+    $branch = appBranch(['events', 'pages', 'invoices', 'whatsapp']);
     foreach ($limits as $app => $value) {
         BranchSubscription::where('branch_id', $branch->id)->where('app_key', $app)->update(['limits' => json_encode($value)]);
     }
@@ -47,7 +47,7 @@ function planPage(UserBranch $branch, PageType $type, string $name = 'Acara'): P
 it('batas paket disalin ke branch saat aktif, dan perpanjangan sebelum habis memakai yang lebih longgar', function () {
     $branch = planBranch();
     $owner = User::find($branch->user_id);
-    $type = PageType::create(['name' => 'Tiket', 'template' => PageType::TEMPLATE_TICKET, 'status' => 'active']);
+    $type = PageType::create(['name' => 'Landing', 'template' => PageType::TEMPLATE_LANDING, 'status' => 'active']);
     $small = planPackage(['pages', 'whatsapp'], ['pages' => [$type->id => 1], 'whatsapp' => ['monthly' => 100]]);
     $big = planPackage(['pages', 'whatsapp'], ['pages' => [$type->id => 3], 'whatsapp' => []]);
 
@@ -67,14 +67,18 @@ it('batas paket disalin ke branch saat aktif, dan perpanjangan sebelum habis mem
     expect($limits->limit($branch->id, 'pages', $type->id))->toBe(3);
 });
 
-it('pages: tidak bisa membuat page melebihi batas per kategori, termasuk lewat pindah kategori', function () {
+it('event & pages: tidak bisa membuat melebihi batas per kategori (event dari paket Event, page lain dari paket Pages), termasuk lewat pindah kategori', function () {
     Storage::fake('public');
     $ticket = PageType::create(['name' => 'Tiket', 'template' => PageType::TEMPLATE_TICKET, 'status' => 'active']);
     $landing = PageType::create(['name' => 'Landing', 'template' => PageType::TEMPLATE_LANDING, 'status' => 'active']);
-    $branch = planBranch(['pages' => [$ticket->id => 1, $landing->id => 1]]);
+    $branch = planBranch(['events' => [$ticket->id => 1], 'pages' => [$landing->id => 1]]);
 
     planPage($branch, $ticket);
-    expect(fn () => planPage($branch, $ticket))->toThrow(PlanLimitException::class, 'hanya bisa membuat 1 page kategori Tiket');
+    expect(fn () => planPage($branch, $ticket))->toThrow(PlanLimitException::class, 'hanya bisa membuat 1 event kategori Tiket');
+
+    // Batas kategori tiket yang (salah) tercatat di paket Pages tidak berlaku: event hanya dibatasi paket Event.
+    $other = planBranch(['pages' => [$ticket->id => 0]]);
+    planPage($other, $ticket);
 
     $page = planPage($branch, $landing);
     // Mengubah page landing menjadi tiket juga dihitung.

@@ -70,7 +70,7 @@ class PackageController extends Controller
 
     private function pageTypes()
     {
-        return PageType::orderBy('name')->get(['id', 'name', 'status']);
+        return PageType::orderBy('name')->get(['id', 'name', 'status', 'template']);
     }
 
     private function categories()

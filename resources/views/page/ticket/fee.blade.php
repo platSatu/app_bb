@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('title', 'Simulasi Pendapatan Event')
-@section('page-section', 'Pages')
+@section('page-section', 'Event')
 
 @php
     $percentLabel = rtrim(rtrim(number_format((float) $percent, 2, ',', '.'), '0'), ',').'%';
@@ -10,10 +10,10 @@
 @section('content')
     <div class="mt-2 mb-4">
         <h4 class="mb-1">Simulasi Pendapatan Event</h4>
-        <p class="text-muted mb-0">Sebelum membuat page tiket, coba hitung dulu berapa yang akan Anda terima. Isi harga dan perkiraan jumlah tiket, angkanya langsung muncul di sebelah kanan.</p>
+        <p class="text-muted mb-0">Sebelum membuat event, coba hitung dulu berapa yang akan Anda terima. Isi harga dan perkiraan jumlah tiket, angkanya langsung muncul di sebelah kanan.</p>
     </div>
 
-    <form method="GET" action="{{ route('pages.create') }}" id="fee-sim" data-bps="{{ (int) round((float) $percent * 100) }}" data-free-limit="{{ $freeAllowance }}">
+    <form method="GET" action="{{ route('events.create') }}" id="fee-sim" data-bps="{{ (int) round((float) $percent * 100) }}" data-free-limit="{{ $freeAllowance }}">
         <input type="hidden" name="type" value="{{ $type->id }}">
 
         <div class="row g-4">
@@ -133,8 +133,8 @@
         </div>
 
         <div class="d-flex flex-wrap justify-content-between gap-2 mt-5 mb-5 pt-2 pb-4">
-            <a href="{{ route('pages.index') }}" class="btn btn-outline-secondary">Batal</a>
-            <button type="submit" class="btn btn-primary px-4">Saya Mengerti, Lanjut Buat Page Tiket <i class="ri-arrow-right-line"></i></button>
+            <a href="{{ route('events.index') }}" class="btn btn-outline-secondary">Batal</a>
+            <button type="submit" class="btn btn-primary px-4">Saya Mengerti, Lanjut Buat Event <i class="ri-arrow-right-line"></i></button>
         </div>
     </form>
 @endsection

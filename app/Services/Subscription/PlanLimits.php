@@ -8,12 +8,14 @@ use App\Models\Invoice;
 use App\Models\PageCategory;
 use App\Models\PageType;
 use App\Models\UserBranch;
+use App\Support\Apps;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
  * Satu-satunya tempat aturan batas paket (diisi superadmin di form Paket, disalin ke branch saat paket diaktifkan):
- * - pages    : jumlah page per kategori page            {"<page_type_id>": n}
+ * - events   : jumlah event per kategori page tiket      {"<page_type_id>": n}
+ * - pages    : jumlah page per kategori page lain        {"<page_type_id>": n}
  * - invoices : invoice dibuat per bulan (semua sumber)   {"monthly": n}
  * - whatsapp : semua pesan keluar per bulan              {"monthly": n}
  * Key tidak ada = tanpa batas. Bulan = bulan kalender, reset otomatis tanggal 1.
@@ -34,7 +36,10 @@ class PlanLimits
     /** Membuat page baru / memindah page ke kategori lain. Wajib dipanggil di dalam DB::transaction. */
     public function assertPage(string $branchId, string $pageTypeId, ?string $ignorePageId = null): void
     {
-        if (($max = $this->limit($branchId, 'pages', $pageTypeId)) === null) {
+        // Kategori bertemplate tiket dibatasi paket Event, kategori lain paket Pages.
+        $app = Apps::forTemplate(PageType::whereKey($pageTypeId)->value('template'));
+
+        if (($max = $this->limit($branchId, $app, $pageTypeId)) === null) {
             return;
         }
 
@@ -45,7 +50,9 @@ class PlanLimits
         if ($used >= $max) {
             $type = PageType::whereKey($pageTypeId)->value('name') ?? 'ini';
 
-            throw new PlanLimitException("Paket Anda hanya bisa membuat {$max} page kategori {$type} di branch ini. Hapus page lama yang tidak dipakai, atau upgrade paket.");
+            $noun = $app === Apps::EVENTS ? 'event' : 'page';
+
+            throw new PlanLimitException("Paket Anda hanya bisa membuat {$max} {$noun} kategori {$type} di branch ini. Hapus {$noun} lama yang tidak dipakai, atau upgrade paket.");
         }
     }
 
@@ -119,11 +126,15 @@ class PlanLimits
         $since = now()->startOfMonth();
         $summary = [];
 
-        if ($pages = $limits['pages'] ?? null) {
+        foreach ([Apps::EVENTS, Apps::PAGES] as $app) {
+            if (! $pages = $limits[$app] ?? null) {
+                continue;
+            }
+
             $used = PageCategory::where('branch_id', $branchId)->whereIn('page_type_id', array_keys($pages))->selectRaw('page_type_id, COUNT(*) AS total')->groupBy('page_type_id')->pluck('total', 'page_type_id');
             $names = PageType::whereKey(array_keys($pages))->pluck('name', 'id');
             foreach ($pages as $typeId => $max) {
-                $summary['pages'][] = ($names[$typeId] ?? 'Page').': '.(int) ($used[$typeId] ?? 0).' / '.$max;
+                $summary[$app][] = ($names[$typeId] ?? 'Page').': '.(int) ($used[$typeId] ?? 0).' / '.$max;
             }
         }
 

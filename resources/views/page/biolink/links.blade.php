@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('title', 'Bio Link')
-@section('page-section', $routes === 'pages' ? 'Pages' : 'Superadmin')
+@section('page-section', \App\Support\Apps::pageSection($routes))
 
 @php($links = old('links', $page->setting('biolink.links', [])))
 

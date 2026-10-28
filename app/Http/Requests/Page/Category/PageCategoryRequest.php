@@ -6,6 +6,8 @@ use App\Models\PageCategory;
 use App\Models\PageType;
 use App\Models\TicketSetting;
 use App\Models\UserBranch;
+use App\Services\Subscription\AppAccess;
+use App\Support\Apps;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -80,26 +82,38 @@ class PageCategoryRequest extends FormRequest
         return $this->branchQuery()->findOrFail($this->validated('branch_id'));
     }
 
-    /** User biasa: hanya branch miliknya sendiri. Superadmin meng-override ini. */
+    /** 'events' (menu Event) atau 'pages' (menu Pages), dibaca dari nama route. */
+    protected function area(): string
+    {
+        return Apps::pageArea($this->route()?->getName());
+    }
+
+    /** User biasa: hanya branch miliknya sendiri yang paket layanan area ini aktif. Superadmin meng-override ini. */
     protected function branchQuery()
     {
-        return UserBranch::where('user_id', $this->user()->getKey())->whereIn('id', \App\Services\Subscription\AppAccess::activeBranches('pages'));
+        return UserBranch::where('user_id', $this->user()->getKey())->whereIn('id', AppAccess::activeBranches($this->area()));
     }
 
     protected function branchRule()
     {
         return Rule::exists(UserBranch::class, 'id')->where('user_id', $this->user()->getKey())
-            ->whereIn('id', \App\Services\Subscription\AppAccess::activeBranches('pages')->pluck('branch_id')->all());
+            ->whereIn('id', AppAccess::activeBranches($this->area())->pluck('branch_id')->all());
     }
 
-    /** Kategori aktif, atau kategori lama page ini (supaya edit tidak gagal saat kategorinya dinonaktifkan). */
+    /**
+     * Kategori aktif, atau kategori lama page ini (supaya edit tidak gagal saat kategorinya dinonaktifkan).
+     * Selalu milik area ini: menu Event hanya kategori bertemplate tiket, menu Pages hanya sisanya.
+     */
     protected function pageTypeRule()
     {
         $page = $this->route('page');
         $current = $page ? PageCategory::whereKey($page instanceof PageCategory ? $page->getKey() : $page)->value('page_type_id') : null;
+        $events = $this->area() === Apps::EVENTS;
 
-        return Rule::exists(PageType::class, 'id')->where(fn ($q) => $q->where(fn ($w) => $w
-            ->where('status', PageType::STATUS_ACTIVE)
-            ->when($current, fn ($o) => $o->orWhere('id', $current))));
+        return Rule::exists(PageType::class, 'id')->where(fn ($q) => $q
+            ->when($events, fn ($t) => $t->whereIn('template', Apps::EVENT_TEMPLATES), fn ($t) => $t->whereNotIn('template', Apps::EVENT_TEMPLATES))
+            ->where(fn ($w) => $w
+                ->where('status', PageType::STATUS_ACTIVE)
+                ->when($current, fn ($o) => $o->orWhere('id', $current))));
     }
 }

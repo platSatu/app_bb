@@ -239,7 +239,7 @@ class DashboardController extends Controller
 
         $tickets = TicketOrder::whereIn('company_id', $companyIds)->where('status', TicketOrder::STATUS_PAID)->latest('paid_at')->limit(5)
             ->get(['id', 'page_id', 'name', 'total', 'paid_at'])
-            ->map(fn ($o) => ['at' => $o->paid_at, 'icon' => 'ri-coupon-3-line', 'color' => 'primary', 'title' => $o->name.' membeli tiket', 'amount' => $rupiah($o->total), 'url' => route('pages.ticket.orders.show', [$o->page_id, $o->id])]);
+            ->map(fn ($o) => ['at' => $o->paid_at, 'icon' => 'ri-coupon-3-line', 'color' => 'primary', 'title' => $o->name.' membeli tiket', 'amount' => $rupiah($o->total), 'url' => route('events.ticket.orders.show', [$o->page_id, $o->id])]);
 
         $catalog = CatalogOrder::whereIn('company_id', $companyIds)->latest()->limit(5)
             ->get(['id', 'page_id', 'name', 'total', 'status', 'created_at'])
@@ -284,9 +284,9 @@ class DashboardController extends Controller
                 WebContactMessage::where('status', 'new')->count(),
                 'pesan baru dari website', 'ri-mail-unread-line', 'primary', route('superadmin.web.contact-messages.index'),
             ] : null,
-            $can('superadmin.pages') ? [
+            $can('superadmin.events') ? [
                 TicketOrder::where('status', TicketOrder::STATUS_REFUND_NEEDED)->count(),
-                'pesanan tiket perlu refund', 'ri-refund-2-line', 'danger', route('superadmin.pages.index'),
+                'pesanan tiket perlu refund', 'ri-refund-2-line', 'danger', route('superadmin.events.index'),
             ] : null,
         ])->filter(fn ($item) => $item && $item[0] > 0)->values();
 

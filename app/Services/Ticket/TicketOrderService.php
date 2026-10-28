@@ -225,7 +225,7 @@ class TicketOrderService
         $categories = TicketCategory::where('page_id', $page->getKey())->whereKey(array_keys($quantities))->get()->keyBy('id');
         $this->assertAvailable($categories, $quantities);
 
-        $customer = $this->customers->resolve($branch, 'pages', $buyer['name'], $buyer['phone'], $buyer['email'], 'Tiket: '.Str::limit($page->name, 200, ''));
+        $customer = $this->customers->resolve($branch, 'events', $buyer['name'], $buyer['phone'], $buyer['email'], 'Tiket: '.Str::limit($page->name, 200, ''));
         $subtotal = array_sum(array_map(fn ($id, $qty) => $qty * $categories[$id]->price, array_keys($quantities), $quantities));
         $feePayer = $page->ticketFeePayer();
 

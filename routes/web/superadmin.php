@@ -42,12 +42,24 @@ Route::middleware(['auth', 'superadmin'])
             'page-types' => ['superadmin.page-types', PageTypeController::class],
         ];
 
-        Route::get('ticket-fee', [TicketFeeController::class, 'edit'])->middleware('permission:superadmin.pages,view')->name('ticket-fee.edit');
-        Route::put('ticket-fee', [TicketFeeController::class, 'update'])->middleware('permission:superadmin.pages,manage')->name('ticket-fee.update');
+        Route::get('ticket-fee', [TicketFeeController::class, 'edit'])->middleware('permission:superadmin.events,view')->name('ticket-fee.edit');
+        Route::put('ticket-fee', [TicketFeeController::class, 'update'])->middleware('permission:superadmin.events,manage')->name('ticket-fee.update');
 
         Route::get('pages/{page}/qrcode', [PageController::class, 'qrcode'])
             ->middleware('permission:superadmin.pages,view')
             ->name('pages.qrcode');
+
+        // Applications › Event: page bertemplate tiket, controller sama dengan Pages (area dibaca dari nama route).
+        Route::get('events/{page}/qrcode', [PageController::class, 'qrcode'])
+            ->middleware('permission:superadmin.events,view')
+            ->name('events.qrcode');
+        Route::get('events', [PageController::class, 'index'])
+            ->middleware('permission:superadmin.events,view')
+            ->name('events.index');
+        Route::resource('events', PageController::class)
+            ->parameters(['events' => 'page'])
+            ->except(['index', 'show'])
+            ->middleware('permission:superadmin.events,manage');
 
         foreach ($crud as $uri => [$permission, $controller]) {
             Route::get($uri, [$controller, 'index'])

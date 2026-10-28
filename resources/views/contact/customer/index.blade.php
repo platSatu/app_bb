@@ -26,8 +26,10 @@
             @else
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                     <div class="text-muted small">
-                        @if ($app === 'pages')
-                            Orang yang membeli tiket, memesan katalog, atau mengikuti kuis di page Anda. Masuk otomatis, bisa juga ditambah manual.
+                        @if ($app === 'events')
+                            Orang yang membeli tiket di event Anda. Masuk otomatis, bisa juga ditambah manual.
+                        @elseif ($app === 'pages')
+                            Orang yang memesan katalog atau mengikuti kuis di page Anda. Masuk otomatis, bisa juga ditambah manual.
                         @else
                             Orang yang Anda tagih lewat Invoice. Bisa ditambah di sini atau dari menu Kategori &rsaquo; Customer.
                         @endif
@@ -99,7 +101,7 @@
                             <th>WhatsApp</th>
                             <th>Email</th>
                             <th>{{ $isAdmin ? 'Perusahaan / Branch' : 'Branch' }}</th>
-                            <th class="text-center">{{ $isAdmin ? 'Aplikasi' : ($app === 'pages' ? 'Transaksi' : 'Invoice') }}</th>
+                            <th class="text-center">{{ $isAdmin ? 'Aplikasi' : (in_array($app, ['events', 'pages'], true) ? 'Transaksi' : 'Invoice') }}</th>
                             @if ($isAdmin)
                                 <th>Sumber</th>
                                 <th class="text-center">Akun</th>
@@ -130,7 +132,7 @@
                                     @if ($isAdmin)
                                         <span class="badge bg-light text-dark border">{{ $customer->appLabel() }}</span>
                                     @else
-                                        {{ $app === 'pages' ? $customer->submissions_count : $customer->invoices_count }}
+                                        {{ in_array($app, ['events', 'pages'], true) ? $customer->submissions_count : $customer->invoices_count }}
                                     @endif
                                 </td>
                                 @if ($isAdmin)
@@ -163,8 +165,10 @@
                                 <td colspan="{{ $isAdmin ? 10 : 7 }}" class="text-center text-muted py-4">
                                     @if (request()->hasAny(['search', 'branch', 'app']))
                                         Tidak ada customer yang cocok.
+                                    @elseif ($app === 'events')
+                                        Belum ada customer. Customer masuk otomatis saat ada yang membeli tiket di event Anda.
                                     @elseif ($app === 'pages')
-                                        Belum ada customer. Customer masuk otomatis saat ada yang membeli atau mendaftar di page Anda.
+                                        Belum ada customer. Customer masuk otomatis saat ada yang memesan atau mendaftar di page Anda.
                                     @elseif ($app === 'invoices')
                                         Belum ada customer. Tambahkan dari menu Invoice &rsaquo; Kategori &rsaquo; Customer.
                                     @else

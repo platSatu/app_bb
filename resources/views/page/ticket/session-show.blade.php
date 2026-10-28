@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('title', 'Daftar Hadir · '.$session->name)
-@section('page-section', $routes === 'pages' ? 'Pages' : 'Superadmin')
+@section('page-section', \App\Support\Apps::pageSection($routes))
 
 @section('content')
     @include('page.category._tabs', ['active' => 'ticket-sessions'])

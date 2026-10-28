@@ -20,12 +20,12 @@ class PackageSeeder extends Seeder
     // Batas per bulan: invoices = invoice dibuat, whatsapp = pesan terkirim. Tidak diisi = tanpa batas.
     private const PLANS = [
         'Komplit' => [
-            'apps' => ['pages', 'schedules', 'invoices', 'whatsapp'],
+            'apps' => ['events', 'pages', 'schedules', 'invoices', 'whatsapp'],
             'prices' => [180 => 1349000, 365 => 2399000],
             'limits' => ['invoices' => 2000, 'whatsapp' => 20000],
         ],
         'Pages' => [
-            'apps' => ['pages'],
+            'apps' => ['events', 'pages'],
             'prices' => [180 => 429000, 365 => 759000],
             'limits' => [],
         ],
@@ -40,7 +40,7 @@ class PackageSeeder extends Seeder
             'limits' => ['invoices' => 500, 'whatsapp' => 5000],
         ],
         'Pages + Invoice + WhatsApp' => [
-            'apps' => ['pages', 'invoices', 'whatsapp'],
+            'apps' => ['events', 'pages', 'invoices', 'whatsapp'],
             'prices' => [180 => 1079000, 365 => 1899000],
             'limits' => ['invoices' => 1000, 'whatsapp' => 10000],
         ],
@@ -51,20 +51,26 @@ class PackageSeeder extends Seeder
     private const DURATIONS = [7 => 'Trial 7 Hari', 180 => '6 Bulan', 365 => '12 Bulan'];
 
     private const FEATURES = [
-        'pages' => 'Pages: landing page, bio link, katalog online, tiket event & kuis',
+        'events' => 'Event: tiket event, e-ticket QR, registrasi ulang & ID card',
+        'pages' => 'Pages: landing page, bio link, katalog online & kuis',
         'schedules' => 'Jadwal: jadwal rutin, absensi, portal murid & pengajar',
         'invoices' => 'Invoice: link bayar online, invoice periode, disbursement & API',
         'whatsapp' => 'WhatsApp: inbox tim CS, broadcast, auto reply & chatbot',
     ];
 
     /** Rincian per layanan, mengikuti menu di sidebar (config/menu.php). */
+    // Paket yang membuka Event + Pages sekaligus diringkas jadi satu baris (sama dengan ringkasan versi lama).
+    private const FEATURES_EVENTS_PAGES = 'Pages: landing page, bio link, katalog online, tiket event & kuis';
+
     private const DETAILS = [
-        'pages' => [
-            'Landing page & bio link tanpa coding',
-            'Katalog online dengan pembayaran',
+        'events' => [
             'Tiket event, e-ticket QR & scan registrasi ulang',
             'ID card peserta',
             'Form pendaftaran dengan pembayaran',
+        ],
+        'pages' => [
+            'Landing page & bio link tanpa coding',
+            'Katalog online dengan pembayaran',
             'Kuis & tes online dengan skor otomatis',
             'Pengunjung yang mengisi otomatis jadi customer',
         ],
@@ -146,8 +152,9 @@ class PackageSeeder extends Seeder
     private function summary(array $apps, array $limits): string
     {
         $units = ['invoices' => 'invoice', 'whatsapp' => 'pesan'];
-        $lines = array_map(fn ($app) => self::FEATURES[$app]
-            .(isset($limits[$app]) ? ' ('.number_format($limits[$app], 0, ',', '.').' '.$units[$app].'/bulan)' : ''), $apps);
+        $both = in_array('events', $apps, true) && in_array('pages', $apps, true);
+        $lines = array_map(fn ($app) => ($both && $app === 'pages' ? self::FEATURES_EVENTS_PAGES : self::FEATURES[$app])
+            .(isset($limits[$app]) ? ' ('.number_format($limits[$app], 0, ',', '.').' '.$units[$app].'/bulan)' : ''), $both ? array_values(array_diff($apps, ['events'])) : $apps);
 
         return implode("\n", [...$lines, 'Data customer & export Excel']);
     }

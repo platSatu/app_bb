@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('title', $product->exists ? 'Edit Produk' : 'Tambah Produk')
-@section('page-section', $routes === 'pages' ? 'Pages' : 'Superadmin')
+@section('page-section', \App\Support\Apps::pageSection($routes))
 
 @php
     // Foto lama tidak bisa dikirim ulang lewat old(), jadi thumbnail diambil dari database.

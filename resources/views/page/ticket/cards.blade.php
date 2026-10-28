@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('title', 'ID Card')
-@section('page-section', $routes === 'pages' ? 'Pages' : 'Superadmin')
+@section('page-section', \App\Support\Apps::pageSection($routes))
 
 @push('styles')
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">

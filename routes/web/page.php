@@ -28,12 +28,17 @@ use App\Http\Controllers\Page\Quiz\QuizQuestionController;
 use App\Http\Controllers\Page\Quiz\QuizSettingController;
 use Illuminate\Support\Facades\Route;
 
-// Sub-halaman page dipakai bersama user (/pages) & superadmin (/superadmin/pages).
-// Hak akses tetap dicek lagi di controller lewat PageCategory::accessibleBy().
-$read = function () {
-    Route::get('{page}/builder', [PageFormFieldController::class, 'index'])->name('builder');
-    Route::get('{page}/submissions/{submission}/files/{answer}', [PageSubmissionController::class, 'file'])->name('submissions.file');
+// Sub-halaman page dipakai bersama user (/pages, /events) & superadmin (/superadmin/pages, /superadmin/events).
+// Event = page bertemplate tiket, dengan menu & paket sendiri. Tab tiket hanya ada di area Event, tab lain hanya di Pages.
+// Hak akses tetap dicek lagi di controller lewat PageCategory::accessibleBy() + forArea().
 
+// File unggahan dari isian form, dipakai kedua area.
+$readShared = function () {
+    Route::get('{page}/submissions/{submission}/files/{answer}', [PageSubmissionController::class, 'file'])->name('submissions.file');
+};
+
+// Katalog, kuis, landing & biolink: hanya di area Pages.
+$readPages = function () {
     Route::get('{page}/catalog/categories', [CatalogCategoryController::class, 'index'])->name('catalog.categories.index');
     Route::get('{page}/catalog/products', [CatalogProductController::class, 'index'])->name('catalog.products.index');
     Route::get('{page}/catalog/orders', [CatalogOrderController::class, 'index'])->name('catalog.orders.index');
@@ -45,18 +50,6 @@ $read = function () {
     Route::get('{page}/quiz/attempts', [QuizAttemptController::class, 'index'])->name('quiz.attempts.index');
     Route::get('{page}/quiz/attempts/{attempt}', [QuizAttemptController::class, 'show'])->name('quiz.attempts.show');
 
-    Route::get('{page}/tickets/categories', [TicketCategoryController::class, 'index'])->name('ticket.categories.index');
-    Route::get('{page}/tickets/categories/{category}/sales', [TicketReportController::class, 'sales'])->name('ticket.categories.sales');
-    Route::get('{page}/tickets/reports', [TicketReportController::class, 'index'])->name('ticket.reports.index');
-    Route::get('{page}/tickets/orders', [TicketOrderController::class, 'index'])->name('ticket.orders.index');
-    Route::get('{page}/tickets/orders/{order}', [TicketOrderController::class, 'show'])->name('ticket.orders.show');
-    Route::get('{page}/tickets/design', [TicketDesignController::class, 'edit'])->name('ticket.design.edit');
-    Route::get('{page}/tickets/terms', [TicketTermsController::class, 'edit'])->name('ticket.terms.edit');
-    Route::get('{page}/tickets/scanners', [TicketScannerController::class, 'index'])->name('ticket.scanners.index');
-    Route::get('{page}/tickets/cards', [TicketCardController::class, 'index'])->name('ticket.cards.index');
-    Route::get('{page}/tickets/sessions', [TicketSessionController::class, 'index'])->name('ticket.sessions.index');
-    Route::get('{page}/tickets/sessions/{session}', [TicketSessionController::class, 'show'])->name('ticket.sessions.show');
-
     Route::get('{page}/landing/sections', [LandingSectionController::class, 'index'])->name('landing.sections.index');
     Route::post('{page}/landing/preview', [LandingSectionController::class, 'preview'])->middleware('throttle:60,1')->name('landing.preview');
     Route::get('{page}/landing/settings', [LandingSettingController::class, 'edit'])->name('landing.settings.edit');
@@ -64,9 +57,7 @@ $read = function () {
     Route::get('{page}/biolink', [BiolinkController::class, 'edit'])->name('biolink.edit');
 };
 
-$write = function () {
-    Route::put('{page}/builder', [PageFormFieldController::class, 'sync'])->middleware('throttle:30,1')->name('builder.sync');
-
+$writePages = function () {
     Route::put('{page}/catalog/categories', [CatalogCategoryController::class, 'sync'])->middleware('throttle:30,1')->name('catalog.categories.sync');
     Route::get('{page}/catalog/products/create', [CatalogProductController::class, 'create'])->name('catalog.products.create');
     Route::post('{page}/catalog/products', [CatalogProductController::class, 'store'])->name('catalog.products.store');
@@ -79,6 +70,31 @@ $write = function () {
     Route::put('{page}/quiz/questions', [QuizQuestionController::class, 'sync'])->middleware('throttle:30,1')->name('quiz.questions.sync');
     Route::put('{page}/quiz/settings', [QuizSettingController::class, 'update'])->name('quiz.settings.update');
 
+    Route::put('{page}/landing/sections', [LandingSectionController::class, 'sync'])->middleware('throttle:30,1')->name('landing.sections.sync');
+    Route::post('{page}/landing/generate', [LandingSectionController::class, 'generate'])->middleware('throttle:10,1')->name('landing.generate');
+    Route::put('{page}/landing/settings', [LandingSettingController::class, 'update'])->name('landing.settings.update');
+
+    Route::put('{page}/biolink', [BiolinkController::class, 'update'])->middleware('throttle:30,1')->name('biolink.update');
+};
+
+// Tiket & Form Pembeli: hanya di area Event.
+$readEvents = function () {
+    Route::get('{page}/builder', [PageFormFieldController::class, 'index'])->name('builder');
+    Route::get('{page}/tickets/categories', [TicketCategoryController::class, 'index'])->name('ticket.categories.index');
+    Route::get('{page}/tickets/categories/{category}/sales', [TicketReportController::class, 'sales'])->name('ticket.categories.sales');
+    Route::get('{page}/tickets/reports', [TicketReportController::class, 'index'])->name('ticket.reports.index');
+    Route::get('{page}/tickets/orders', [TicketOrderController::class, 'index'])->name('ticket.orders.index');
+    Route::get('{page}/tickets/orders/{order}', [TicketOrderController::class, 'show'])->name('ticket.orders.show');
+    Route::get('{page}/tickets/design', [TicketDesignController::class, 'edit'])->name('ticket.design.edit');
+    Route::get('{page}/tickets/terms', [TicketTermsController::class, 'edit'])->name('ticket.terms.edit');
+    Route::get('{page}/tickets/scanners', [TicketScannerController::class, 'index'])->name('ticket.scanners.index');
+    Route::get('{page}/tickets/cards', [TicketCardController::class, 'index'])->name('ticket.cards.index');
+    Route::get('{page}/tickets/sessions', [TicketSessionController::class, 'index'])->name('ticket.sessions.index');
+    Route::get('{page}/tickets/sessions/{session}', [TicketSessionController::class, 'show'])->name('ticket.sessions.show');
+};
+
+$writeEvents = function () {
+    Route::put('{page}/builder', [PageFormFieldController::class, 'sync'])->middleware('throttle:30,1')->name('builder.sync');
     Route::put('{page}/tickets/categories', [TicketCategoryController::class, 'sync'])->middleware('throttle:30,1')->name('ticket.categories.sync');
     Route::post('{page}/tickets/orders/{order}/resend', [TicketOrderController::class, 'resend'])->middleware('throttle:10,1')->name('ticket.orders.resend');
     Route::put('{page}/tickets/design', [TicketDesignController::class, 'update'])->name('ticket.design.update');
@@ -91,30 +107,57 @@ $write = function () {
     Route::post('{page}/tickets/sessions', [TicketSessionController::class, 'store'])->name('ticket.sessions.store');
     Route::put('{page}/tickets/sessions/{session}', [TicketSessionController::class, 'update'])->name('ticket.sessions.update');
     Route::delete('{page}/tickets/sessions/{session}', [TicketSessionController::class, 'destroy'])->name('ticket.sessions.destroy');
-
-    Route::put('{page}/landing/sections', [LandingSectionController::class, 'sync'])->middleware('throttle:30,1')->name('landing.sections.sync');
-    Route::post('{page}/landing/generate', [LandingSectionController::class, 'generate'])->middleware('throttle:10,1')->name('landing.generate');
-    Route::put('{page}/landing/settings', [LandingSettingController::class, 'update'])->name('landing.settings.update');
-
-    Route::put('{page}/biolink', [BiolinkController::class, 'update'])->middleware('throttle:30,1')->name('biolink.update');
 };
 
-Route::middleware(['auth', 'permission:pages.list'])->group(function () use ($read, $write) {
-    Route::get('pages/{page}/qrcode', [PageCategoryController::class, 'qrcode'])->name('pages.qrcode');
-    Route::get('pages/ticket-fee', [TicketFeeController::class, 'show'])->name('pages.ticket-fee');
-    Route::resource('pages', PageCategoryController::class)->except('show');
-    Route::prefix('pages')->name('pages.')->group(function () use ($read, $write) {
-        $read();
-        $write();
+// Menu owner: Event (/events) dan Pages (/pages). Controller sama; area dibaca dari nama route.
+// Link lama tiket (sebelum Event dipisah dari Pages) dialihkan ke alamat barunya.
+Route::middleware('auth')->group(function () {
+    Route::redirect('pages/ticket-fee', '/events/ticket-fee', 301);
+    Route::get('pages/{page}/{section}/{rest?}', fn (string $page, string $section, ?string $rest = null) => redirect('/events/'.$page.'/'.$section.($rest ? '/'.$rest : ''), 301))
+        ->where(['section' => 'tickets|builder', 'rest' => '.*']);
+    Route::get('superadmin/pages/{page}/{section}/{rest?}', fn (string $page, string $section, ?string $rest = null) => redirect('/superadmin/events/'.$page.'/'.$section.($rest ? '/'.$rest : ''), 301))
+        ->where(['section' => 'tickets|builder', 'rest' => '.*']);
+});
+
+Route::middleware(['auth', 'permission:events.list'])->group(function () use ($readShared, $readEvents, $writeEvents) {
+    Route::get('events/{page}/qrcode', [PageCategoryController::class, 'qrcode'])->name('events.qrcode');
+    Route::get('events/ticket-fee', [TicketFeeController::class, 'show'])->name('events.ticket-fee');
+    Route::resource('events', PageCategoryController::class)->parameters(['events' => 'page'])->except('show');
+    Route::prefix('events')->name('events.')->group(function () use ($readShared, $readEvents, $writeEvents) {
+        $readShared();
+        $readEvents();
+        $writeEvents();
     });
 });
 
-Route::middleware(['auth', 'superadmin'])->prefix('superadmin/pages')->name('superadmin.pages.')->group(function () use ($read, $write) {
-    Route::middleware('permission:superadmin.pages,view')->group($read);
-    Route::middleware('permission:superadmin.pages,manage')->group($write);
+Route::middleware(['auth', 'permission:pages.list'])->group(function () use ($readShared, $readPages, $writePages) {
+    Route::get('pages/{page}/qrcode', [PageCategoryController::class, 'qrcode'])->name('pages.qrcode');
+    Route::resource('pages', PageCategoryController::class)->except('show');
+    Route::prefix('pages')->name('pages.')->group(function () use ($readShared, $readPages, $writePages) {
+        $readShared();
+        $readPages();
+        $writePages();
+    });
 });
 
-// Halaman publik ikut tutup kalau paket Pages branch pemiliknya habis.
+// Superadmin: Applications › Event (izin superadmin.events) dan Applications › Pages (izin superadmin.pages).
+Route::middleware(['auth', 'superadmin'])->prefix('superadmin/events')->name('superadmin.events.')->group(function () use ($readShared, $readEvents, $writeEvents) {
+    Route::middleware('permission:superadmin.events,view')->group(function () use ($readShared, $readEvents) {
+        $readShared();
+        $readEvents();
+    });
+    Route::middleware('permission:superadmin.events,manage')->group($writeEvents);
+});
+
+Route::middleware(['auth', 'superadmin'])->prefix('superadmin/pages')->name('superadmin.pages.')->group(function () use ($readShared, $readPages, $writePages) {
+    Route::middleware('permission:superadmin.pages,view')->group(function () use ($readShared, $readPages) {
+        $readShared();
+        $readPages();
+    });
+    Route::middleware('permission:superadmin.pages,manage')->group($writePages);
+});
+
+// Halaman publik ikut tutup kalau paket branch pemiliknya habis (event: paket Event, page lain: paket Pages).
 Route::middleware('public.app:pages')->group(function () {
     Route::get('page/{slug}', [PublicPageController::class, 'show'])
         ->where('slug', '[a-z0-9-]+')

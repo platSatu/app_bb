@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('title', 'Kategori Produk')
-@section('page-section', $routes === 'pages' ? 'Pages' : 'Superadmin')
+@section('page-section', \App\Support\Apps::pageSection($routes))
 
 @php
     $rows = old('categories', $categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'status' => $c->status, 'count' => $c->products_count])->all());

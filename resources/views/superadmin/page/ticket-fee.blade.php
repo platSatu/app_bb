@@ -39,7 +39,7 @@
                         @error('free_allowance') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
                 </div>
-                @if (auth()->user()->canAccess('superadmin.pages', 'manage'))
+                @if (auth()->user()->canAccess('superadmin.events', 'manage'))
                     <div class="d-flex justify-content-end mt-4"><button class="btn btn-primary">Simpan</button></div>
                 @endif
             </form>

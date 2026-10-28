@@ -28,7 +28,7 @@ function ticketEvent(array $card = ['enabled' => true], int $quota = 10, int $pr
     $company->save();
     $branch = (new UserBranch())->forceFill(['user_id' => $owner->id, 'company_id' => $company->id, 'name' => 'Pusat', 'status' => 'active']);
     $branch->save();
-    (new BranchSubscription())->forceFill(['branch_id' => $branch->id, 'app_key' => 'pages', 'starts_at' => now()->subDay(), 'ends_at' => now()->addMonth()])->save();
+    (new BranchSubscription())->forceFill(['branch_id' => $branch->id, 'app_key' => 'events', 'starts_at' => now()->subDay(), 'ends_at' => now()->addMonth()])->save();
     $type = PageType::create(['name' => 'Tiket '.Str::random(4), 'template' => PageType::TEMPLATE_TICKET, 'status' => 'active']);
     $page = (new PageCategory())->forceFill([
         'branch_id' => $branch->id, 'page_type_id' => $type->id, 'name' => 'Seminar Digital', 'slug' => 'seminar-'.Str::lower(Str::random(6)),
@@ -210,11 +210,11 @@ it('cetak ulang dengan QR baru membuat kartu lama tidak berlaku', function () {
     $ticket = buyFree($page, $category, 'hilang')->tickets()->first();
 
     // Admin cetak pertama (tanpa registrasi ulang, karena orangnya belum tentu hadir).
-    $this->actingAs($owner)->post(route('pages.ticket.cards.print', [$page, $ticket]))->assertOk()->assertSee('window.print', false);
+    $this->actingAs($owner)->post(route('events.ticket.cards.print', [$page, $ticket]))->assertOk()->assertSee('window.print', false);
     $old = $ticket->fresh()->card_token;
     expect($old)->not->toBeNull()->and($ticket->fresh()->isCheckedIn())->toBeFalse();
 
-    $this->actingAs($owner)->post(route('pages.ticket.cards.print', [$page, $ticket]), ['replace' => 1])->assertOk();
+    $this->actingAs($owner)->post(route('events.ticket.cards.print', [$page, $ticket]), ['replace' => 1])->assertOk();
     $new = $ticket->fresh();
     expect($new->card_token)->not->toBe($old)->and($new->card_print_count)->toBe(2)
         ->and(TicketCardLog::where('ticket_id', $ticket->id)->pluck('action')->all())->toEqualCanonicalizing(['print', 'replace']);
@@ -247,34 +247,34 @@ it('halaman admin ID card, sesi, dan daftar hadir bisa dibuka & disimpan', funct
     [$owner, $page, $category] = ticketEvent(['enabled' => false]);
     buyFree($page, $category, 'admin');
 
-    $this->actingAs($owner)->get(route('pages.ticket.cards.index', $page))->assertOk()->assertSee('Pengaturan Cetak')->assertSee('Peserta admin');
-    $this->actingAs($owner)->put(route('pages.ticket.cards.update', $page), ['enabled' => 1, 'size' => 'a5', 'orientation' => 'landscape', 'label' => 'delegasi', 'show_category' => 1])
+    $this->actingAs($owner)->get(route('events.ticket.cards.index', $page))->assertOk()->assertSee('Pengaturan Cetak')->assertSee('Peserta admin');
+    $this->actingAs($owner)->put(route('events.ticket.cards.update', $page), ['enabled' => 1, 'size' => 'a5', 'orientation' => 'landscape', 'label' => 'delegasi', 'show_category' => 1])
         ->assertRedirect()->assertSessionHas('success');
     expect($page->fresh()->setting('ticket.card'))->toMatchArray(['enabled' => true, 'size' => 'a5', 'orientation' => 'landscape', 'label' => 'DELEGASI', 'hole' => false]);
 
-    $this->actingAs($owner)->post(route('pages.ticket.sessions.store', $page), [
+    $this->actingAs($owner)->post(route('events.ticket.sessions.store', $page), [
         '_form' => 'session-new', 'name' => 'Kelas Pagi', 'starts_at' => now()->addDay()->format('Y-m-d\TH:i'), 'ends_at' => now()->addDay()->subHour()->format('Y-m-d\TH:i'),
         'open_before_minutes' => 30, 'status' => 'active',
     ])->assertSessionHasErrorsIn('session-new', 'ends_at');
 
-    $this->actingAs($owner)->post(route('pages.ticket.sessions.store', $page), [
+    $this->actingAs($owner)->post(route('events.ticket.sessions.store', $page), [
         '_form' => 'session-new', 'name' => 'Kelas Pagi', 'starts_at' => now()->addDay()->format('Y-m-d\TH:i'), 'ends_at' => now()->addDay()->addHours(2)->format('Y-m-d\TH:i'),
         'open_before_minutes' => 30, 'late_minutes' => 15, 'category_ids' => [$category->id], 'status' => 'active',
     ])->assertSessionHasNoErrors();
     $session = TicketSession::where('page_id', $page->id)->firstOrFail();
     expect($session->category_ids)->toBe([$category->id]);
 
-    $this->actingAs($owner)->get(route('pages.ticket.sessions.index', $page))->assertOk()->assertSee('Kelas Pagi')->assertSee('Scan');
-    $this->actingAs($owner)->get(route('pages.ticket.sessions.show', [$page, $session, 'tab' => 'absent']))->assertOk()->assertSee('Peserta admin');
-    $this->actingAs($owner)->get(route('pages.ticket.sessions.show', [$page, $session, 'export' => 1]))->assertOk()->assertDownload();
-    $this->actingAs($owner)->get(route('pages.ticket.scanners.index', $page))->assertOk();
+    $this->actingAs($owner)->get(route('events.ticket.sessions.index', $page))->assertOk()->assertSee('Kelas Pagi')->assertSee('Scan');
+    $this->actingAs($owner)->get(route('events.ticket.sessions.show', [$page, $session, 'tab' => 'absent']))->assertOk()->assertSee('Peserta admin');
+    $this->actingAs($owner)->get(route('events.ticket.sessions.show', [$page, $session, 'export' => 1]))->assertOk()->assertDownload();
+    $this->actingAs($owner)->get(route('events.ticket.scanners.index', $page))->assertOk();
 
-    $this->actingAs($owner)->post(route('pages.ticket.scanners.store', $page), ['name' => 'Kiosk Lobby', 'type' => 'kiosk'])->assertSessionHas('scanner_pin');
+    $this->actingAs($owner)->post(route('events.ticket.scanners.store', $page), ['name' => 'Kiosk Lobby', 'type' => 'kiosk'])->assertSessionHas('scanner_pin');
     expect(TicketScanner::where('page_id', $page->id)->where('type', 'kiosk')->exists())->toBeTrue();
 
     // Sesi lain tidak bisa diakses lewat page orang lain.
     [$stranger] = ticketEvent();
-    $this->actingAs($stranger)->get(route('pages.ticket.sessions.show', [$page, $session]))->assertNotFound();
+    $this->actingAs($stranger)->get(route('events.ticket.sessions.show', [$page, $session]))->assertNotFound();
 });
 
 it('sesi yang sudah ada absensinya tidak bisa dihapus', function () {
@@ -285,6 +285,6 @@ it('sesi yang sudah ada absensinya tidak bisa dihapus', function () {
     $session->save();
     (new TicketSessionAttendance())->forceFill(['page_id' => $page->id, 'session_id' => $session->id, 'ticket_id' => $ticket->id, 'scanned_at' => now()])->save();
 
-    $this->actingAs($owner)->delete(route('pages.ticket.sessions.destroy', [$page, $session]))->assertSessionHas('error');
+    $this->actingAs($owner)->delete(route('events.ticket.sessions.destroy', [$page, $session]))->assertSessionHas('error');
     expect($session->fresh())->not->toBeNull();
 });

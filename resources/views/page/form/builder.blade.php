@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('title', 'Form Pembeli')
-@section('page-section', $routes === 'pages' ? 'Pages' : 'Superadmin')
+@section('page-section', \App\Support\Apps::pageSection($routes))
 
 @php
     $rows = old('fields', $page->fields->map(fn ($f) => $f->only(['id', 'type', 'label', 'placeholder', 'help_text', 'options', 'is_required']))->all());

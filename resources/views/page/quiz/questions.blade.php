@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('title', 'Soal Quiz')
-@section('page-section', $routes === 'pages' ? 'Pages' : 'Superadmin')
+@section('page-section', \App\Support\Apps::pageSection($routes))
 
 @php
     $rows = old('questions', $questions->map(fn ($q) => [

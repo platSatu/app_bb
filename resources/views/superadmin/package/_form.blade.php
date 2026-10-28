@@ -49,7 +49,7 @@
         @php($selectedApps = old('apps', $package->apps ?? []))
         <div class="row g-2">
             @foreach (\App\Support\Apps::LIST as $key => $app)
-                <div class="col-sm-6 col-lg-3">
+                <div class="col-sm-6 col-lg">
                     <input type="checkbox" class="btn-check" name="apps[]" value="{{ $key }}" id="app-{{ $key }}" @checked(in_array($key, $selectedApps, true))>
                     <label class="btn btn-outline-primary w-100 h-100 text-start p-3" for="app-{{ $key }}">
                         <i class="{{ $app['icon'] }} fs-4 d-block mb-1"></i>
@@ -68,23 +68,26 @@
         <label class="form-label">Batas Paket</label>
         <div class="form-text mt-0 mb-2">Kosongkan = tanpa batas, 0 = tidak boleh sama sekali. Berlaku per branch, hanya untuk layanan yang dicentang di atas. Invoice & pesan WhatsApp dihitung per bulan kalender (reset tanggal 1).</div>
         <div class="row g-3">
-            <div class="col-lg-6">
-                <div class="border rounded-3 p-3 h-100">
-                    <div class="fw-semibold mb-2"><i class="ri-pages-line me-1"></i>Pages · maksimal page per kategori</div>
-                    @forelse ($pageTypes as $type)
-                        <div class="input-group input-group-sm mb-2">
-                            <span class="input-group-text flex-grow-1">{{ $type->name }}{{ $type->isActive() ? '' : ' (nonaktif)' }}</span>
-                            <input type="number" min="0" max="1000" name="limits[pages][{{ $type->id }}]" class="form-control text-end @error('limits.pages.'.$type->id) is-invalid @enderror" style="max-width: 110px"
-                                value="{{ old('limits.pages.'.$type->id, $package->limits['pages'][$type->id] ?? '') }}" placeholder="∞">
-                            <span class="input-group-text">page</span>
-                        </div>
-                    @empty
-                        <div class="small text-muted">Belum ada kategori page.</div>
-                    @endforelse
-                    @error('limits.pages.*') <div class="text-danger fs-13">{{ $message }}</div> @enderror
+            {{-- Event = kategori bertemplate tiket, Pages = kategori lain (App\Support\Apps::forTemplate). --}}
+            @foreach (['events' => ['ri-coupon-3-line', 'Event · maksimal event per kategori', 'event'], 'pages' => ['ri-pages-line', 'Pages · maksimal page per kategori', 'page']] as $app => [$icon, $label, $unit])
+                <div class="col-lg-4">
+                    <div class="border rounded-3 p-3 h-100">
+                        <div class="fw-semibold mb-2"><i class="{{ $icon }} me-1"></i>{{ $label }}</div>
+                        @forelse ($pageTypes->filter(fn ($type) => \App\Support\Apps::forTemplate($type->template) === $app) as $type)
+                            <div class="input-group input-group-sm mb-2">
+                                <span class="input-group-text flex-grow-1">{{ $type->name }}{{ $type->isActive() ? '' : ' (nonaktif)' }}</span>
+                                <input type="number" min="0" max="1000" name="limits[{{ $app }}][{{ $type->id }}]" class="form-control text-end @error('limits.'.$app.'.'.$type->id) is-invalid @enderror" style="max-width: 110px"
+                                    value="{{ old('limits.'.$app.'.'.$type->id, $package->limits[$app][$type->id] ?? '') }}" placeholder="∞">
+                                <span class="input-group-text">{{ $unit }}</span>
+                            </div>
+                        @empty
+                            <div class="small text-muted">Belum ada kategori {{ $unit }}.</div>
+                        @endforelse
+                        @error('limits.'.$app.'.*') <div class="text-danger fs-13">{{ $message }}</div> @enderror
+                    </div>
                 </div>
-            </div>
-            <div class="col-lg-6">
+            @endforeach
+            <div class="col-lg-4">
                 <div class="border rounded-3 p-3 h-100">
                     @foreach (['invoices' => ['ri-file-list-3-line', 'Tagihan · invoice dibuat per bulan', 'invoice'], 'whatsapp' => ['ri-whatsapp-line', 'WhatsApp · semua pesan keluar per bulan', 'pesan']] as $app => [$icon, $label, $unit])
                         <div class="fw-semibold mb-2"><i class="{{ $icon }} me-1"></i>{{ $label }}</div>

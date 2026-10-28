@@ -49,7 +49,7 @@
                                 </td>
                                 <td>{{ $category->templateLabel() }}</td>
                                 <td class="text-center">
-                                    <a href="{{ route('superadmin.pages.index', ['type' => $category->id]) }}">{{ $category->pages_count }}</a>
+                                    <a href="{{ route(\App\Support\Apps::forTemplate($category->template) === 'events' ? 'superadmin.events.index' : 'superadmin.pages.index', ['type' => $category->id]) }}">{{ $category->pages_count }}</a>
                                 </td>
                                 <td><span class="badge {{ $category->statusBadge() }}">{{ $category->statusLabel() }}</span></td>
                                 @if ($canManage)

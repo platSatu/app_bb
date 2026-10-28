@@ -38,7 +38,7 @@ function paidEvent(string $payer, int $price = 100000): array
     $company->save();
     $branch = (new UserBranch())->forceFill(['user_id' => $owner->id, 'company_id' => $company->id, 'name' => 'Pusat', 'status' => 'active']);
     $branch->save();
-    (new BranchSubscription())->forceFill(['branch_id' => $branch->id, 'app_key' => 'pages', 'starts_at' => now()->subDay(), 'ends_at' => now()->addMonth()])->save();
+    (new BranchSubscription())->forceFill(['branch_id' => $branch->id, 'app_key' => 'events', 'starts_at' => now()->subDay(), 'ends_at' => now()->addMonth()])->save();
     $type = PageType::create(['name' => 'Tiket '.Str::random(4), 'template' => PageType::TEMPLATE_TICKET, 'status' => 'active']);
     $page = (new PageCategory())->forceFill([
         'branch_id' => $branch->id, 'page_type_id' => $type->id, 'name' => 'Konser', 'slug' => 'konser-'.Str::lower(Str::random(6)),
@@ -168,7 +168,7 @@ function rows(array $categories): array
 
 it('event gratis: harga wajib Rp0 dan TOTAL kuota semua kategori tidak boleh melewati batas', function () {
     [$owner, $page, $category] = paidEvent(TicketSetting::PAYER_FREE, 0);
-    $sync = fn (array $categories) => $this->actingAs($owner)->put(route('pages.ticket.categories.sync', $page), rows($categories));
+    $sync = fn (array $categories) => $this->actingAs($owner)->put(route('events.ticket.categories.sync', $page), rows($categories));
 
     $sync([['id' => $category->id, 'name' => 'Reguler', 'price' => 50000, 'quota' => 10]])->assertSessionHasErrors('categories.0.price');
     // Dipecah jadi banyak kategori kecil tetap dijumlahkan: 600 + 300 + 200 = 1.100 > 1.000.
@@ -186,7 +186,7 @@ it('event gratis: harga wajib Rp0 dan TOTAL kuota semua kategori tidak boleh mel
 it('event berbayar: kategori baru wajib punya harga', function () {
     [$owner, $page, $category] = paidEvent(TicketSetting::PAYER_ORGANIZER);
 
-    $this->actingAs($owner)->put(route('pages.ticket.categories.sync', $page), rows([
+    $this->actingAs($owner)->put(route('events.ticket.categories.sync', $page), rows([
         ['id' => $category->id, 'name' => 'Reguler', 'price' => 100000, 'quota' => 50],
         ['name' => 'Undangan', 'price' => 0, 'quota' => 500],
     ]))->assertSessionHasErrors('categories.1.price');
@@ -196,7 +196,7 @@ it('event berbayar: kategori baru wajib punya harga', function () {
 it('sudah ada pembeli: nama & harga dikunci, kolom lain boleh diubah dan tercatat di riwayat', function () {
     [$owner, $page, $category] = paidEvent(TicketSetting::PAYER_ORGANIZER);
     $category->forceFill(['sold' => 3])->save();
-    $sync = fn (array $row) => $this->actingAs($owner)->put(route('pages.ticket.categories.sync', $page), rows([$row + ['id' => $category->id]]));
+    $sync = fn (array $row) => $this->actingAs($owner)->put(route('events.ticket.categories.sync', $page), rows([$row + ['id' => $category->id]]));
 
     $sync(['name' => 'Reguler', 'price' => 1000, 'quota' => 50])->assertSessionHasErrors('categories.0.price');
     $sync(['name' => 'VIP Baru', 'price' => 100000, 'quota' => 50])->assertSessionHasErrors('categories.0.price');
@@ -207,7 +207,7 @@ it('sudah ada pembeli: nama & harga dikunci, kolom lain boleh diubah dan tercata
     expect($category->fresh()->quota)->toBe(80)
         ->and($change->actor_id)->toBe($owner->id)
         ->and($change->changes)->toBe(['quota' => ['50', '80'], 'description' => ['-', 'Termasuk snack']]);
-    $this->actingAs($owner)->get(route('pages.ticket.categories.index', $page))->assertOk()->assertSee('Riwayat Perubahan')->assertSee('Termasuk snack');
+    $this->actingAs($owner)->get(route('events.ticket.categories.index', $page))->assertOk()->assertSee('Riwayat Perubahan')->assertSee('Termasuk snack');
 });
 
 it('jenis event dikunci setelah ada pesanan', function () {

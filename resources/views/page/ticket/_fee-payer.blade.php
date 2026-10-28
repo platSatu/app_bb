@@ -1,6 +1,6 @@
 {{--
     Jenis event tiket (penanggung biaya layanan / event gratis), hanya tampil kalau kategori page bertemplate "ticket".
-    Membuat page tiket baru selalu lewat halaman simulasi dulu (pages.ticket-fee) untuk owner.
+    Membuat event baru selalu lewat halaman simulasi dulu (events.ticket-fee) untuk owner.
 --}}
 @php
     $ticketSetting = \App\Models\TicketSetting::current();
@@ -13,9 +13,9 @@
     ];
     $feePayer = old('ticket_fee_payer', request('fee_payer') ?: ($page->exists ? $page->ticketFeePayer() : null));
     $feeLocked = $page->isTemplate(\App\Models\PageType::TEMPLATE_TICKET) && $page->ticketFeeLocked();
-    $simulation = $routes === 'pages' ? route('pages.ticket-fee') : null;
+    $simulation = $routes === 'events' ? route('events.ticket-fee') : null;
 @endphp
-<div class="col-12" data-ticket-fee @if (! $page->isTemplate(\App\Models\PageType::TEMPLATE_TICKET)) hidden @endif data-simulation="{{ $page->exists || filled(request('fee_payer')) ? '' : $simulation }}">
+<div class="col-12" data-ticket-fee @if (! $page->isTemplate(\App\Models\PageType::TEMPLATE_TICKET) && ! ($isEvent ?? false)) hidden @endif data-simulation="{{ $page->exists || filled(request('fee_payer')) ? '' : $simulation }}">
     <div class="border rounded-3 p-3 bg-light">
         <div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
             <div class="fw-semibold">Jenis event</div>

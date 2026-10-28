@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('title', 'Konten Landing Page')
-@section('page-section', $routes === 'pages' ? 'Pages' : 'Superadmin')
+@section('page-section', \App\Support\Apps::pageSection($routes))
 
 @php
     $rows = old('sections', $sections->map(fn ($s) => ['id' => $s->id, 'type' => $s->type, 'status' => $s->status, 'data' => $s->data])->all());

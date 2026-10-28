@@ -8,7 +8,7 @@
 
 <div class="d-flex justify-content-end mb-2">
     <a href="{{ $page->url() }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">
-        <i class="ri-external-link-line"></i> Lihat Page
+        <i class="ri-external-link-line"></i> Lihat {{ in_array($routes, ['events', 'superadmin.events'], true) ? 'Event' : 'Page' }}
     </a>
 </div>
 

@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('title', 'Sesi dan Absensi')
-@section('page-section', $routes === 'pages' ? 'Pages' : 'Superadmin')
+@section('page-section', \App\Support\Apps::pageSection($routes))
 
 @push('styles')
     <style>

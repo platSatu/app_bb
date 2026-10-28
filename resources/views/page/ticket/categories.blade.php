@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('title', 'Kategori Tiket')
-@section('page-section', $routes === 'pages' ? 'Pages' : 'Superadmin')
+@section('page-section', \App\Support\Apps::pageSection($routes))
 
 @php
     $fmt = fn ($date) => $date?->format('Y-m-d\TH:i');

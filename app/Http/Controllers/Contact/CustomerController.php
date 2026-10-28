@@ -20,12 +20,15 @@ use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Customers per aplikasi: Pages (/pages/customers), Invoice (/invoices/customers),
+ * Customers per aplikasi: Event (/events/customers), Pages (/pages/customers), Invoice (/invoices/customers),
  * dan superadmin (Data User › Customer, /superadmin/customers: semua aplikasi, export & import). Customers WhatsApp ada di Phone Book.
  */
 class CustomerController extends Controller
 {
-    private const ROUTE_APPS = ['pages.customers' => 'pages', 'invoices.customers' => 'invoices'];
+    private const ROUTE_APPS = ['events.customers' => 'events', 'pages.customers' => 'pages', 'invoices.customers' => 'invoices'];
+
+    /** Aplikasi yang customernya punya riwayat isian page (pembeli tiket, pesanan katalog, peserta kuis). */
+    private const SUBMISSION_APPS = ['events', 'pages'];
 
     /** Batas baris sekali export supaya server tetap ringan; lebih dari itu persempit dengan filter. */
     public const EXPORT_LIMIT = 20000;
@@ -38,7 +41,7 @@ class CustomerController extends Controller
 
         $customers = $this->filtered($request, $filterApp)
             ->with(['branch:id,name', 'company:id,name'])
-            ->when($app === 'pages', fn ($q) => $q->withCount('submissions'))
+            ->when(in_array($app, self::SUBMISSION_APPS, true), fn ($q) => $q->withCount('submissions'))
             ->when($app === 'invoices', fn ($q) => $q->withCount('invoices'))
             ->latest('last_seen_at')
             ->paginate(20)
@@ -67,9 +70,10 @@ class CustomerController extends Controller
         return view('contact.customer.show', [
             'customer' => $model,
             'base' => $base,
-            'pagesRoute' => $admin ? 'superadmin.pages' : 'pages',
+            // Link ke pesanan tiket ada di menu Event, pesanan lain di menu Pages.
+            'pagesRoute' => ($admin ? 'superadmin.' : '').($model->app_key === 'events' ? 'events' : 'pages'),
             'invoiceRoute' => $admin ? null : 'invoices.show',
-            'submissions' => $model->app_key === 'pages' ? $model->submissions()->with(['page:id,name', 'ticketOrder:id,submission_id'])->latest()->paginate(15) : null,
+            'submissions' => in_array($model->app_key, self::SUBMISSION_APPS, true) ? $model->submissions()->with(['page:id,name', 'ticketOrder:id,submission_id'])->latest()->paginate(15) : null,
             'invoices' => $model->app_key === 'invoices' ? $model->invoices()->latest()->paginate(15) : null,
         ]);
     }

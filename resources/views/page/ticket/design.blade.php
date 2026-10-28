@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('title', 'Desain E-ticket')
-@section('page-section', $routes === 'pages' ? 'Pages' : 'Superadmin')
+@section('page-section', \App\Support\Apps::pageSection($routes))
 
 @php($background = $page->setting('ticket.background') ? \Illuminate\Support\Facades\Storage::disk('public')->url($page->setting('ticket.background')) : null)
 

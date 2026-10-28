@@ -25,8 +25,10 @@ class PackageRequest extends FormRequest
             'apps.*' => ['required', 'distinct', Rule::in(Apps::keys())],
             'is_trial' => ['boolean'],
             'is_featured' => ['boolean'],
-            // Batas paket; kosong = tanpa batas. Key pages = id kategori page (sudah disaring di prepareForValidation).
+            // Batas paket; kosong = tanpa batas. Key events/pages = id kategori page (sudah disaring di prepareForValidation).
             'limits' => ['array'],
+            'limits.events' => ['array'],
+            'limits.events.*' => ['integer', 'min:0', 'max:1000'],
             'limits.pages' => ['array'],
             'limits.pages.*' => ['integer', 'min:0', 'max:1000'],
             'limits.invoices.monthly' => ['nullable', 'integer', 'min:0', 'max:'.PlanLimits::MAX_VALUE],
@@ -38,11 +40,17 @@ class PackageRequest extends FormRequest
     {
         $this->merge(['is_trial' => $this->boolean('is_trial'), 'is_featured' => $this->boolean('is_featured')]);
 
-        // Isian kosong dibuang (= tanpa batas); kategori page yang tidak dikenal diabaikan.
+        // Isian kosong dibuang (= tanpa batas); kategori yang tidak dikenal / bukan milik layanannya diabaikan.
+        // Event = kategori bertemplate tiket, Pages = kategori lain.
         $limits = (array) $this->input('limits');
-        $pages = array_filter((array) ($limits['pages'] ?? []), 'filled');
+        $types = fn (string $app) => array_filter((array) ($limits[$app] ?? []), 'filled');
+        $known = fn (array $values, string $app) => array_intersect_key($values, array_flip(
+            PageType::whereKey(array_keys($values))->get(['id', 'template'])
+                ->filter(fn ($type) => Apps::forTemplate($type->template) === $app)->pluck('id')->all()
+        ));
         $this->merge(['limits' => [
-            'pages' => array_intersect_key($pages, array_flip(PageType::whereKey(array_keys($pages))->pluck('id')->all())),
+            'events' => $known($types(Apps::EVENTS), Apps::EVENTS),
+            'pages' => $known($types(Apps::PAGES), Apps::PAGES),
             'invoices' => array_filter(['monthly' => $limits['invoices']['monthly'] ?? null], 'filled'),
             'whatsapp' => array_filter(['monthly' => $limits['whatsapp']['monthly'] ?? null], 'filled'),
         ]]);
@@ -72,6 +80,7 @@ class PackageRequest extends FormRequest
             'duration' => 'durasi',
             'description' => 'deskripsi',
             'apps' => 'layanan',
+            'limits.events.*' => 'batas event',
             'limits.pages.*' => 'batas page',
             'limits.invoices.monthly' => 'batas invoice per bulan',
             'limits.whatsapp.monthly' => 'batas pesan WhatsApp per bulan',

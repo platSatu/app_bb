@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('title', 'Menu & Tampilan')
-@section('page-section', $routes === 'pages' ? 'Pages' : 'Superadmin')
+@section('page-section', \App\Support\Apps::pageSection($routes))
 
 @php
     $menu = old('menu', $page->setting('landing.menu', []));

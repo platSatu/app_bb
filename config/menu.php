@@ -15,6 +15,25 @@ return [
         'label' => 'Aplikasi',
         'owner_app' => true,
         'groups' => [
+            // Event: page bertemplate tiket, dijual sebagai layanan sendiri (paket Event). Fiturnya sama dengan page tiket.
+            'events' => [
+                'label' => 'Event',
+                'app' => 'events',
+                'icon' => 'ri-coupon-3-line',
+                'items' => [
+                    'events.list' => [
+                        'label' => 'List Event',
+                        'route' => 'events.index',
+                        'active' => ['events.*', '!events.customers.*'],
+                    ],
+                    // Customer khusus Event (pembeli tiket).
+                    'events.customers' => [
+                        'label' => 'Customers',
+                        'route' => 'events.customers.index',
+                        'active' => 'events.customers.*',
+                    ],
+                ],
+            ],
             'pages' => [
                 'label' => 'Pages',
                 'app' => 'pages',
@@ -25,7 +44,7 @@ return [
                         'route' => 'pages.index',
                         'active' => ['pages.*', '!pages.customers.*'],
                     ],
-                    // Customer khusus Pages (pembeli tiket, katalog, peserta kuis).
+                    // Customer khusus Pages (pemesan katalog, peserta kuis).
                     'pages.customers' => [
                         'label' => 'Customers',
                         'route' => 'pages.customers.index',
@@ -188,6 +207,16 @@ return [
                 'label' => 'Applications',
                 'icon' => 'ri-apps-2-line',
                 'submenus' => [
+                    'events' => [
+                        'label' => 'Event',
+                        'items' => [
+                            'superadmin.events' => [
+                                'label' => 'List Event',
+                                'route' => 'superadmin.events.index',
+                                'active' => ['superadmin.events.*', 'superadmin.ticket-fee.*'],
+                            ],
+                        ],
+                    ],
                     'pages' => [
                         'label' => 'Pages',
                         'items' => [

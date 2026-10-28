@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasActiveStatus;
+use App\Services\Subscription\AppAccess;
+use App\Support\Apps;
 use App\Support\Menu;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -129,16 +131,45 @@ class PageCategory extends Model
 
     /**
      * Owner: hanya page miliknya. Tim platform: semua page, sesuai izin menu
-     * superadmin.pages (lihat/kelola). Dipakai di semua sub-halaman page.
+     * superadmin.events (event) / superadmin.pages (page lain). Dipakai di semua sub-halaman page.
      */
     public function scopeAccessibleBy(Builder $query, User $user, string $ability = Menu::ABILITY_VIEW): Builder
     {
+        $branch = $this->qualifyColumn('branch_id');
+
         if (! $user->isPlatformTeam()) {
-            // Page di branch yang paket Pages-nya habis tidak bisa dibuka/diubah.
-            return $query->ownedBy($user)->whereIn($this->qualifyColumn('branch_id'), \App\Services\Subscription\AppAccess::activeBranches('pages'));
+            // Page di branch yang paketnya habis tidak bisa dibuka/diubah: event ikut paket Event, page lain ikut paket Pages.
+            return $query->ownedBy($user)->where(fn (Builder $q) => $q
+                ->where(fn (Builder $w) => $w->forArea(Apps::EVENTS)->whereIn($branch, AppAccess::activeBranches(Apps::EVENTS)))
+                ->orWhere(fn (Builder $w) => $w->forArea(Apps::PAGES)->whereIn($branch, AppAccess::activeBranches(Apps::PAGES))));
         }
 
-        return $user->canAccess('superadmin.pages', $ability) ? $query : $query->whereRaw('1 = 0');
+        // Tim platform: event butuh izin superadmin.events, page lain butuh izin superadmin.pages.
+        $events = $user->canAccess('superadmin.events', $ability);
+        $pages = $user->canAccess('superadmin.pages', $ability);
+
+        return match (true) {
+            $events && $pages => $query,
+            $events => $query->forArea(Apps::EVENTS),
+            $pages => $query->forArea(Apps::PAGES),
+            default => $query->whereRaw('1 = 0'),
+        };
+    }
+
+    /** Hanya page milik satu layanan: 'events' (template tiket) atau 'pages' (template lain). */
+    public function scopeForArea(Builder $query, string $area): Builder
+    {
+        $templates = fn (Builder $type) => $type->whereIn('template', Apps::EVENT_TEMPLATES);
+
+        return $area === Apps::EVENTS
+            ? $query->whereHas('type', $templates)
+            : $query->whereDoesntHave('type', $templates);
+    }
+
+    /** Layanan pemilik page ini: 'events' atau 'pages'. */
+    public function app(): string
+    {
+        return Apps::forTemplate($this->template());
     }
 
     /** Hanya page milik perusahaan user ini. */

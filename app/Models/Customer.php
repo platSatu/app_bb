@@ -22,6 +22,7 @@ class Customer extends Model
     public const APP_WEBSITE = 'website';
 
     public const APPS = [
+        'events' => 'Event',
         'pages' => 'Pages',
         'schedules' => 'Schedules',
         'invoices' => 'Invoice',
