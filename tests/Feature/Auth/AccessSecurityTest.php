@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\VerifyEmail;
+use App\Notifications\QueuedVerifyEmail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
@@ -25,7 +25,7 @@ it('user yang belum verifikasi email hanya bisa membuka halaman verifikasi', fun
     $this->get(route('verification.notice'))->assertOk();
 
     $this->post(route('verification.send'))->assertSessionHas('status', 'verification-link-sent');
-    Notification::assertSentTo($user, VerifyEmail::class);
+    Notification::assertSentTo($user, QueuedVerifyEmail::class);
 
     $link = URL::temporarySignedRoute('verification.verify', now()->addHour(), ['id' => $user->id, 'hash' => sha1($user->email)]);
     $this->get($link)->assertRedirect();
