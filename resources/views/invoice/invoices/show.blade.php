@@ -95,16 +95,10 @@
                 </div>
             </div>
 
-            @if ($webhooks->isNotEmpty())
-                <div class="card mb-0">
-                    <div class="card-body">
-                        <h6>Webhook ke Website</h6>
-                        @include('invoice.api._logs', ['logs' => $webhooks])
-                    </div>
-                </div>
-            @endif
         </div>
     </div>
+
+    @include('invoice.invoices._callbacks')
 
     @include('invoice.invoices._table-script')
 @endsection

@@ -69,6 +69,7 @@ class SendInvoiceWebhook implements ShouldQueue
         $timestamp = (string) time();
         $status = null;
         $error = null;
+        $reply = null;
 
         try {
             [$host, $port, $ip] = self::resolveSafely($client->webhook_url);
@@ -85,6 +86,7 @@ class SendInvoiceWebhook implements ShouldQueue
                 ->post($client->webhook_url);
 
             $status = $response->status();
+            $reply = Str::limit($response->body(), 1000);
             $error = $response->successful() ? null : 'Server Anda menjawab HTTP '.$status;
         } catch (Throwable $e) {
             $error = Str::limit($e->getMessage(), 480);
@@ -98,6 +100,8 @@ class SendInvoiceWebhook implements ShouldQueue
             'event' => $this->event,
             'attempt' => $this->attempts(),
             'http_status' => $status,
+            'payload' => $body,
+            'response_body' => $reply,
             'error' => $error,
         ])->save();
 

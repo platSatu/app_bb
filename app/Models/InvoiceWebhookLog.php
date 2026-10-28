@@ -22,6 +22,12 @@ class InvoiceWebhookLog extends Model
         return $this->belongsTo(Disbursement::class);
     }
 
+    /** Isi webhook yang dikirim (kosong untuk log lama sebelum kolom payload ada). */
+    public function payloadData(): array
+    {
+        return json_decode((string) $this->payload, true)['data'] ?? [];
+    }
+
     public function isSuccessful(): bool
     {
         return $this->http_status !== null && $this->http_status >= 200 && $this->http_status < 300;

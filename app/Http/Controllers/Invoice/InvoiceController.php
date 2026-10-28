@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Invoice\Concerns\InInvoiceArea;
 use App\Models\Invoice;
 use App\Models\InvoiceCategory;
+use App\Models\InvoiceCheckout;
+use App\Models\InvoiceCheckoutItem;
+use App\Models\InvoiceWebhookLog;
+use App\Models\PaymentCallback;
 use App\Services\Invoice\InvoicePaymentService;
 use App\Services\Invoice\InvoiceService;
 use App\Support\Menu;
@@ -71,11 +75,20 @@ class InvoiceController extends Controller
             $model->refresh();
         }
 
+        $payments = $model->payments()->latest()->get();
+
+        // Semua order Duitku untuk invoice ini (bayar sendiri INV… atau ikut bayar gabungan TGH…) => nominal yang diminta bizbos.
+        $orders = $payments->pluck('amount', 'merchant_order_id')->union(
+            InvoiceCheckout::whereIn('id', InvoiceCheckoutItem::where('invoice_id', $model->getKey())->select('checkout_id'))->pluck('amount', 'merchant_order_id')
+        );
+
         return view('invoice.invoices.show', [
             ...$this->shared($request, 'invoices'),
             'invoice' => $model,
-            'payments' => $model->payments()->latest()->get(),
-            'webhooks' => $model->api_client_id ? \App\Models\InvoiceWebhookLog::where('invoice_id', $model->getKey())->latest()->limit(20)->get() : collect(),
+            'payments' => $payments,
+            'orders' => $orders,
+            'callbacks' => PaymentCallback::where('provider', 'duitku')->whereIn('merchant_order_id', $orders->keys())->latest()->limit(50)->get(),
+            'webhooks' => $model->api_client_id ? InvoiceWebhookLog::where('invoice_id', $model->getKey())->latest()->limit(20)->get() : collect(),
         ]);
     }
 
