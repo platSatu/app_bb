@@ -4,6 +4,7 @@ namespace App\Services\Invoice;
 
 use App\Jobs\SendInvoiceWebhook;
 use App\Mail\InvoiceMail;
+use App\Models\InvoiceEmailLog;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\InvoiceApiClient;
@@ -195,8 +196,11 @@ class InvoiceService
             return false;
         }
 
+        $log = new InvoiceEmailLog();
+        $log->forceFill(['invoice_id' => $invoice->getKey(), 'kind' => $kind, 'recipient' => $invoice->customer_email])->save();
+
         try {
-            Mail::to($invoice->customer_email)->queue(new InvoiceMail($invoice->getKey(), $kind));
+            Mail::to($invoice->customer_email)->queue(new InvoiceMail($invoice->getKey(), $kind, $log->getKey()));
 
             if ($kind === 'issued') {
                 $invoice->forceFill(['emailed_at' => now()])->save();
@@ -205,6 +209,7 @@ class InvoiceService
             return true;
         } catch (Throwable $e) {
             report($e);
+            $log->forceFill(['status' => InvoiceEmailLog::STATUS_FAILED, 'error' => Str::limit($e->getMessage(), 480)])->save();
 
             return false;
         }

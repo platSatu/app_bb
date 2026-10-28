@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceCategory;
 use App\Models\InvoiceCheckout;
 use App\Models\InvoiceCheckoutItem;
+use App\Models\InvoiceEmailLog;
 use App\Models\InvoiceWebhookLog;
 use App\Models\PaymentCallback;
 use App\Services\Invoice\InvoicePaymentService;
@@ -88,6 +89,7 @@ class InvoiceController extends Controller
             'payments' => $payments,
             'orders' => $orders,
             'callbacks' => PaymentCallback::where('provider', 'duitku')->whereIn('merchant_order_id', $orders->keys())->latest()->limit(50)->get(),
+            'emails' => InvoiceEmailLog::where('invoice_id', $model->getKey())->latest()->limit(50)->get(),
             'webhooks' => $model->api_client_id ? InvoiceWebhookLog::where('invoice_id', $model->getKey())->latest()->limit(20)->get() : collect(),
         ]);
     }

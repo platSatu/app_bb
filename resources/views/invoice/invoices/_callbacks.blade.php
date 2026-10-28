@@ -1,7 +1,7 @@
 {{-- Data pembanding: callback masuk dari Duitku vs callback (webhook) keluar ke website customer. --}}
 @php($json = fn ($data) => json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE))
 
-<div class="card mt-3">
+<div class="card mb-3">
     <div class="card-body">
         <h6 class="mb-1">Callback dari Duitku</h6>
         <p class="text-muted small mb-3">Nominal yang dikirim Duitku dibandingkan dengan nominal order yang diminta bizbos.</p>
@@ -44,7 +44,7 @@
     </div>
 </div>
 
-<div class="card mb-0">
+<div class="card mb-3">
     <div class="card-body">
         <h6 class="mb-1">Callback ke Website Customer</h6>
         @if (! $invoice->api_client_id)
@@ -97,6 +97,40 @@
                             @endif
                         @empty
                             <tr><td colspan="9" class="text-muted">Belum ada callback terkirim.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </div>
+</div>
+
+<div class="card mb-0">
+    <div class="card-body">
+        <h6 class="mb-1">Pengiriman Email ke Customer</h6>
+        @if (! $invoice->customer_email)
+            <p class="text-muted small mb-0">Customer tidak punya email, jadi tidak ada email yang dikirim.</p>
+        @else
+            <p class="text-muted small mb-3">"Terkirim" = sudah diterima server email; belum tentu dibuka customer atau tidak masuk spam.</p>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light text-nowrap">
+                        <tr><th>Waktu</th><th>Jenis</th><th>Tujuan</th><th>Status</th><th>Terkirim Pada</th><th>Keterangan</th></tr>
+                    </thead>
+                    <tbody class="text-nowrap small">
+                        @forelse ($emails as $email)
+                            <tr>
+                                <td class="text-muted">{{ $email->created_at->translatedFormat('d M Y H:i:s') }}</td>
+                                <td>{{ $email->kindLabel() }}</td>
+                                <td>{{ $email->recipient }}</td>
+                                <td><span class="badge {{ $email->statusBadge() }}">{{ $email->statusLabel() }}</span></td>
+                                <td>{{ $email->sent_at?->translatedFormat('d M Y H:i:s') ?? '-' }}</td>
+                                <td class="text-danger">{{ \Illuminate\Support\Str::limit($email->error, 80) ?: '' }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" class="text-muted">
+                                {{ $invoice->emailed_at ? 'Email tagihan dikirim '.$invoice->emailed_at->translatedFormat('d M Y H:i').' (sebelum riwayat email dicatat, statusnya tidak diketahui).' : 'Belum ada email terkirim.' }}
+                            </td></tr>
                         @endforelse
                     </tbody>
                 </table>
