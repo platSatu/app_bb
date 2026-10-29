@@ -457,9 +457,11 @@ class TicketOrderService
             // Uang sudah diterima Duitku bizbos -> saldo owner event = dibayar pembeli dikurangi biaya layanan
             // (angka yang dikunci saat checkout). Biaya layanan tetap di bizbos. Tiket gratis tidak ada uang masuk.
             if ($locked->netAmount() > 0) {
-                $this->wallets->credit(
+                // Potongan QRIS (kalau dibayar QRIS) ditangani creditPayment().
+                $this->wallets->creditPayment(
                     $locked->page->branch->user,
                     $locked->netAmount(),
+                    $locked->total,
                     WalletTransaction::TYPE_TICKET_SALE,
                     'ticket:'.$locked->getKey(),
                     $locked,

@@ -29,6 +29,8 @@ class SettingRequest extends FormRequest
             'settlement_default_days' => ['required', 'integer', 'min:0', 'max:14'],
             'settlement_methods' => ['nullable', 'string', 'max:5000'],
             'settlement_holidays' => ['nullable', 'string', 'max:3000'],
+            'qris_fee_percent' => ['nullable', 'numeric', 'min:0', 'max:10'],
+            'qris_fee_methods' => ['nullable', 'string', 'max:200'],
         ];
     }
 
@@ -41,6 +43,8 @@ class SettingRequest extends FormRequest
             'settlement_default_days' => 'masa settlement default',
             'settlement_methods' => 'masa settlement per metode',
             'settlement_holidays' => 'tanggal libur',
+            'qris_fee_percent' => 'potongan QRIS',
+            'qris_fee_methods' => 'kode metode QRIS',
         ];
     }
 }

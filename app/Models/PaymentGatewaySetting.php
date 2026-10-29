@@ -16,7 +16,14 @@ class PaymentGatewaySetting extends Model
     protected $fillable = [
         'mode', 'sandbox_merchant_code', 'production_merchant_code',
         'expiry_minutes', 'min_deposit', 'max_deposit', 'is_active', 'settlement_default_days',
+        'qris_fee_percent',
     ];
+
+    /** Kode metode QRIS di Duitku (dokumentasi API Duitku: SP ShopeePay, NQ Nobu, SQ Nusapay). Bisa diubah superadmin. */
+    public const DEFAULT_QRIS_METHODS = ['SP', 'NQ', 'SQ'];
+
+    /** Potongan QRIS default (%) kalau belum diatur. */
+    public const DEFAULT_QRIS_FEE_PERCENT = 0.7;
 
     /** Kode metode Duitku => [nama, hari kerja settlement]. null = ikut default. Bisa diubah superadmin. */
     public const DEFAULT_SETTLEMENT_METHODS = [
@@ -53,6 +60,8 @@ class PaymentGatewaySetting extends Model
             'settlement_default_days' => 'integer',
             'settlement_methods' => 'array',
             'settlement_holidays' => 'array',
+            'qris_fee_percent' => 'float',
+            'qris_fee_methods' => 'array',
         ];
     }
 
@@ -105,6 +114,35 @@ class PaymentGatewaySetting extends Model
     public function methodName(?string $method): ?string
     {
         return $method ? ($this->settlementMethods()[strtoupper($method)]['name'] ?? strtoupper($method)) : null;
+    }
+
+    /** @return array<int, string> kode metode yang dihitung QRIS */
+    public function qrisMethods(): array
+    {
+        return array_values(array_map('strtoupper', $this->qris_fee_methods ?? self::DEFAULT_QRIS_METHODS));
+    }
+
+    public function qrisFeePercent(): float
+    {
+        return max(0.0, (float) ($this->qris_fee_percent ?? self::DEFAULT_QRIS_FEE_PERCENT));
+    }
+
+    public function isQris(?string $method): bool
+    {
+        return $method !== null && $method !== '' && in_array(strtoupper($method), $this->qrisMethods(), true);
+    }
+
+    /**
+     * Potongan QRIS (rupiah, dibulatkan ke atas) dari nominal yang dibayar customer.
+     * Metode selain QRIS = 0, karena biayanya sudah ditanggung customer di Duitku.
+     */
+    public function qrisFeeFor(?string $method, int $paidAmount): int
+    {
+        if ($paidAmount <= 0 || ! $this->isQris($method)) {
+            return 0;
+        }
+
+        return (int) ceil(round($paidAmount * $this->qrisFeePercent() / 100, 4));
     }
 
     public function isReady(): bool

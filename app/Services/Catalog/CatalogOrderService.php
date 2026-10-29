@@ -283,8 +283,10 @@ class CatalogOrderService
             ])->save();
 
             // Uang diterima Duitku bizbos -> saldo owner toko (sama seperti penjualan tiket).
-            $this->wallets->credit(
+            // Potongan QRIS (kalau dibayar QRIS) ditangani creditPayment().
+            $this->wallets->creditPayment(
                 $locked->page->branch->user,
+                $locked->total,
                 $locked->total,
                 WalletTransaction::TYPE_CATALOG_SALE,
                 'catalog:'.$locked->getKey(),

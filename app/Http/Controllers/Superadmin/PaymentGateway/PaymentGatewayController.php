@@ -19,9 +19,16 @@ class PaymentGatewayController extends Controller
     public function updateSetting(SettingRequest $request): RedirectResponse
     {
         $setting = PaymentGatewaySetting::duitku();
-        $setting->fill($request->safe()->except(['sandbox_api_key', 'production_api_key', 'settlement_methods', 'settlement_holidays']));
+        $setting->fill($request->safe()->except(['sandbox_api_key', 'production_api_key', 'settlement_methods', 'settlement_holidays', 'qris_fee_percent', 'qris_fee_methods']));
         $setting->settlement_methods = $this->parseMethods((string) $request->validated('settlement_methods'));
         $setting->settlement_holidays = $this->parseHolidays((string) $request->validated('settlement_holidays'));
+        // Potongan QRIS: kosong = tetap pakai nilai lama.
+        if ($request->filled('qris_fee_percent')) {
+            $setting->qris_fee_percent = (float) $request->validated('qris_fee_percent');
+        }
+        if ($request->has('qris_fee_methods')) {
+            $setting->qris_fee_methods = $this->parseQrisMethods((string) $request->validated('qris_fee_methods'));
+        }
         $setting->is_active = $request->boolean('is_active');
 
         // API key hanya diganti kalau diisi; kosong = tetap pakai yang lama.
@@ -56,6 +63,26 @@ class PaymentGatewayController extends Controller
         }
 
         return $methods;
+    }
+
+    /** "SP, NQ, SQ" -> ['SP', 'NQ', 'SQ']. Kosong = tidak ada metode yang dipotong. */
+    private function parseQrisMethods(string $text): array
+    {
+        $codes = [];
+
+        foreach (preg_split('/[\s,;]+/', trim($text)) ?: [] as $code) {
+            if ($code === '') {
+                continue;
+            }
+
+            if (! preg_match('/^[A-Za-z0-9]{1,10}$/', $code)) {
+                throw ValidationException::withMessages(['qris_fee_methods' => "Kode {$code} belum benar. Contoh: SP, NQ, SQ"]);
+            }
+
+            $codes[] = strtoupper($code);
+        }
+
+        return array_values(array_unique($codes));
     }
 
     /** Satu tanggal per baris, format YYYY-MM-DD. */

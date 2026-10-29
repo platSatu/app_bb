@@ -108,6 +108,29 @@
                     </div>
                 </div>
 
+                <div class="card border mt-4 mb-0">
+                    <div class="card-body">
+                        <h6 class="mb-1">Potongan QRIS</h6>
+                        <p class="small text-muted mb-3">Biaya transaksi QRIS di Duitku ditanggung merchant (tidak bisa dibebankan ke customer). Setiap pembayaran yang dibayar dengan QRIS (top up, invoice, tagihan, tiket, katalog) dipotong persentase ini dari nominal yang dibayar, saat uangnya masuk ke saldo. Metode lain tidak dipotong. Berlaku untuk pembayaran berikutnya.</p>
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label for="qris_fee_percent" class="form-label">Potongan (%)</label>
+                                <input type="number" id="qris_fee_percent" name="qris_fee_percent" min="0" max="10" step="0.01"
+                                    class="form-control @error('qris_fee_percent') is-invalid @enderror" value="{{ old('qris_fee_percent', $setting->qrisFeePercent()) }}">
+                                <div class="form-text">Contoh 0,7 = Rp 700 per Rp 100.000. Isi 0 untuk mematikan.</div>
+                                @error('qris_fee_percent') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="col-md-5">
+                                <label for="qris_fee_methods" class="form-label">Kode metode QRIS</label>
+                                <input type="text" id="qris_fee_methods" name="qris_fee_methods" placeholder="SP, NQ, SQ"
+                                    class="form-control font-monospace @error('qris_fee_methods') is-invalid @enderror" value="{{ old('qris_fee_methods', implode(', ', $setting->qrisMethods())) }}">
+                                <div class="form-text">Pisahkan dengan koma. Sesuai dokumentasi Duitku: <code>SP</code> ShopeePay, <code>NQ</code> Nobu, <code>SQ</code> Nusapay.</div>
+                                @error('qris_fee_methods') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="alert alert-info mt-4 mb-0">
                     URL callback untuk didaftarkan di dashboard Duitku:
                     <code>{{ route('payment.duitku.callback') }}</code>

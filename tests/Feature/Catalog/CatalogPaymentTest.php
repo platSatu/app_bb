@@ -90,7 +90,8 @@ it('bayar online: callback lunas mengkredit saldo owner sekali saja walau dikiri
     $order->refresh();
     expect($order->status)->toBe(CatalogOrder::STATUS_PAID)->and($order->paid_at)->not->toBeNull()
         ->and(WalletTransaction::where('type', WalletTransaction::TYPE_CATALOG_SALE)->count())->toBe(1)
-        ->and((int) $owner->fresh()->wallet->balance)->toBe(100000)
+        // Dibayar QRIS (SP): saldo owner dipotong 0,7% biaya QRIS (Rp 700 dari Rp 100.000).
+        ->and((int) $owner->fresh()->wallet->balance)->toBe(99300)
         ->and(PaymentCallback::where('merchant_order_id', $order->reference)->pluck('result')->sort()->values()->all())->toBe(['already_processed', 'paid']);
 });
 

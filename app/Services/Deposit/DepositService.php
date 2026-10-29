@@ -156,8 +156,10 @@ class DepositService
                 'provider_reference' => $providerReference ?? $locked->provider_reference,
             ])->save();
 
-            $this->wallets->credit(
+            // Potongan QRIS (kalau dibayar QRIS) ditangani creditPayment().
+            $this->wallets->creditPayment(
                 $locked->user,
+                $locked->amount,
                 $locked->amount,
                 WalletTransaction::TYPE_DEPOSIT,
                 'deposit:'.$locked->getKey(),

@@ -243,9 +243,11 @@ class InvoiceCheckoutService
             ])->save();
 
             if ($locked->net_amount > 0) {
-                $this->wallets->credit(
+                // Potongan QRIS (kalau dibayar QRIS) ditangani creditPayment().
+                $this->wallets->creditPayment(
                     $locked->branch->user,
                     $locked->net_amount,
+                    $locked->amount,
                     WalletTransaction::TYPE_INVOICE_PAYMENT,
                     'invoice-checkout:'.$locked->getKey(),
                     $locked,

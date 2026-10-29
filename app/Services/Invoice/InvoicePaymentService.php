@@ -275,9 +275,11 @@ class InvoicePaymentService
             }
 
             if ($net > 0) {
-                $this->wallets->credit(
+                // Potongan QRIS (kalau dibayar QRIS) ditangani creditPayment().
+                $this->wallets->creditPayment(
                     $invoice->branch->user,
                     $net,
+                    $lockedPayment->amount,
                     WalletTransaction::TYPE_INVOICE_PAYMENT,
                     'invoice-payment:'.$lockedPayment->getKey(),
                     $invoice,
