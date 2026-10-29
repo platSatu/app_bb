@@ -80,6 +80,17 @@
                     <div class="wa-pair-code d-none mb-2" data-pair-code></div>
                 </div>
 
+                {{-- Device sudah tersambung: tidak perlu scan. Scan ulang = putuskan dulu lalu QR baru. --}}
+                <div data-pane="linked" class="d-none">
+                    <i class="ri-checkbox-circle-fill text-success" style="font-size: 3rem"></i>
+                    <p class="fw-semibold mb-1">Perangkat ini sudah terhubung ke WhatsApp</p>
+                    <p class="text-muted small mb-4">Tidak perlu scan lagi. Scan ulang hanya diperlukan untuk mengganti nomor atau menarik ulang riwayat chat dari HP. Caranya: putuskan dulu, lalu scan QR baru.</p>
+                    <div class="d-flex justify-content-center gap-2">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Tutup</button>
+                        <button type="button" class="btn btn-danger" data-relink><i class="ri-qr-code-line"></i> Putuskan &amp; scan ulang</button>
+                    </div>
+                </div>
+
                 <div class="badge bg-warning-subtle text-warning fs-13 px-3 py-2" data-connect-badge>Menunggu...</div>
                 <div class="d-none mt-3" data-connect-success>
                     <i class="ri-checkbox-circle-fill text-success" style="font-size: 3rem"></i>

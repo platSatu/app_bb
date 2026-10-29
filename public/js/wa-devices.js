@@ -18,6 +18,8 @@
     var pairPhone = connectModalEl.querySelector('[data-pair-phone]');
     var pairSubmit = connectModalEl.querySelector('[data-pair-submit]');
     var pairCode = connectModalEl.querySelector('[data-pair-code]');
+    var tabs = connectModalEl.querySelector('[data-connect-tabs]');
+    var relinkBtn = connectModalEl.querySelector('[data-relink]');
 
     var activeId = null;
     var qr = null;
@@ -88,8 +90,8 @@
                 return;
             }
             var data = res.data.data;
-            // Sudah tersambung ke WhatsApp: tidak perlu QR, cukup segarkan tampilan.
-            if (data.mode === 'connected') return connected();
+            // Sudah tersambung ke WhatsApp: tidak perlu QR. Tampilkan info + pilihan scan ulang.
+            if (data.mode === 'connected') return showLinked();
             if (data.mode === 'reconnect') setBadge('Menyambung ulang tanpa scan...', 'info');
             if (data.mode === 'code') {
                 pairCode.textContent = data.pairing_code.replace(/(.{4})(.{4})/, '$1-$2');
@@ -100,6 +102,29 @@
         });
     }
 
+    function showLinked() {
+        stopPolling();
+        updateRow(activeId, 'connected', '');
+        tabs.classList.add('d-none');
+        badge.classList.add('d-none');
+        showMode('linked');
+    }
+
+    // Putuskan sesi lama lalu langsung minta QR baru di modal yang sama.
+    relinkBtn.addEventListener('click', function () {
+        var id = activeId;
+        if (!id) return;
+        relinkBtn.disabled = true;
+        api(url('logoutUrl', id), { method: 'POST' }).then(function (res) {
+            relinkBtn.disabled = false;
+            if (!res.ok) return toast(res.message, 'error');
+            var tr = row(id);
+            if (tr) tr.dataset.linked = '0';
+            updateRow(id, 'logged_out', '');
+            openConnect(id);
+        });
+    });
+
     function openConnect(id) {
         var tr = row(id);
         activeId = id;
@@ -109,7 +134,8 @@
         pairCode.classList.add('d-none');
         pairPhone.value = '';
         var linked = tr && tr.dataset.linked === '1';
-        connectModalEl.querySelector('[data-connect-tabs]').classList.toggle('d-none', linked);
+        tabs.classList.toggle('d-none', linked);
+        badge.classList.remove('d-none');
         showMode('qr');
         if (linked) qrBox.innerHTML = '<i class="ri-loader-4-line text-muted" style="font-size: 2rem"></i>';
         connectModal.show();
