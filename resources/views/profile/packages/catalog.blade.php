@@ -62,9 +62,18 @@
                                                     <span class="pkg-app"><i class="{{ Apps::LIST[$key]['icon'] ?? 'ri-apps-line' }}"></i>{{ Apps::label($key) }}</span>
                                                 @endforeach
                                             </div>
-                                            @foreach (array_slice($package->features(), 0, 5) as $feature)
+                                            {{-- 29 Okt 2026: semua fitur ditampilkan (sebelumnya hanya 5 baris pertama). --}}
+                                            @php($fitur = $package->features())
+                                            @foreach (array_slice($fitur, 0, 5) as $feature)
                                                 <div class="pkg-feature"><i class="ri-check-line"></i><span>{{ $feature }}</span></div>
                                             @endforeach
+                                            @if (count($fitur) > 5)
+                                                <div class="small fw-semibold text-muted mt-2 mb-1">Rincian fitur</div>
+                                                @foreach (array_slice($fitur, 5) as $feature)
+                                                    <div class="pkg-feature small"><i class="ri-check-line"></i><span>{{ $feature }}</span></div>
+                                                @endforeach
+                                            @endif
+                                            <div class="mb-3"></div>
                                             <a href="{{ route('packages.show', $package) }}" class="btn {{ $package->is_trial ? 'btn-info' : 'btn-primary' }} w-100 mt-auto">
                                                 {{ $package->is_trial ? 'Coba Gratis' : 'Pilih Paket' }}
                                             </a>

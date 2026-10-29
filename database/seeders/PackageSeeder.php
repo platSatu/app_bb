@@ -7,7 +7,8 @@ use App\Models\Package;
 use Illuminate\Database\Seeder;
 
 /**
- * Paket awal bizbos: 5 kategori (tab di halaman Beli Paket) x (Trial 7 hari, 6 bulan, 12 bulan). 12 bulan ditandai Populer.
+ * Paket bizbos: 7 kategori (tab di halaman Beli Paket) x (Trial 7 hari, 6 bulan, 12 bulan). 12 bulan ditandai Populer.
+ * 29 Okt 2026: harga Komplit dihitung ulang, Pages gratis, tambah WhatsApp & Event (Ticket).
  * Jalankan: php artisan db:seed --class=PackageSeeder
  * Aman dijalankan ulang: harga, fitur, kuota, dll. yang sudah diedit di superadmin TIDAK ditimpa.
  * Fitur = ringkasan per layanan (5 baris pertama, tampil di kartu) + rincian sesuai menu yang ada.
@@ -19,20 +20,29 @@ class PackageSeeder extends Seeder
     // Harga per durasi (hari => rupiah). Acuan harga normal per bulan: 6 bulan hemat ~10%, 12 bulan hemat ~20%.
     // Batas per bulan: invoices = invoice dibuat, whatsapp = pesan terkirim. Tidak diisi = tanpa batas.
     private const PLANS = [
+        // 29 Okt 2026: Komplit Rp399.000/bulan (12 bulan). Lebih hemat dibanding beli layanan satu-satu
+        // dengan kuota yang sama (Invoice 4x500 + WhatsApp 4x5.000 > Rp700.000/bulan), plus Jadwal.
         'Komplit' => [
             'apps' => ['events', 'pages', 'schedules', 'invoices', 'whatsapp'],
-            'prices' => [180 => 1349000, 365 => 2399000],
+            'prices' => [180 => 2694000, 365 => 4788000],
             'limits' => ['invoices' => 2000, 'whatsapp' => 20000],
         ],
+        // 29 Okt 2026: Pages digratiskan.
         'Pages' => [
             'apps' => ['events', 'pages'],
-            'prices' => [180 => 429000, 365 => 759000],
+            'prices' => [180 => 0, 365 => 0],
             'limits' => [],
         ],
         'Invoice' => [
             'apps' => ['invoices'],
             'prices' => [180 => 539000, 365 => 949000],
             'limits' => ['invoices' => 500],
+        ],
+        // 29 Okt 2026: paket baru WhatsApp saja, ±Rp99.000/bulan (12 bulan).
+        'WhatsApp' => [
+            'apps' => ['whatsapp'],
+            'prices' => [180 => 654000, 365 => 1188000],
+            'limits' => ['whatsapp' => 5000],
         ],
         'Invoice + WhatsApp' => [
             'apps' => ['invoices', 'whatsapp'],
@@ -43,6 +53,18 @@ class PackageSeeder extends Seeder
             'apps' => ['events', 'pages', 'invoices', 'whatsapp'],
             'prices' => [180 => 1079000, 365 => 1899000],
             'limits' => ['invoices' => 1000, 'whatsapp' => 10000],
+        ],
+        // 29 Okt 2026: paket promosi Event (Ticket), bukan langganan berbayar. Biaya tiketnya diatur
+        // superadmin di Biaya Layanan Tiket (event gratis maks. 1.000 tiket, event berbayar 1%/tiket).
+        'Event (Ticket)' => [
+            'apps' => ['events'],
+            'prices' => [180 => 0, 365 => 0],
+            'limits' => [],
+            'notes' => [
+                'Gratis 1.000 tiket untuk event gratis',
+                'Event berbayar: biaya layanan hanya 1% per tiket terjual',
+                'Tanpa biaya langganan',
+            ],
         ],
     ];
 
@@ -124,9 +146,10 @@ class PackageSeeder extends Seeder
                     'duration' => $days,
                     'apps' => $config['apps'],
                     'limits' => array_map(fn ($max) => ['monthly' => $max], $limits),
-                    'description' => $this->features($config['apps'], $limits),
+                    'description' => $this->features($config['apps'], $limits, $config['notes'] ?? []),
                     'is_trial' => $trial,
-                    'is_featured' => $days === 365,
+                    // Populer hanya untuk paket 12 bulan berbayar (paket gratis tidak perlu ditandai).
+                    'is_featured' => $days === 365 && $config['prices'][365] > 0,
                     'status' => 'active',
                 ]);
 
@@ -136,16 +159,16 @@ class PackageSeeder extends Seeder
 
                 // Masih ringkasan versi lama (belum diedit superadmin): lengkapi dengan rincian fitur.
                 if ($package->description === $this->summary($config['apps'], $limits)) {
-                    $package->update(['description' => $this->features($config['apps'], $limits)]);
+                    $package->update(['description' => $this->features($config['apps'], $limits, $config['notes'] ?? [])]);
                 }
             }
         }
     }
 
     /** Ringkasan (5 baris pertama kartu katalog) lalu rincian fitur setiap layanan. */
-    private function features(array $apps, array $limits): string
+    private function features(array $apps, array $limits, array $notes = []): string
     {
-        return implode("\n", [$this->summary($apps, $limits), ...array_merge(...array_map(fn ($app) => self::DETAILS[$app], $apps))]);
+        return implode("\n", [$this->summary($apps, $limits), ...$notes, ...array_merge(...array_map(fn ($app) => self::DETAILS[$app], $apps))]);
     }
 
     /** Satu baris per layanan (kuota ikut di barisnya), supaya muat di 5 poin pertama kartu katalog. */
