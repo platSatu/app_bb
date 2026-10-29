@@ -55,5 +55,5 @@
 
 @push('scripts')
     <script src="{{ asset('js/wa-common.js') }}"></script>
-    <script src="{{ asset('js/wa-inbox.js') }}"></script>
+    <script src="{{ asset('js/wa-inbox.js') }}?v={{ filemtime(public_path('js/wa-inbox.js')) }}"></script>
 @endpush

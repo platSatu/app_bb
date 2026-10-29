@@ -93,5 +93,5 @@
 @push('scripts')
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="{{ asset('js/wa-common.js') }}"></script>
-    <script src="{{ asset('js/wa-devices.js') }}"></script>
+    <script src="{{ asset('js/wa-devices.js') }}?v={{ filemtime(public_path('js/wa-devices.js')) }}"></script>
 @endpush
