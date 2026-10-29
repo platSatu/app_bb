@@ -54,7 +54,9 @@ it('seeder paket: 7 kategori x 3 durasi (trial, 6, 12 bulan), 12 bulan berbayar 
         ->assertSeeInOrder(['Pages', 'Invoice', 'WhatsApp', 'Invoice + WhatsApp', 'Pages + Invoice + WhatsApp', 'Pages - Trial 7 Hari', 'Pages - 6 Bulan', 'Pages - 12 Bulan'])
         ->assertSee('Komplit')
         ->assertSee('Event (Ticket)')
-        ->assertSee('Populer')
+        ->assertSee('TERPOPULER')
+        // Kartu: harga setara per bulan untuk paket 6/12 bulan.
+        ->assertSee('setara Rp')
         // Semua fitur tampil di kartu, termasuk rincian setelah 5 baris pertama.
         ->assertSee('Rincian fitur')
         ->assertSee('AI bot dengan pengetahuan bisnis Anda');
