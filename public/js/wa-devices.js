@@ -57,7 +57,19 @@
         tr.querySelector('[data-status-reason]').textContent = status === 'connected' ? '' : (reason || '');
     }
 
+    // ?connect=ID hanya untuk membuka QR sekali setelah device dibuat. Dibuang dari URL supaya
+    // reload setelah berhasil tidak membuka jendela Hubungkan lagi (bolak-balik terus).
+    function dropConnectParam() {
+        try {
+            var u = new URL(window.location.href);
+            if (!u.searchParams.has('connect')) return;
+            u.searchParams.delete('connect');
+            window.history.replaceState(null, '', u.toString());
+        } catch (e) { /* abaikan */ }
+    }
+
     function connected() {
+        dropConnectParam();
         stopPolling();
         setBadge('Terhubung', 'success');
         successBox.classList.remove('d-none');
@@ -219,6 +231,9 @@
         },
     });
 
-    if (root.dataset.autoConnect && row(root.dataset.autoConnect)) openConnect(root.dataset.autoConnect);
+    if (root.dataset.autoConnect) {
+        dropConnectParam();
+        if (row(root.dataset.autoConnect)) openConnect(root.dataset.autoConnect);
+    }
     if (root.dataset.openAdd) new bootstrap.Modal(document.getElementById('wa-add-modal')).show();
 })();
