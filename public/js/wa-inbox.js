@@ -37,6 +37,7 @@
     var mediaType = 'image';
     var pendingFile = null;
     var fallbackTimer = null;
+    var historyTimer = null;
     var wasLive = false;
 
     // ---------- elements ----------
@@ -1185,6 +1186,11 @@
         'presence': function (d) { if (active && !active.is_group && active.chat_jid === d.chat_jid) renderPresence(d); },
         'poll.vote': function (d) { if (pollShown === d.message_id) showPollResults(d.message_id); },
         'device.status': function (d) { setBanner(d.status, d.reason); },
+        // Riwayat chat lama selesai diimpor go_bizbos (datang bertahap): muat ulang daftar chat sekali saja.
+        'history.sync': function () {
+            clearTimeout(historyTimer);
+            historyTimer = setTimeout(loadChats, 1500);
+        },
     }, function (live) {
         clearInterval(fallbackTimer);
         if (live) {

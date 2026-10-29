@@ -88,6 +88,8 @@
                 return;
             }
             var data = res.data.data;
+            // Sudah tersambung ke WhatsApp: tidak perlu QR, cukup segarkan tampilan.
+            if (data.mode === 'connected') return connected();
             if (data.mode === 'reconnect') setBadge('Menyambung ulang tanpa scan...', 'info');
             if (data.mode === 'code') {
                 pairCode.textContent = data.pairing_code.replace(/(.{4})(.{4})/, '$1-$2');
