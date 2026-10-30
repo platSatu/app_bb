@@ -108,3 +108,59 @@ it('inbox bisa memulai chat baru ke Grup WhatsApp', function () {
     Http::assertSent(fn (HttpRequest $r) => str_ends_with($r->url(), '/v1/messages') && $r['to'] === '120363025246125486@g.us');
     $this->postJson(route('whatsapp.inbox.send', $device), ['group_jid' => 'bukan-grup', 'text' => 'x'])->assertStatus(422);
 });
+
+it('edit: isi & jadwal sekali kirim bisa diubah, status dijeda tetap, pesan selesai tidak bisa diedit', function () {
+    $device = broadcastDevice();
+    $this->actingAs($device->branch->user);
+    $broadcast = tap((new WaBroadcast(['name' => 'Renungan', 'type' => 'once', 'schedule' => 'at']))->forceFill([
+        'branch_id' => $device->branch_id, 'device_id' => $device->id, 'body' => 'Lama', 'target' => ['wa_groups' => [['jid' => '120363025246125486@g.us', 'name' => 'Ortu Kelas 7']]],
+        'starts_at' => now()->addDay(), 'next_run_at' => now()->addDay(), 'status' => 'paused',
+    ]))->save();
+
+    $this->get(route('whatsapp.messages.edit', $broadcast))->assertOk()->assertSee('Edit Jadwal Pesan')->assertSee('Lama');
+
+    $at = now()->addDays(2)->setTime(6, 0);
+    $this->put(route('whatsapp.messages.update', $broadcast), [
+        'type' => 'drip', 'schedule' => 'at', 'device_id' => $device->id, 'name' => 'Renungan Baru', 'body' => 'Baru',
+        'send_at' => $at->format('Y-m-d\TH:i'), 'wa_groups' => ['120363025246125486@g.us'],
+    ])->assertRedirect(route('whatsapp.messages.show', $broadcast))->assertSessionHasNoErrors();
+
+    $broadcast->refresh();
+    expect($broadcast->type)->toBe('once')->and($broadcast->name)->toBe('Renungan Baru')->and($broadcast->body)->toBe('Baru')
+        ->and($broadcast->status)->toBe('paused')->and($broadcast->next_run_at->toDateTimeString())->toBe($at->toDateTimeString());
+
+    $broadcast->forceFill(['status' => 'done'])->save();
+    $this->get(route('whatsapp.messages.edit', $broadcast))->assertNotFound();
+});
+
+it('edit: berulang yang sudah berjalan dihitung ulang ke jadwal berikutnya; bertahap yang sudah mulai tidak mengubah urutan pesan', function () {
+    $device = broadcastDevice();
+    $this->actingAs($device->branch->user);
+    $recurring = tap((new WaBroadcast(['name' => 'Harian', 'type' => 'recurring', 'schedule' => 'daily']))->forceFill([
+        'branch_id' => $device->branch_id, 'device_id' => $device->id, 'body' => 'x', 'target' => ['phones' => ['6281234567890']],
+        'starts_at' => now()->subDays(5), 'next_run_at' => now()->addHour(), 'runs_count' => 5, 'status' => 'active',
+    ]))->save();
+
+    $this->put(route('whatsapp.messages.update', $recurring), [
+        'type' => 'recurring', 'schedule' => 'daily', 'device_id' => $device->id, 'name' => 'Harian', 'body' => 'Isi baru',
+        'start_date' => now()->subDays(5)->toDateString(), 'send_time' => '07:30', 'phones' => '6281234567890',
+    ])->assertSessionHasNoErrors();
+    expect($recurring->fresh()->next_run_at->isFuture())->toBeTrue()
+        ->and($recurring->fresh()->next_run_at->format('H:i'))->toBe('07:30');
+
+    $drip = tap((new WaBroadcast(['name' => 'Onboarding', 'type' => 'drip', 'schedule' => 'drip']))->forceFill([
+        'branch_id' => $device->branch_id, 'device_id' => $device->id, 'target' => ['phones' => ['6281234567890']],
+        'starts_at' => now()->subDay(), 'next_run_at' => now()->addDays(2), 'runs_count' => 1, 'status' => 'active',
+    ]))->save();
+    foreach ([[1, 0, 'Satu'], [2, 3, 'Dua']] as [$pos, $delay, $body]) {
+        (new \App\Models\WaBroadcastStep(['position' => $pos, 'delay_days' => $delay, 'body' => $body]))->forceFill(['broadcast_id' => $drip->id])->save();
+    }
+
+    $this->put(route('whatsapp.messages.update', $drip), [
+        'type' => 'drip', 'schedule' => 'drip', 'device_id' => $device->id, 'name' => 'Onboarding 2', 'phones' => '6289999999999',
+        'steps' => [['delay_days' => 0, 'body' => 'Diganti']],
+    ])->assertSessionHasNoErrors();
+    $drip->refresh()->load('steps');
+    expect($drip->name)->toBe('Onboarding 2')->and($drip->steps->pluck('body')->all())->toBe(['Satu', 'Dua'])
+        ->and($drip->target['phones'])->toBe(['6289999999999']);
+});

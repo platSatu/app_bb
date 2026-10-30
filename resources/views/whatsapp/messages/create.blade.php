@@ -1,11 +1,17 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Buat Pesan')
+@section('title', isset($broadcast) ? 'Edit Pesan' : 'Buat Pesan')
 @section('page-section', 'WhatsApp')
 
 @php
-    $oldType = old('type', $type);
-    $oldSteps = old('steps', [['delay_days' => 0], ['delay_days' => 3]]);
+    // Edit: nilai awal dari pesan tersimpan. Setelah gagal validasi, isian terakhir (old) yang dipakai.
+    $editing = isset($broadcast);
+    $d = $defaults ?? [];
+    $val = fn (string $key, $fallback = null) => session()->hasOldInput() ? old($key, $fallback) : ($d[$key] ?? $fallback);
+    // Bertahap yang sudah mulai terkirim: urutan pesan & tanggal mulai tidak bisa diubah lagi.
+    $locked = $editing && $broadcast->type === 'drip' && $broadcast->runs_count > 0;
+    $oldType = $editing ? $broadcast->type : old('type', $type);
+    $oldSteps = $val('steps', [['delay_days' => 0], ['delay_days' => 3]]);
     $typeCards = [
         'once' => ['ri-send-plane-line', 'Broadcast langsung atau terjadwal, satu kali di satu tanggal & jam.'],
         'recurring' => ['ri-repeat-line', 'Terkirim otomatis setiap hari, minggu, atau bulan dalam rentang tanggal yang dipilih.'],
@@ -29,7 +35,7 @@
 @section('content')
     <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
-            <h5 class="mb-0">Tambah Jadwal Pesan</h5>
+            <h5 class="mb-0">{{ $editing ? 'Edit Jadwal Pesan' : 'Tambah Jadwal Pesan' }}</h5>
             <div class="small text-muted">Jadwalkan pesan WhatsApp: sekali kirim, berulang, atau bertahap, ke satu atau banyak tujuan sekaligus.</div>
         </div>
         <div class="d-flex gap-2 align-items-center">
@@ -45,9 +51,13 @@
             <div class="alert alert-danger small">Periksa lagi isian yang ditandai merah di bawah.</div>
         @endif
 
-        <form method="POST" action="{{ route('whatsapp.messages.store') }}" enctype="multipart/form-data" id="wa-message-form"
-              data-groups-url="{{ route('whatsapp.messages.wa-groups', '__ID__') }}" data-old-groups='@json(array_values((array) old('wa_groups', [])))'>
+        @if ($editing)
+            <div class="alert alert-info small">Perubahan berlaku untuk pengiriman berikutnya. Pesan yang sudah masuk antrean atau sudah terkirim tidak ikut berubah. Jenis pengiriman tidak bisa diganti.</div>
+        @endif
+        <form method="POST" action="{{ $editing ? route('whatsapp.messages.update', $broadcast) : route('whatsapp.messages.store') }}" enctype="multipart/form-data" id="wa-message-form"
+              data-groups-url="{{ route('whatsapp.messages.wa-groups', '__ID__') }}" data-old-groups='@json(array_values((array) $val('wa_groups', [])))'>
             @csrf
+            @if ($editing) @method('PUT') @endif
 
             {{-- Jenis --}}
             <div class="card">
@@ -56,7 +66,7 @@
                     <div class="row g-2">
                         @foreach (\App\Models\WaBroadcast::TYPES as $key => $label)
                             <div class="col-md-4">
-                                <input type="radio" class="btn-check wa-type-input" name="type" id="type-{{ $key }}" value="{{ $key }}" @checked($oldType === $key)>
+                                <input type="radio" class="btn-check wa-type-input" name="type" id="type-{{ $key }}" value="{{ $key }}" @checked($oldType === $key) @disabled($editing && $oldType !== $key)>
                                 <label class="wa-type-card d-block" for="type-{{ $key }}">
                                     <div class="fw-semibold text-primary mb-1"><i class="{{ $typeCards[$key][0] }} me-1"></i> {{ $label }}</div>
                                     <div class="small text-muted">{{ $typeCards[$key][1] }}</div>
@@ -74,13 +84,13 @@
                         <label class="form-label">Kirim dari</label>
                         <select name="device_id" class="form-select" required data-device>
                             @foreach ($devices as $device)
-                                <option value="{{ $device->id }}" @selected(old('device_id') === $device->id)>{{ $device->name }}{{ $device->phone ? ' · +'.$device->phone : '' }}{{ $device->status === 'connected' ? '' : ' (terputus)' }}</option>
+                                <option value="{{ $device->id }}" @selected($val('device_id') === $device->id)>{{ $device->name }}{{ $device->phone ? ' · +'.$device->phone : '' }}{{ $device->status === 'connected' ? '' : ' (terputus)' }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Nama / Judul</label>
-                        <input type="text" name="name" maxlength="150" required class="form-control @error('name') is-invalid @enderror" value="{{ old('name') }}" placeholder="Contoh: Reminder Tagihan Bulanan">
+                        <input type="text" name="name" maxlength="150" required class="form-control @error('name') is-invalid @enderror" value="{{ $val('name') }}" placeholder="Contoh: Reminder Tagihan Bulanan">
                         @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
                 </div>
@@ -90,7 +100,7 @@
             <div class="card" data-section="single">
                 <div class="card-body" data-content>
                     <div class="form-check form-switch mb-1">
-                        <input class="form-check-input" type="checkbox" role="switch" name="use_template" value="1" id="use-template" data-use-template @checked(old('use_template'))>
+                        <input class="form-check-input" type="checkbox" role="switch" name="use_template" value="1" id="use-template" data-use-template @checked($val('use_template'))>
                         <label class="form-check-label fw-semibold" for="use-template"><i class="ri-file-list-3-line"></i> Gunakan Template WA</label>
                     </div>
                     <div class="small text-muted mb-3">Aktifkan untuk memilih dari <a href="{{ route('whatsapp.templates.index', ['branch' => $branch->id]) }}">WA Template</a> yang sudah dibuat, atau matikan untuk menulis pesan manual.</div>
@@ -100,7 +110,7 @@
                         <select name="wa_template_id" class="form-select @error('wa_template_id') is-invalid @enderror" data-template-select>
                             <option value="">-- Pilih Template --</option>
                             @foreach ($templates as $template)
-                                <option value="{{ $template->id }}" @selected(old('wa_template_id') === $template->id)>{{ $template->name }}</option>
+                                <option value="{{ $template->id }}" @selected($val('wa_template_id') === $template->id)>{{ $template->name }}</option>
                             @endforeach
                         </select>
                         @error('wa_template_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
@@ -109,10 +119,13 @@
 
                     <div data-manual-pane>
                         <label class="form-label">Isi Pesan</label>
-                        <textarea name="body" rows="6" maxlength="4000" class="form-control @error('body') is-invalid @enderror" placeholder="Halo {nama}, ...">{{ old('body') }}</textarea>
+                        <textarea name="body" rows="6" maxlength="4000" class="form-control @error('body') is-invalid @enderror" placeholder="Halo {nama}, ...">{{ $val('body') }}</textarea>
                         @error('body') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         <div class="form-text mb-3">Tulis <code>{nama}</code> untuk memanggil nama kontak (otomatis "Kak" bila namanya belum ada).</div>
                         <label class="form-label">Lampiran (opsional)</label>
+                        @if (! empty($d['upload_name']))
+                            <div class="small mb-1"><i class="ri-attachment-2"></i> Lampiran saat ini: <strong>{{ $d['upload_name'] }}</strong>. Pilih file baru untuk menggantinya.</div>
+                        @endif
                         <input type="file" name="file" class="form-control @error('file') is-invalid @enderror">
                         @error('file') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         <div class="form-text">Foto, video, audio, atau dokumen sampai 64 MB. Isi pesan dikirim sebagai keterangan.</div>
@@ -125,14 +138,25 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="mb-0">Urutan Pesan</h6>
-                        <button type="button" class="btn btn-sm btn-outline-primary" data-add-step><i class="ri-add-line"></i> Tambah Pesan</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary {{ $locked ? 'd-none' : '' }}" data-add-step><i class="ri-add-line"></i> Tambah Pesan</button>
                     </div>
                     <div class="small text-muted mb-3">Setiap pesan dikirim ke semua tujuan pada <strong>tanggal mulai + H hari</strong>, di jam kirim yang sama. Maksimal {{ \App\Models\WaBroadcast::MAX_STEPS }} pesan.</div>
                     @error('steps') <div class="text-danger small mb-2">{{ $message }}</div> @enderror
-                    <div data-steps>
-                        @foreach ($oldSteps as $i => $step)
-                            @include('whatsapp.messages._step', ['i' => $i, 'step' => $step])
+                    @if ($locked)
+                        <div class="alert alert-warning small">Pesan bertahap ini sudah mulai terkirim, jadi urutan pesan dan tanggal mulainya tidak bisa diubah. Nama, device, dan tujuan tetap bisa diubah.</div>
+                        @foreach ($broadcast->steps as $step)
+                            <div class="border rounded p-2 mb-2 small">
+                                <div class="fw-semibold">Pesan ke-{{ $loop->iteration }} · H+{{ $step->delay_days }} @if ($loop->index < $broadcast->runs_count) <span class="badge bg-success-subtle text-success">terkirim</span> @endif</div>
+                                <div class="text-muted" style="white-space: pre-wrap">{{ $step->body ?: '(file)' }}</div>
+                            </div>
                         @endforeach
+                    @endif
+                    <div data-steps class="{{ $locked ? 'd-none' : '' }}">
+                        @unless ($locked)
+                            @foreach ($oldSteps as $i => $step)
+                                @include('whatsapp.messages._step', ['i' => $i, 'step' => $step])
+                            @endforeach
+                        @endunless
                     </div>
                     <template data-step-template>
                         @include('whatsapp.messages._step', ['i' => '__I__', 'step' => ['delay_days' => '']])
@@ -149,44 +173,51 @@
                         <div class="d-flex flex-wrap gap-3 mb-2">
                             @foreach (['now' => 'Kirim sekarang', 'at' => 'Pada waktu tertentu'] as $key => $label)
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="schedule" value="{{ $key }}" id="sch-{{ $key }}" data-once-schedule @checked(old('schedule', 'now') === $key)>
+                                    <input class="form-check-input" type="radio" name="schedule" value="{{ $key }}" id="sch-{{ $key }}" data-once-schedule @checked($val('schedule', 'now') === $key)>
                                     <label class="form-check-label" for="sch-{{ $key }}">{{ $label }}</label>
                                 </div>
                             @endforeach
                         </div>
                         <div class="col-md-4" data-send-at>
                             <label class="form-label small">Tanggal & jam kirim</label>
-                            <input type="datetime-local" name="send_at" class="form-control @error('send_at') is-invalid @enderror" value="{{ old('send_at') }}">
+                            <input type="datetime-local" name="send_at" class="form-control @error('send_at') is-invalid @enderror" value="{{ $val('send_at') }}">
                             @error('send_at') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                     </div>
 
+                    @if ($locked)
+                        <div class="small text-muted mb-2" data-section="drip">Mulai {{ $broadcast->starts_at?->translatedFormat('d M Y H:i') }} · kirim berikutnya {{ $broadcast->next_run_at?->translatedFormat('d M Y H:i') ?? '-' }}</div>
+                    @endif
                     <div class="row g-3" data-section="timed">
                         <div class="col-md-3" data-section="recurring">
                             <label class="form-label">Ulangi</label>
                             <select name="schedule" class="form-select">
                                 @foreach (['daily', 'weekly', 'monthly'] as $key)
-                                    <option value="{{ $key }}" @selected(old('schedule') === $key)>{{ \App\Models\WaBroadcast::SCHEDULES[$key] }}</option>
+                                    <option value="{{ $key }}" @selected($val('schedule') === $key)>{{ \App\Models\WaBroadcast::SCHEDULES[$key] }}</option>
                                 @endforeach
                             </select>
                         </div>
                         <input type="hidden" name="schedule" value="drip" data-section="drip">
+                        @unless ($locked)
                         <div class="col-md-3">
                             <label class="form-label">Tanggal Mulai</label>
-                            <input type="date" name="start_date" min="{{ now()->toDateString() }}" class="form-control @error('start_date') is-invalid @enderror" value="{{ old('start_date', now()->toDateString()) }}">
+                            <input type="date" name="start_date" @unless ($editing) min="{{ now()->toDateString() }}" @endunless class="form-control @error('start_date') is-invalid @enderror" value="{{ $val('start_date', now()->toDateString()) }}">
                             @error('start_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
+                        @endunless
                         <div class="col-md-3" data-section="recurring">
                             <label class="form-label">Tanggal Berakhir</label>
-                            <input type="date" name="end_date" class="form-control @error('end_date') is-invalid @enderror" value="{{ old('end_date') }}">
+                            <input type="date" name="end_date" class="form-control @error('end_date') is-invalid @enderror" value="{{ $val('end_date') }}">
                             @error('end_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             <div class="form-text">Kosongkan kalau berulang terus sampai dijeda/dibatalkan.</div>
                         </div>
+                        @unless ($locked)
                         <div class="col-md-3">
                             <label class="form-label">Jam Kirim</label>
-                            <input type="time" name="send_time" class="form-control @error('send_time') is-invalid @enderror" value="{{ old('send_time', '09:00') }}">
+                            <input type="time" name="send_time" class="form-control @error('send_time') is-invalid @enderror" value="{{ $val('send_time', '09:00') }}">
                             @error('send_time') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
+                        @endunless
                     </div>
 
                     <div class="form-text mt-2">Pengiriman ke banyak tujuan dijeda acak, tidak dikirim pukul 21.00–07.00, dan mengikuti batas harian nomor supaya aman dari pembatasan WhatsApp.</div>
@@ -215,7 +246,7 @@
                                                 <div class="small fw-semibold text-muted {{ $loop->first ? '' : 'mt-2' }}" data-row data-text="">Customers {{ $customer->appLabel() }}</div>
                                             @endif
                                             <div class="form-check" data-row data-text="{{ strtolower($customer->name.' '.$customer->phone) }}">
-                                                <input class="form-check-input" type="checkbox" name="customer_ids[]" value="{{ $customer->id }}" id="c-{{ $customer->id }}" data-pick="contacts" @checked(in_array($customer->id, (array) old('customer_ids', [])))>
+                                                <input class="form-check-input" type="checkbox" name="customer_ids[]" value="{{ $customer->id }}" id="c-{{ $customer->id }}" data-pick="contacts" @checked(in_array($customer->id, (array) $val('customer_ids', [])))>
                                                 <label class="form-check-label" for="c-{{ $customer->id }}">{{ $customer->displayName() }} <span class="text-muted small">+{{ $customer->phone }}</span></label>
                                             </div>
                                         @empty
@@ -228,7 +259,7 @@
                                     <div class="border rounded p-2 mb-3 wa-pick-list" style="max-height: 150px">
                                         @forelse ($groups as $group)
                                             <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" name="group_ids[]" value="{{ $group->id }}" id="grp-{{ $group->id }}" data-pick="contacts" @checked(in_array($group->id, (array) old('group_ids', [])))>
+                                                <input class="form-check-input" type="checkbox" name="group_ids[]" value="{{ $group->id }}" id="grp-{{ $group->id }}" data-pick="contacts" @checked(in_array($group->id, (array) $val('group_ids', [])))>
                                                 <label class="form-check-label" for="grp-{{ $group->id }}">{{ $group->name }} <span class="text-muted small">({{ $group->customers_count }} nomor)</span></label>
                                             </div>
                                         @empty
@@ -239,7 +270,7 @@
                                     @foreach (\App\Models\Customer::APPS as $app => $label)
                                         @continue($app === 'whatsapp')
                                         <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="apps[]" value="{{ $app }}" id="app-{{ $app }}" data-pick="contacts" @checked(in_array($app, (array) old('apps', []))) @disabled(! ($appCounts[$app] ?? 0))>
+                                            <input class="form-check-input" type="checkbox" name="apps[]" value="{{ $app }}" id="app-{{ $app }}" data-pick="contacts" @checked(in_array($app, (array) $val('apps', []))) @disabled(! ($appCounts[$app] ?? 0))>
                                             <label class="form-check-label" for="app-{{ $app }}">Semua customer {{ $label }} <span class="text-muted small">({{ $appCounts[$app] ?? 0 }} nomor)</span></label>
                                         </div>
                                     @endforeach
@@ -250,7 +281,7 @@
 
                         <div class="tab-pane fade" id="to-phones">
                             <label class="form-label">Nomor WhatsApp Tujuan</label>
-                            <textarea name="phones" rows="5" class="form-control" placeholder="6281234567890; 6281298765432&#10;atau satu nomor per baris" data-phones>{{ is_array(old('phones')) ? implode("\n", old('phones')) : old('phones') }}</textarea>
+                            <textarea name="phones" rows="5" class="form-control" placeholder="6281234567890; 6281298765432&#10;atau satu nomor per baris" data-phones>{{ is_array($val('phones')) ? implode("\n", $val('phones')) : $val('phones') }}</textarea>
                             <div class="form-text">Pisahkan tiap nomor dengan titik-koma (;), koma, atau baris baru.</div>
                         </div>
 
@@ -269,7 +300,7 @@
             </div>
 
             <div class="d-flex gap-2 mb-4">
-                <button class="btn btn-primary" data-submit><i class="ri-send-plane-2-line"></i> Simpan Jadwal</button>
+                <button class="btn btn-primary" data-submit><i class="ri-send-plane-2-line"></i> {{ $editing ? 'Simpan Perubahan' : 'Simpan Jadwal' }}</button>
                 <a href="{{ route('whatsapp.messages.index', ['branch' => $branch->id]) }}" class="btn btn-light">Batal</a>
             </div>
         </form>

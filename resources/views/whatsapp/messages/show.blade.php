@@ -75,6 +75,9 @@
                     @endif
 
                     <div class="d-flex flex-wrap gap-2">
+                        @if (in_array($broadcast->status, ['active', 'paused'], true))
+                            <a href="{{ route('whatsapp.messages.edit', $broadcast) }}" class="btn btn-sm btn-outline-primary"><i class="ri-pencil-line"></i> Edit</a>
+                        @endif
                         @if ($broadcast->status === 'active')
                             <form method="POST" action="{{ route('whatsapp.messages.pause', $broadcast) }}">@csrf<button class="btn btn-sm btn-outline-warning"><i class="ri-pause-line"></i> Jeda</button></form>
                         @elseif ($broadcast->status === 'paused')

@@ -128,6 +128,9 @@
                                 <td class="text-center"><span class="badge {{ ($stat->failed ?? 0) > 0 ? 'bg-danger-subtle text-danger' : 'bg-light text-muted' }} fs-12">{{ (int) ($stat->failed ?? 0) }}</span></td>
                                 <td class="text-end text-nowrap">
                                     <a href="{{ route('whatsapp.messages.show', $item) }}" class="btn btn-sm btn-light" title="Detail & riwayat"><i class="ri-history-line"></i></a>
+                                    @if (in_array($item->status, ['active', 'paused'], true))
+                                        <a href="{{ route('whatsapp.messages.edit', $item) }}" class="btn btn-sm btn-light" title="Edit"><i class="ri-pencil-line"></i></a>
+                                    @endif
                                     @if ($item->status === 'active')
                                         <form method="POST" action="{{ route('whatsapp.messages.pause', $item) }}" class="d-inline">@csrf<button class="btn btn-sm btn-light" title="Jeda"><i class="ri-pause-line"></i></button></form>
                                     @elseif ($item->status === 'paused')

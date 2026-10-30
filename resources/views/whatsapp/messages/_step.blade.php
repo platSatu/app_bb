@@ -1,5 +1,8 @@
 {{-- Satu pesan dalam Message Bertahap. $i = indeks di form, $step = nilai lama (old input). --}}
 <div class="border rounded p-3 wa-step" data-step>
+    @if (! empty($step['id']))
+        <input type="hidden" name="steps[{{ $i }}][id]" value="{{ $step['id'] }}">
+    @endif
     <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="fw-semibold">Pesan ke-<span data-step-no>1</span></div>
         <button type="button" class="btn btn-sm btn-light text-danger" data-remove-step title="Hapus pesan ini"><i class="ri-delete-bin-line"></i></button>
@@ -32,6 +35,9 @@
         <div data-manual-pane>
             <textarea name="steps[{{ $i }}][body]" rows="3" maxlength="4000" class="form-control form-control-sm mb-2 @error("steps.$i.body") is-invalid @enderror" placeholder="Halo {nama}, ...">{{ $step['body'] ?? '' }}</textarea>
             @error("steps.$i.body") <div class="invalid-feedback mb-2">{{ $message }}</div> @enderror
+            @if (! empty($step['upload_name']))
+                <div class="small mb-1"><i class="ri-attachment-2"></i> Lampiran saat ini: <strong>{{ $step['upload_name'] }}</strong></div>
+            @endif
             <input type="file" name="steps[{{ $i }}][file]" class="form-control form-control-sm @error("steps.$i.file") is-invalid @enderror">
             @error("steps.$i.file") <div class="invalid-feedback">{{ $message }}</div> @enderror
         </div>

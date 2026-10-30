@@ -129,6 +129,8 @@ Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function
         Route::get('wa-groups/{device}', 'waGroups')->whereUuid('device')->middleware('throttle:30,1')->name('wa-groups');
         Route::post('/', 'store')->middleware('throttle:20,1')->name('store');
         Route::get('{broadcast}', 'show')->whereUuid('broadcast')->name('show');
+        Route::get('{broadcast}/edit', 'edit')->whereUuid('broadcast')->name('edit');
+        Route::put('{broadcast}', 'update')->whereUuid('broadcast')->middleware('throttle:20,1')->name('update');
         Route::get('{broadcast}/progress', 'progress')->whereUuid('broadcast')->name('progress');
         Route::post('{broadcast}/pause', 'pause')->whereUuid('broadcast')->name('pause');
         Route::post('{broadcast}/resume', 'resume')->whereUuid('broadcast')->name('resume');

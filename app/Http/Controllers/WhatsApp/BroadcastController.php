@@ -13,6 +13,7 @@ use App\Models\WaDevice;
 use App\Models\WaTemplate;
 use App\Services\WhatsApp\BroadcastService;
 use App\Services\WhatsApp\WaGateway;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -74,17 +75,65 @@ class BroadcastController extends Controller
             return $this->branchRequired();
         }
 
-        return view('whatsapp.messages.create', [
+        return view('whatsapp.messages.create', $this->formData($request, $branch) + [
+            'type' => array_key_exists((string) $request->query('type'), WaBroadcast::TYPES) ? $request->query('type') : 'once',
+        ]);
+    }
+
+    /** Edit: hanya pesan Aktif/Dijeda. Perubahan berlaku untuk pengiriman berikutnya; antrean yang sudah berjalan tidak ikut berubah. */
+    public function edit(Request $request, string $broadcast): View
+    {
+        $model = $this->broadcast($request, $broadcast, ['active', 'paused'])->load('steps');
+        $branch = $this->ownerBranches($request)->firstWhere('id', $model->branch_id);
+
+        return view('whatsapp.messages.create', $this->formData($request, $branch) + [
+            'type' => $model->type,
+            'broadcast' => $model,
+            'defaults' => $this->formDefaults($model),
+        ]);
+    }
+
+    private function formData(Request $request, $branch): array
+    {
+        return [
             'branches' => $this->ownerBranches($request),
             'branch' => $branch,
-            'type' => array_key_exists($request->query('type'), WaBroadcast::TYPES) ? $request->query('type') : 'once',
             'devices' => WaDevice::where('branch_id', $branch->id)->orderBy('name')->get(['id', 'name', 'status', 'phone']),
             'templates' => WaTemplate::where('branch_id', $branch->id)->where('is_active', true)->orderBy('name')->get(['id', 'name', 'header', 'body', 'footer', 'link', 'file_name']),
             'groups' => ContactGroup::where('branch_id', $branch->id)->withCount(['customers' => fn ($q) => $q->whereNotNull('phone')])->orderBy('name')->get(),
             // Penerima boleh dari customer aplikasi mana pun di branch ini.
             'customers' => Customer::where('branch_id', $branch->id)->whereNotNull('phone')->orderBy('app_key')->orderBy('name')->limit(1000)->get(['id', 'app_key', 'name', 'phone']),
             'appCounts' => Customer::where('branch_id', $branch->id)->whereNotNull('phone')->selectRaw('app_key, count(*) as total')->groupBy('app_key')->pluck('total', 'app_key'),
-        ]);
+        ];
+    }
+
+    /** Nilai awal form Edit dari pesan yang tersimpan. */
+    private function formDefaults(WaBroadcast $b): array
+    {
+        $t = $b->target ?? [];
+        $at = $b->type === 'once' ? $b->next_run_at : $b->starts_at;
+
+        return [
+            'type' => $b->type,
+            'device_id' => $b->device_id,
+            'name' => $b->name,
+            'use_template' => (bool) $b->wa_template_id,
+            'wa_template_id' => $b->wa_template_id,
+            'body' => $b->wa_template_id ? null : $b->body,
+            'schedule' => $b->type === 'once' ? 'at' : $b->schedule,
+            'send_at' => $b->type === 'once' ? $b->next_run_at?->format('Y-m-d\TH:i') : null,
+            'start_date' => $at?->toDateString(),
+            'end_date' => $b->ends_at?->toDateString(),
+            'send_time' => $at?->format('H:i'),
+            'steps' => $b->steps->map(fn ($s) => ['id' => $s->id, 'delay_days' => $s->delay_days, 'use_template' => (bool) $s->wa_template_id,
+                'wa_template_id' => $s->wa_template_id, 'body' => $s->wa_template_id ? null : $s->body, 'upload_name' => $s->upload_name, 'sent' => $s->position <= $b->runs_count])->all(),
+            'customer_ids' => $t['customer_ids'] ?? [],
+            'group_ids' => $t['group_ids'] ?? [],
+            'apps' => $t['apps'] ?? [],
+            'phones' => implode("\n", $t['phones'] ?? []),
+            'wa_groups' => collect($t['wa_groups'] ?? [])->pluck('jid')->all(),
+            'upload_name' => $b->wa_template_id ? null : $b->upload_name,
+        ];
     }
 
     /** Daftar Grup WhatsApp yang diikuti device, untuk tab "Grup WhatsApp" di form. */
@@ -105,33 +154,58 @@ class BroadcastController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $device = $this->device($request, (string) $request->input('device_id'));
-        $data = $this->validated($request, $device);
+        return $this->save($request, null);
+    }
 
-        $broadcast = DB::transaction(function () use ($request, $device, $data) {
-            $broadcast = new WaBroadcast(['name' => $data['name'], 'type' => $data['type'], 'schedule' => $data['schedule']]);
-            [$startsAt, $endsAt, $firstRun] = $this->timing($data);
+    public function update(Request $request, string $broadcast): RedirectResponse
+    {
+        return $this->save($request, $this->broadcast($request, $broadcast, ['active', 'paused']));
+    }
+
+    /**
+     * Simpan pesan baru atau perubahan. Saat edit: jenis tidak berubah, status (Aktif/Dijeda) dipertahankan,
+     * pesan bertahap yang sudah terkirim tidak bisa diubah, dan lampiran lama tetap dipakai bila tidak diganti.
+     */
+    private function save(Request $request, ?WaBroadcast $existing): RedirectResponse
+    {
+        if ($existing) {
+            $request->merge(['type' => $existing->type]);
+        }
+        $device = $this->device($request, (string) $request->input('device_id'));
+        $started = $existing && $existing->type === 'drip' && $existing->runs_count > 0;
+        $data = $this->validated($request, $device, $existing, $started);
+
+        $broadcast = DB::transaction(function () use ($request, $device, $data, $existing, $started) {
+            // Dikunci supaya tidak bertabrakan dengan scheduler yang sedang menjalankan pesan ini.
+            $broadcast = $existing ? WaBroadcast::whereKey($existing->id)->lockForUpdate()->firstOrFail()
+                : new WaBroadcast(['type' => $data['type']]);
+            abort_if($existing && ! in_array($broadcast->status, ['active', 'paused'], true), 409, 'Pesan ini sudah selesai atau dibatalkan.');
 
             $fill = [
+                'name' => $data['name'],
                 'branch_id' => $device->branch_id,
                 'device_id' => $device->id,
                 'target' => $this->target($device, $data),
-                'starts_at' => $startsAt,
-                'ends_at' => $endsAt,
-                'next_run_at' => $firstRun,
-                'status' => 'active',
-                'created_by' => $request->user()->id,
             ];
+            if (! $started) {
+                [$startsAt, $endsAt, $firstRun] = $this->timing($data, $broadcast);
+                $fill += ['schedule' => $data['schedule'], 'starts_at' => $startsAt, 'ends_at' => $endsAt, 'next_run_at' => $firstRun];
+            }
+            if (! $existing) {
+                $fill += ['status' => 'active', 'created_by' => $request->user()->id];
+            }
             if ($data['type'] !== 'drip') {
-                $fill += $this->content($device, $data['use_template'] ?? false, $data['wa_template_id'] ?? null, $data['body'] ?? null, $request->file('file'), 'file');
+                $fill += $this->content($device, $data['use_template'] ?? false, $data['wa_template_id'] ?? null, $data['body'] ?? null, $request->file('file'), 'file', $existing);
             }
             $broadcast->forceFill($fill)->save();
 
-            if ($data['type'] === 'drip') {
+            if ($data['type'] === 'drip' && ! $started) {
+                $old = $broadcast->steps()->get()->keyBy('id');
+                $broadcast->steps()->delete();
                 foreach (array_values($data['steps']) as $i => $step) {
                     $row = new WaBroadcastStep(['position' => $i + 1, 'delay_days' => (int) $step['delay_days'], 'body' => null]);
                     $field = "steps.{$step['_index']}.file"; // indeks asli di form (urutan disusun ulang per hari kirim)
-                    $row->forceFill(['broadcast_id' => $broadcast->id] + $this->content($device, (bool) ($step['use_template'] ?? false), $step['wa_template_id'] ?? null, $step['body'] ?? null, $request->file($field), $field))->save();
+                    $row->forceFill(['broadcast_id' => $broadcast->id] + $this->content($device, (bool) ($step['use_template'] ?? false), $step['wa_template_id'] ?? null, $step['body'] ?? null, $request->file($field), $field, $old->get($step['id'] ?? '')))->save();
                 }
                 $broadcast->forceFill(['next_run_at' => $broadcast->load('steps')->stepDueAt(0)])->save();
             }
@@ -139,11 +213,13 @@ class BroadcastController extends Controller
             return $broadcast;
         });
 
-        if ($broadcast->schedule === 'now') {
+        if ($broadcast->schedule === 'now' && $broadcast->status === 'active') {
             $campaign = $this->broadcasts->run($broadcast->id);
             $message = $campaign ? "Pesan masuk antrean untuk {$campaign->total} tujuan." : ($broadcast->fresh()->last_error ?? 'Pesan disimpan.');
+        } elseif (! $broadcast->next_run_at) {
+            $message = 'Perubahan disimpan. Tidak ada jadwal kirim berikutnya (tanggal berakhir sudah lewat).';
         } else {
-            $message = 'Pesan dijadwalkan, kirim pertama '.$broadcast->next_run_at->translatedFormat('d M Y H:i').'.';
+            $message = ($existing ? 'Perubahan disimpan, kirim berikutnya ' : 'Pesan dijadwalkan, kirim pertama ').$broadcast->next_run_at->translatedFormat('d M Y H:i').'.';
         }
 
         return redirect()->route('whatsapp.messages.show', $broadcast)->with('success', $message);
@@ -237,7 +313,7 @@ class BroadcastController extends Controller
             ->get()->keyBy('broadcast_id')->all();
     }
 
-    private function validated(Request $request, WaDevice $device): array
+    private function validated(Request $request, WaDevice $device, ?WaBroadcast $existing = null, bool $started = false): array
     {
         $branchId = $device->branch_id;
         $request->merge([
@@ -267,9 +343,10 @@ class BroadcastController extends Controller
             $rules += [
                 'send_at' => ['nullable', 'required_if:schedule,at', 'date', 'after:now'],
             ];
-        } else {
+        } elseif (! $started) {
+            // Saat edit, tanggal mulai boleh sudah lewat (pesan berulang yang sudah berjalan); kirim berikutnya dihitung ulang.
             $rules += [
-                'start_date' => ['required', 'date', 'after_or_equal:today'],
+                'start_date' => ['required', 'date', ...($existing ? [] : ['after_or_equal:today'])],
                 'send_time' => ['required', 'date_format:H:i'],
             ];
         }
@@ -277,16 +354,17 @@ class BroadcastController extends Controller
             $rules['end_date'] = ['nullable', 'date', 'after_or_equal:start_date'];
         }
 
-        if ($type === 'drip') {
+        if ($type === 'drip' && ! $started) {
             $rules += [
                 'steps' => ['required', 'array', 'min:1', 'max:'.WaBroadcast::MAX_STEPS],
+                'steps.*.id' => ['nullable', 'uuid'],
                 'steps.*.delay_days' => ['required', 'integer', 'min:0', 'max:365', 'distinct'],
                 'steps.*.use_template' => ['nullable', 'boolean'],
                 'steps.*.wa_template_id' => ['nullable', 'required_if:steps.*.use_template,1', $template],
                 'steps.*.body' => ['nullable', 'string', 'max:4000'],
                 'steps.*.file' => ['nullable', 'file', 'max:65536'],
             ];
-        } else {
+        } elseif ($type !== 'drip') {
             $rules += [
                 'use_template' => ['boolean'],
                 'wa_template_id' => ['nullable', 'required_if:use_template,true', $template],
@@ -312,15 +390,17 @@ class BroadcastController extends Controller
         if (empty($data['customer_ids']) && empty($data['group_ids']) && empty($data['apps']) && empty($data['phones']) && empty($data['wa_groups'])) {
             $errors['recipients'] = 'Pilih minimal satu tujuan: kontak, nomor, atau Grup WhatsApp.';
         }
-        if ($type !== 'drip' && empty($data['use_template']) && blank($data['body'] ?? null) && ! $request->hasFile('file')) {
+        $keptFile = $existing && ! $existing->wa_template_id && $existing->upload_id;
+        if ($type !== 'drip' && empty($data['use_template']) && blank($data['body'] ?? null) && ! $request->hasFile('file') && ! $keptFile) {
             $errors['body'] = 'Isi pesan atau lampirkan file.';
         }
-        foreach ($type === 'drip' ? $data['steps'] : [] as $i => $step) {
-            if (empty($step['use_template']) && blank($step['body'] ?? null) && ! $request->hasFile("steps.{$i}.file")) {
+        $stepFiles = $existing ? $existing->steps()->whereNull('wa_template_id')->whereNotNull('upload_id')->pluck('id')->flip() : collect();
+        foreach ($type === 'drip' && ! $started ? $data['steps'] : [] as $i => $step) {
+            if (empty($step['use_template']) && blank($step['body'] ?? null) && ! $request->hasFile("steps.{$i}.file") && ! isset($stepFiles[$step['id'] ?? ''])) {
                 $errors["steps.{$i}.body"] = 'Isi pesan atau lampirkan file.';
             }
         }
-        if ($type !== 'once' && Carbon::parse($data['start_date'].' '.$data['send_time'])->isPast() && ! ($type === 'drip' && collect($data['steps'])->min('delay_days') > 0)) {
+        if (! $existing && $type !== 'once' && Carbon::parse($data['start_date'].' '.$data['send_time'])->isPast() && ! ($type === 'drip' && collect($data['steps'])->min('delay_days') > 0)) {
             $errors['send_time'] = 'Jam kirim hari ini sudah lewat, pilih jam berikutnya atau mulai besok.';
         }
         if ($errors) {
@@ -328,15 +408,15 @@ class BroadcastController extends Controller
         }
 
         // Bertahap: urutkan pesan berdasarkan hari kirimnya.
-        if ($type === 'drip') {
+        if ($type === 'drip' && ! $started) {
             $data['steps'] = collect($data['steps'])->map(fn ($s, $i) => $s + ['_index' => $i])->sortBy('delay_days')->values()->all();
         }
 
         return $data;
     }
 
-    /** [starts_at, ends_at, kirim pertama] */
-    private function timing(array $data): array
+    /** [starts_at, ends_at, kirim pertama]. Berulang yang tanggal mulainya sudah lewat: kirim berikutnya = jadwal terdekat di masa depan. */
+    private function timing(array $data, WaBroadcast $broadcast): array
     {
         if ($data['type'] === 'once') {
             $at = $data['schedule'] === 'now' ? now() : Carbon::parse($data['send_at']);
@@ -346,8 +426,12 @@ class BroadcastController extends Controller
 
         $start = Carbon::parse($data['start_date'].' '.$data['send_time']);
         $end = ! empty($data['end_date']) ? Carbon::parse($data['end_date'])->endOfDay() : null;
+        $first = $start;
+        if ($data['type'] === 'recurring' && $start->isPast()) {
+            $first = (clone $broadcast)->forceFill(['schedule' => $data['schedule'], 'ends_at' => $end])->nextAfter($start);
+        }
 
-        return [$start, $end, $start];
+        return [$start, $end, $first];
     }
 
     private function target(WaDevice $device, array $data): array
@@ -367,8 +451,14 @@ class BroadcastController extends Controller
      * Isi pesan siap simpan. Template disalin saat disimpan (teks + file), jadi mengubah template
      * belakangan tidak mengubah pesan yang sudah dijadwalkan.
      */
-    private function content(WaDevice $device, bool $useTemplate, ?string $templateId, ?string $body, ?UploadedFile $file, string $field): array
+    private function content(WaDevice $device, bool $useTemplate, ?string $templateId, ?string $body, ?UploadedFile $file, string $field, ?Model $existing = null): array
     {
+        // Edit tanpa mengganti lampiran: lampiran lama (bukan dari template) tetap dipakai.
+        if (! $useTemplate && ! $file && $existing && ! $existing->wa_template_id && $existing->upload_id) {
+            return ['body' => filled($body) ? $body : null, 'wa_template_id' => null,
+                'upload_id' => $existing->upload_id, 'upload_kind' => $existing->upload_kind, 'upload_name' => $existing->upload_name];
+        }
+
         $template = $useTemplate ? WaTemplate::where('branch_id', $device->branch_id)->find($templateId) : null;
         if ($template) {
             $body = $template->toText();
