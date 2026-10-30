@@ -85,7 +85,7 @@
             </div>
 
             <div class="col-12">
-                <div class="card mb-0">
+                <div class="card mb-4">
                     <div class="card-body">
                         <h6 class="mb-2">Riwayat Request</h6>
                         <div class="table-responsive">
