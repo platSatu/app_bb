@@ -112,9 +112,24 @@ Jawaban (HTTP 200):
 {
   "success": true,
   "status": "sent",
-  "message": { "id": "9d3c1f0e-...", "to": "6281234567890", "queued": true }
+  "message": {
+    "id": "9d3c1f0e-...",
+    "to": "6281234567890",
+    "chat_jid": "6281234567890@s.whatsapp.net",
+    "device_id": "01a1429d-...",
+    "from_me": true,
+    "status": "sent",
+    "message_type": "text",
+    "body": "Halo Budi",
+    "sent_at": "2026-10-30T09:40:00+07:00",
+    "created_at": "2026-10-30T09:40:00+07:00",
+    "queued": true
+  }
 }
 ```
+
+Bentuknya sama dengan API teleios/Konexa, jadi kode yang sudah memakai teleios cukup ganti
+**API Host** (`https://app.bizbos.id/api`), **Token**, dan **Secret Key**.
 
 Pesan masuk antrean dan dikirim berjeda (biasanya dalam hitungan detik) supaya nomor Anda aman.
 Simpan `message.id` bila ingin mengecek status pengiriman akhirnya.
@@ -141,9 +156,10 @@ Status yang mungkin: `queued` (menunggu giliran), `sent` (terkirim ke WhatsApp),
 
 `GET {{BASE_URL}}/api/wa-api/v1/usage`
 
-Menampilkan status paket WhatsApp (`package_active`, `package.valid_until`), kuota pesan bulan ini
-(`quota.max`, `quota.used`, `quota.remaining`; `unlimited: true` bila paket tidak membatasi), dan jumlah request kirim
-hari ini & bulan ini (`requests.today`, `requests.this_month`). Tidak memotong kuota.
+Menampilkan status paket WhatsApp (`package_active`, `package.name`, `package.branch`, `package.valid_from`, `package.valid_until`),
+kuota pesan bulan ini (`quota.metric` = `broadcast_send`, `quota.max`, `quota.used`, `quota.remaining`; `unlimited: true` bila paket
+tidak membatasi), dan jumlah request kirim (`requests.today`, `requests.this_month`, `requests.current_package_period`,
+`requests.all_time`). Bentuknya sama dengan teleios. Tidak memotong kuota.
 
 ## 4. Batasan & aturan main
 

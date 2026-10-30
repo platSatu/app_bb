@@ -39,7 +39,7 @@ class WaApiController extends Controller
             'to' => $to,
             'text' => $data['message'],
             'client_ref' => isset($data['ref']) ? 'api:'.$data['ref'] : null,
-        ]));
+        ]), $key->device_id, $data['message']);
     }
 
     /** POST /api/wa-api/v1/send-media (multipart: to, file, caption?, ref?) */
@@ -59,7 +59,7 @@ class WaApiController extends Controller
             'to' => $to,
             'text' => $data['caption'] ?? null,
             'client_ref' => isset($data['ref']) ? 'api:'.$data['ref'] : null,
-        ], $request->file('file')));
+        ], $request->file('file')), $key->device_id, $data['caption'] ?? null, 'media');
     }
 
     /** GET /api/wa-api/v1/messages/{id}: queued, sent, failed, skipped. */
@@ -77,15 +77,26 @@ class WaApiController extends Controller
         $key = $this->key($request);
         $subscription = BranchSubscription::where('branch_id', $key->branch_id)->where('app_key', 'whatsapp')->active()->first(['starts_at', 'ends_at']);
 
+        // Bentuk sama dengan GET /wa-api/v1/usage teleios (name, branch, metric broadcast_send, all_time).
+        $packageName = $subscription ? DB::table('subscription_histories as h')->join('packages as p', 'p.id', '=', 'h.package_id')
+            ->where('h.branch_id', $key->branch_id)->where('h.app_key', 'whatsapp')->latest('h.created_at')->value('p.name') : null;
+
         return response()->json([
             'success' => true,
             'device_id' => $key->device_id,
             'package_active' => $subscription !== null,
-            'package' => $subscription ? ['valid_from' => $subscription->starts_at->toIso8601String(), 'valid_until' => $subscription->ends_at->toIso8601String()] : null,
-            'quota' => ['metric' => 'whatsapp_monthly', ...$limits->messageQuota($key->branch_id)],
+            'package' => $subscription ? [
+                'name' => $packageName ?? 'WhatsApp',
+                'branch' => DB::table('user_branches')->where('id', $key->branch_id)->value('name'),
+                'valid_from' => $subscription->starts_at->toIso8601String(),
+                'valid_until' => $subscription->ends_at->toIso8601String(),
+            ] : null,
+            'quota' => ['metric' => 'broadcast_send', ...$limits->messageQuota($key->branch_id)],
             'requests' => [
                 'today' => $this->requestCounts($key, now()->startOfDay()),
                 'this_month' => $this->requestCounts($key, now()->startOfMonth()),
+                'current_package_period' => $subscription ? $this->requestCounts($key, $subscription->starts_at) : null,
+                'all_time' => $this->requestCounts($key, null),
             ],
             'generated_at' => now()->toIso8601String(),
         ]);
@@ -111,24 +122,39 @@ class WaApiController extends Controller
         throw ValidationException::withMessages(['to' => 'Nomor tujuan tidak valid. Gunakan format 628xxxxxxxxxx atau ID grup ...@g.us.']);
     }
 
-    private function reply(string $to, array $result): JsonResponse
+    private function reply(string $to, array $result, string $device = '', ?string $body = null, string $type = 'text'): JsonResponse
     {
         if (! $result['success']) {
             return VerifyWaApiKey::error($result['message'], $result['status'] >= 400 ? $result['status'] : 502);
         }
 
-        // Sama dengan teleios: 200 + status "sent". Pesan masuk antrean berjeda (anti-ban), status akhir lewat /messages/{id}.
+        // Sama dengan teleios: 200 + status "sent" + objek message (field yang sama dengan teleios ikut diisi).
+        // Pesan masuk antrean berjeda (anti-ban); status akhir lewat GET /messages/{id}.
+        $now = now()->toIso8601String();
+
         return response()->json([
             'success' => true,
             'status' => 'sent',
-            'message' => ['id' => $result['data']['outbox_id'] ?? null, 'to' => $to, 'queued' => true],
+            'message' => [
+                'id' => $result['data']['outbox_id'] ?? null,
+                'to' => $to,
+                'chat_jid' => str_contains($to, '@') ? $to : $to.'@s.whatsapp.net',
+                'device_id' => $device,
+                'from_me' => true,
+                'status' => 'sent',
+                'message_type' => $type,
+                'body' => $body,
+                'sent_at' => $now,
+                'created_at' => $now,
+                'queued' => true,
+            ],
         ]);
     }
 
     /** Jumlah request kirim per hasil, dari catatan wa_api_logs. */
-    private function requestCounts(WaApiKey $key, \DateTimeInterface $since): array
+    private function requestCounts(WaApiKey $key, ?\DateTimeInterface $since): array
     {
-        $rows = $key->logs()->where('created_at', '>=', $since)->where('path', 'like', '%/send-%')
+        $rows = $key->logs()->when($since, fn ($q) => $q->where('created_at', '>=', $since))->where('path', 'like', '%/send-%')
             ->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status');
 
         $sent = $rows->filter(fn ($n, $status) => $status < 300)->sum();

@@ -35,7 +35,7 @@ it('format teleios: header X-WA-Token + X-WA-Secret, body to + message, jawaban 
 
     waApiPost($key, $secret, ['to' => '0812-3456-7890', 'message' => 'Halo Budi'])
         ->assertOk()
-        ->assertJson(['success' => true, 'status' => 'sent', 'message' => ['id' => 'ob-1', 'to' => '6281234567890', 'queued' => true]]);
+        ->assertJson(['success' => true, 'status' => 'sent', 'message' => ['id' => 'ob-1', 'to' => '6281234567890', 'chat_jid' => '6281234567890@s.whatsapp.net', 'from_me' => true, 'status' => 'sent', 'body' => 'Halo Budi', 'queued' => true]]);
 
     Http::assertSent(fn (HttpRequest $request) => $request['to'] === '6281234567890' && $request['text'] === 'Halo Budi' && $request['device_id'] === $key->device_id);
     expect($key->logs()->count())->toBe(1);
@@ -88,8 +88,9 @@ it('usage: paket, sisa kuota, dan jumlah request kirim', function () {
         ->assertOk()
         ->assertJson([
             'package_active' => true,
-            'quota' => ['unlimited' => false, 'max' => 100, 'used' => 1, 'remaining' => 99],
-            'requests' => ['today' => ['sent' => 1, 'total' => 1], 'this_month' => ['sent' => 1]],
+            'package' => ['name' => 'WhatsApp'],
+            'quota' => ['metric' => 'broadcast_send', 'unlimited' => false, 'max' => 100, 'used' => 1, 'remaining' => 99],
+            'requests' => ['today' => ['sent' => 1, 'total' => 1], 'this_month' => ['sent' => 1], 'current_package_period' => ['sent' => 1], 'all_time' => ['sent' => 1]],
         ]);
 });
 
