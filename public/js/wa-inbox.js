@@ -25,7 +25,7 @@
     var chats = [];
     var chatIndex = new Map();
     var active = null;
-    var activeTab = 'chat';
+    var activeTab = 'all'; // Semua: chat pribadi & grup bercampur, sama seperti WhatsApp di HP
     var searchTerm = '';
     var renderedSig = '';
     var threadMsgs = [];
@@ -167,7 +167,9 @@
     function visibleChats() {
         var term = searchTerm.toLowerCase();
         return chats.filter(function (c) {
-            if (activeTab === 'group' ? !c.is_group : (activeTab === 'chat' ? c.is_group : !(c.unread_count > 0))) return false;
+            if (activeTab === 'group' && !c.is_group) return false;
+            if (activeTab === 'chat' && c.is_group) return false;
+            if (activeTab === 'unread' && !(c.unread_count > 0)) return false;
             return !term || chatLabel(c).toLowerCase().indexOf(term) > -1 || (c.phone || '').indexOf(term.replace(/\D/g, '') || '~') > -1;
         });
     }
@@ -474,7 +476,8 @@
 
     // ---------- sending ----------
     function target(extra) {
-        return Object.assign(active.id ? { chat_id: active.id } : { phone: active.phone }, extra);
+        var to = active.id ? { chat_id: active.id } : (active.is_group ? { group_jid: active.chat_jid } : { phone: active.phone });
+        return Object.assign(to, extra);
     }
 
     function addPending(ref, msg, retry) {
@@ -1085,7 +1088,32 @@
     });
 
     function closeNewChat() { newChatEl.classList.add('d-none'); }
+    var newChatGroupEl = $('wa-new-chat-group');
+    var groupsLoaded = false;
+    function loadNewChatGroups() {
+        if (groupsLoaded) return;
+        groupsLoaded = true;
+        api(U.groups).then(function (res) {
+            newChatGroupEl.innerHTML = '';
+            var groups = (res.ok && res.data.groups) || [];
+            var first = document.createElement('option');
+            first.value = '';
+            first.textContent = groups.length ? '- Pilih grup -' : ((res.ok && res.data.message) || 'Tidak ada grup');
+            newChatGroupEl.appendChild(first);
+            groups.forEach(function (g) {
+                var opt = document.createElement('option');
+                opt.value = g.jid;
+                opt.textContent = g.name + (g.locked ? ' (hanya admin)' : '');
+                opt.disabled = g.locked;
+                newChatGroupEl.appendChild(opt);
+            });
+            if (!res.ok) groupsLoaded = false;
+        });
+    }
+    newChatGroupEl.addEventListener('change', function () { if (newChatGroupEl.value) newChatInputEl.value = ''; });
     $('wa-new-chat-btn').addEventListener('click', function () {
+        loadNewChatGroups();
+        newChatGroupEl.value = '';
         newChatInputEl.value = '';
         newChatErrorEl.classList.add('d-none');
         newChatEl.classList.remove('d-none');
@@ -1096,6 +1124,13 @@
     newChatEl.addEventListener('click', function (e) { if (e.target === newChatEl) closeNewChat(); });
 
     function startNewChat() {
+        var jid = newChatGroupEl.value;
+        if (jid) {
+            closeNewChat();
+            var group = chats.find(function (c) { return c.chat_jid === jid; });
+            var label = newChatGroupEl.options[newChatGroupEl.selectedIndex].textContent;
+            return openChat(group || { id: null, chat_jid: jid, phone: null, name: label, is_group: true });
+        }
         var digits = newChatInputEl.value.replace(/\D/g, '').replace(/^0/, '62');
         if (digits.indexOf('62') !== 0 && digits.length <= 12) digits = '62' + digits;
         if (digits.length < 10 || digits.length > 15) {

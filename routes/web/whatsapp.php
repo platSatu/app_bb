@@ -60,6 +60,7 @@ Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function
                 Route::get('messages/{message}/poll', 'pollResults')->whereUuid('message')->name('poll');
                 Route::get('realtime', 'realtime')->middleware('throttle:30,1')->name('realtime');
                 Route::get('quick-replies', 'quickReplies')->name('quick-replies');
+                Route::get('groups', 'groups')->middleware('throttle:30,1')->name('groups');
             });
 
             Route::controller(ChatDetailController::class)->prefix('chats/{chat}')->whereUuid('chat')->group(function () {
@@ -95,6 +96,7 @@ Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function
     Route::middleware('permission:whatsapp.google-forms')->controller(GoogleFormController::class)->prefix('google-form')->name('google-forms.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('create', 'create')->name('create');
+        Route::get('wa-groups/{device}', 'waGroups')->whereUuid('device')->middleware('throttle:30,1')->name('wa-groups');
         Route::post('/', 'store')->middleware('throttle:20,1')->name('store');
         Route::get('{form}', 'show')->whereUuid('form')->name('show');
         Route::get('{form}/edit', 'edit')->whereUuid('form')->name('edit');
@@ -124,6 +126,7 @@ Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function
     Route::middleware('permission:whatsapp.messages')->controller(BroadcastController::class)->prefix('messages')->name('messages.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('create', 'create')->name('create');
+        Route::get('wa-groups/{device}', 'waGroups')->whereUuid('device')->middleware('throttle:30,1')->name('wa-groups');
         Route::post('/', 'store')->middleware('throttle:20,1')->name('store');
         Route::get('{broadcast}', 'show')->whereUuid('broadcast')->name('show');
         Route::get('{broadcast}/progress', 'progress')->whereUuid('broadcast')->name('progress');

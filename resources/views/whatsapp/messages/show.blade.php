@@ -21,26 +21,55 @@
                         <span class="badge bg-{{ $color }}-subtle text-{{ $color }}">{{ $label }}</span>
                     </div>
 
-                    <div class="bg-light rounded p-3 mb-3 small" style="white-space: pre-wrap">{{ $broadcast->body ?: '(tanpa teks)' }}</div>
-                    @if ($broadcast->upload_name)
-                        <div class="small mb-3"><i class="ri-attachment-2"></i> {{ $broadcast->upload_name }}</div>
+                    @if ($broadcast->type === 'drip')
+                        @foreach ($broadcast->steps as $step)
+                            <div class="small fw-semibold mb-1">Pesan ke-{{ $loop->iteration }} · H+{{ $step->delay_days }}
+                                @if ($broadcast->starts_at) <span class="text-muted fw-normal">({{ $broadcast->starts_at->copy()->addDays($step->delay_days)->translatedFormat('d M Y H:i') }})</span> @endif
+                                @if ($loop->index < $broadcast->runs_count) <span class="badge bg-success-subtle text-success">terkirim</span> @endif
+                            </div>
+                            <div class="bg-light rounded p-2 mb-2 small" style="white-space: pre-wrap">{{ $step->body ?: '(tanpa teks)' }}@if ($step->upload_name)
+
+📎 {{ $step->upload_name }}@endif</div>
+                        @endforeach
+                    @else
+                        <div class="bg-light rounded p-3 mb-3 small" style="white-space: pre-wrap">{{ $broadcast->body ?: '(tanpa teks)' }}</div>
+                        @if ($broadcast->upload_name)
+                            <div class="small mb-3"><i class="ri-attachment-2"></i> {{ $broadcast->upload_name }}</div>
+                        @endif
+                        @if ($broadcast->template)
+                            <div class="small text-muted mb-3"><i class="ri-file-list-3-line"></i> Dari template {{ $broadcast->template->name }}</div>
+                        @endif
                     @endif
 
                     <ul class="list-unstyled small mb-3">
-                        <li class="d-flex justify-content-between py-1 border-bottom"><span class="text-muted">Jadwal</span><span>{{ \App\Models\WaBroadcast::SCHEDULES[$broadcast->schedule] }}</span></li>
+                        <li class="d-flex justify-content-between py-1 border-bottom"><span class="text-muted">Jadwal</span>
+                            <span class="text-end">{{ \App\Models\WaBroadcast::SCHEDULES[$broadcast->schedule] ?? $broadcast->schedule }}
+                                @if ($broadcast->type !== 'once' && $broadcast->starts_at)
+                                    <div class="text-muted">mulai {{ $broadcast->starts_at->translatedFormat('d M Y H:i') }}{{ $broadcast->ends_at ? ' s/d '.$broadcast->ends_at->translatedFormat('d M Y') : '' }}</div>
+                                @endif
+                            </span>
+                        </li>
                         <li class="d-flex justify-content-between py-1 border-bottom"><span class="text-muted">Kirim berikutnya</span><span>{{ $broadcast->status === 'active' ? ($broadcast->next_run_at?->translatedFormat('d M Y H:i') ?? '-') : '-' }}</span></li>
                         <li class="d-flex justify-content-between py-1 border-bottom"><span class="text-muted">Sudah dijalankan</span><span>{{ $broadcast->runs_count }}x</span></li>
                         <li class="d-flex justify-content-between py-1"><span class="text-muted">Penerima</span>
                             <span class="text-end">
-                                @if ($broadcast->type === 'blast')
-                                    {{ $groups->join(', ') ?: '-' }}
-                                @else
-                                    {{ count($broadcast->target['customer_ids'] ?? []) + count($broadcast->target['phones'] ?? []) }} kontak/nomor
-                                @endif
-                                @if ($recipients !== null) <div class="text-muted">{{ $recipients }} nomor saat ini</div> @endif
+                                @forelse ($targets as $line)
+                                    <div>{{ $line }}</div>
+                                @empty
+                                    -
+                                @endforelse
+                                @if ($recipients !== null) <div class="text-muted">{{ $recipients }} tujuan saat ini</div> @endif
                             </span>
                         </li>
                     </ul>
+                    @if ($stats)
+                        <div class="d-flex flex-wrap gap-2 mb-3 small">
+                            <span class="badge bg-secondary-subtle text-secondary">{{ (int) $stats->sent }} / {{ (int) $stats->total }} terkirim</span>
+                            <span class="badge bg-info-subtle text-info">{{ (int) $stats->delivered }} delivered</span>
+                            <span class="badge bg-success-subtle text-success">{{ (int) $stats->read }} read</span>
+                            <span class="badge bg-danger-subtle text-danger">{{ (int) $stats->failed }} failed</span>
+                        </div>
+                    @endif
                     @if ($broadcast->last_error)
                         <div class="alert alert-warning small py-2">{{ $broadcast->last_error }}</div>
                     @endif

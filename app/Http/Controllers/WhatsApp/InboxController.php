@@ -13,6 +13,7 @@ use App\Services\WhatsApp\WaGateway;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -36,7 +37,7 @@ class InboxController extends Controller
     {
         $model = $this->device($request, $device);
         $chats = $model->chats()->with('assignee:id,name')
-            ->orderByDesc('last_message_at')->limit(300)->get();
+            ->orderByDesc('last_message_at')->limit(500)->get();
 
         return response()->json(['chats' => $chats->map(fn ($chat) => $this->present->chat($model, $chat))]);
     }
@@ -177,6 +178,23 @@ class InboxController extends Controller
         return response()->json(['url' => $this->wa->realtimeUrl($model->branch_id, $model->id)]);
     }
 
+    /** Grup WhatsApp yang diikuti device, untuk "Mulai Chat Baru" ke grup. Disimpan 5 menit (sama dengan menu Group WhatsApp). */
+    public function groups(Request $request, string $device): JsonResponse
+    {
+        $model = $this->device($request, $device);
+        $key = "wa-groups:{$model->id}";
+        $result = $model->isConnected()
+            ? (Cache::get($key) ?? tap($this->wa->groups($model->branch_id, $model->id), fn ($r) => $r['success'] && Cache::put($key, $r, 300)))
+            : ['success' => false, 'message' => 'Device belum terhubung ke WhatsApp.'];
+
+        return response()->json([
+            'message' => $result['success'] ? null : ($result['message'] ?? 'Gagal memuat grup.'),
+            'groups' => collect($result['data']['groups'] ?? [])
+                ->map(fn ($g) => ['jid' => $g['jid'], 'name' => ($g['name'] ?? '') ?: '(tanpa nama)', 'locked' => ! empty($g['announce']) && empty($g['is_admin'])])
+                ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values(),
+        ]);
+    }
+
     public function quickReplies(Request $request, string $device): JsonResponse
     {
         $model = $this->device($request, $device);
@@ -188,8 +206,10 @@ class InboxController extends Controller
     private function targetRules(): array
     {
         return [
-            'chat_id' => ['nullable', 'uuid', 'required_without:phone'],
-            'phone' => ['nullable', 'string', 'max:20', 'required_without:chat_id'],
+            'chat_id' => ['nullable', 'uuid', 'required_without_all:phone,group_jid'],
+            'phone' => ['nullable', 'string', 'max:20', 'required_without_all:chat_id,group_jid'],
+            // Chat baru ke Grup WhatsApp yang belum pernah ada di inbox.
+            'group_jid' => ['nullable', 'string', 'regex:/^[0-9-]{10,40}@g\.us$/', 'required_without_all:chat_id,phone'],
             'client_ref' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9._:-]+$/'],
         ];
     }
@@ -202,6 +222,10 @@ class InboxController extends Controller
             $chat->forceFill(['human_replied_at' => now()])->save();
 
             return $chat->chat_jid;
+        }
+
+        if (! empty($data['group_jid'])) {
+            return $data['group_jid'];
         }
 
         $phone = User::normalizePhone($data['phone']);

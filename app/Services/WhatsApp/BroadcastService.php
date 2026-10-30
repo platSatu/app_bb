@@ -23,24 +23,63 @@ class BroadcastService
 
     public function __construct(private WaGateway $wa, private PlanLimits $limits) {}
 
-    /** @return Collection<int, array{phone: string, name: ?string}> */
+    /**
+     * Semua tujuan digabung: kontak pilihan, anggota Group kontak, semua customer aplikasi, nomor ketikan,
+     * dan Grup WhatsApp (JID grup). Nomor yang berhenti berlangganan (STOP) dilewati; nomor dobel dikirimi sekali.
+     *
+     * @return Collection<int, array{phone: string, name: ?string}> phone = nomor 628xx atau JID grup
+     */
     public function recipients(WaBroadcast $broadcast): Collection
     {
         $target = $broadcast->target ?? [];
-        $customers = Customer::where('branch_id', $broadcast->branch_id)->whereNotNull('phone');
+        $groupIds = $target['group_ids'] ?? [];
+        $apps = $target['apps'] ?? [];
+        $customerIds = $target['customer_ids'] ?? [];
 
-        // Blast: anggota Group WhatsApp dan/atau semua customer aplikasi lain (mis. semua customer Pages).
-        $list = $broadcast->type === 'blast'
-            ? $customers->where(fn ($q) => $q->whereHas('groups', fn ($g) => $g->whereIn('contact_groups.id', $target['group_ids'] ?? []))
-                ->orWhereIn('app_key', $target['apps'] ?? []))->get(['name', 'phone'])
-            : $customers->whereIn('id', $target['customer_ids'] ?? [])->get(['name', 'phone'])
-                ->concat(collect($target['phones'] ?? [])->map(fn ($p) => (object) ['phone' => $p, 'name' => null]));
+        // Satu query: hanya syarat yang dipilih yang ikut (tanpa subquery kosong).
+        $contacts = ($groupIds || $apps || $customerIds)
+            ? Customer::where('branch_id', $broadcast->branch_id)->whereNotNull('phone')
+                ->where(fn ($q) => $q
+                    ->when($customerIds, fn ($q) => $q->orWhereIn('id', $customerIds))
+                    ->when($apps, fn ($q) => $q->orWhereIn('app_key', $apps))
+                    ->when($groupIds, fn ($q) => $q->orWhereHas('groups', fn ($g) => $g->whereIn('contact_groups.id', $groupIds))))
+                ->get(['name', 'phone'])
+            : collect();
+
+        $phones = $contacts->map(fn ($c) => ['phone' => (string) $c->phone, 'name' => $c->name])
+            ->concat(collect($target['phones'] ?? [])->map(fn ($p) => ['phone' => (string) $p, 'name' => null]));
 
         $optOuts = DB::table('wa_optouts')->where('branch_id', $broadcast->branch_id)->pluck('phone')->flip();
+        $groups = collect($target['wa_groups'] ?? [])->map(fn ($g) => ['phone' => (string) ($g['jid'] ?? ''), 'name' => null]);
 
-        return $list->map(fn ($c) => ['phone' => (string) $c->phone, 'name' => $c->name])
-            ->reject(fn ($r) => $r['phone'] === '' || isset($optOuts[$r['phone']]))
+        return $phones->reject(fn ($r) => isset($optOuts[$r['phone']]))
+            ->concat($groups)
+            ->reject(fn ($r) => $r['phone'] === '')
             ->unique('phone')->take(self::MAX_RECIPIENTS)->values();
+    }
+
+    /** Isi pesan yang dikirim pada putaran ini: pesan utama, atau pesan bertahap ke-(runs_count + 1). */
+    private function content(WaBroadcast $broadcast): ?array
+    {
+        $source = $broadcast->type === 'drip' ? $broadcast->steps->values()->get($broadcast->runs_count) : $broadcast;
+        if (! $source) {
+            return null;
+        }
+
+        return [
+            'body' => $source->body,
+            'upload_id' => $source->upload_id,
+            'upload_kind' => $source->upload_kind,
+            'label' => $broadcast->type === 'drip' ? 'Pesan '.($broadcast->runs_count + 1) : null,
+        ];
+    }
+
+    /** Jadwal putaran berikutnya setelah putaran ini; null = selesai. */
+    private function nextRunAt(WaBroadcast $broadcast)
+    {
+        return $broadcast->type === 'drip'
+            ? $broadcast->stepDueAt($broadcast->runs_count + 1)
+            : $broadcast->nextAfter($broadcast->next_run_at);
     }
 
     /** Jalankan satu putaran bila sudah waktunya. Dipanggil dari scheduler & tombol "Kirim sekarang". */
@@ -52,17 +91,19 @@ class BroadcastService
                 return null;
             }
 
-            $recipients = $this->recipients($broadcast);
+            $content = $this->content($broadcast);
+            $recipients = $content ? $this->recipients($broadcast) : collect();
             // Kuota pesan bulan ini dipakai di muka; kalau kurang, hanya sebanyak sisa kuota yang dikirim.
             $granted = $this->limits->takeMessages($broadcast->branch_id, $recipients->count(), partial: true);
             $skipped = $recipients->count() - $granted;
             $recipients = $recipients->take($granted);
 
+            $next = $content ? $this->nextRunAt($broadcast) : null;
             $broadcast->forceFill([
                 'last_run_at' => now(),
                 'runs_count' => $broadcast->runs_count + 1,
-                'next_run_at' => $broadcast->nextAfter($broadcast->next_run_at),
-                'status' => $broadcast->isRepeating() ? 'active' : 'done',
+                'next_run_at' => $next,
+                'status' => $next ? 'active' : 'done',
                 'last_error' => match (true) {
                     $skipped > 0 => "Kuota pesan WhatsApp bulan ini habis: {$skipped} penerima tidak dikirimi. Kuota kembali tanggal 1, atau upgrade paket.",
                     $recipients->isEmpty() => 'Tidak ada penerima (kontak tanpa nomor atau sudah berhenti berlangganan).',
@@ -70,7 +111,7 @@ class BroadcastService
                 },
             ])->save();
 
-            return $recipients->isEmpty() ? null : $this->createCampaign($broadcast, $recipients);
+            return $recipients->isEmpty() ? null : $this->createCampaign($broadcast, $recipients, $content);
         });
 
         if ($campaign) {
@@ -121,7 +162,7 @@ class BroadcastService
         }
     }
 
-    private function createCampaign(WaBroadcast $broadcast, Collection $recipients): WaCampaign
+    private function createCampaign(WaBroadcast $broadcast, Collection $recipients, array $content): WaCampaign
     {
         $campaign = new WaCampaign();
         $campaign->forceFill([
@@ -129,13 +170,13 @@ class BroadcastService
             'branch_id' => $broadcast->branch_id,
             'device_id' => $broadcast->device_id,
             'broadcast_id' => $broadcast->id,
-            'name' => Str::limit($broadcast->name.' · '.now()->translatedFormat('d M Y H:i'), 150, ''),
+            'name' => Str::limit(collect([$broadcast->name, $content['label'], now()->translatedFormat('d M Y H:i')])->filter()->implode(' · '), 150, ''),
             'status' => 'draft',
             'total' => $recipients->count(),
         ])->save();
 
         $priority = $recipients->count() <= self::DIRECT_LIMIT ? 0 : 10;
-        $type = $broadcast->upload_id ? $broadcast->upload_kind : 'text';
+        $type = $content['upload_id'] ? $content['upload_kind'] : 'text';
         $now = now();
 
         foreach ($recipients->chunk(500) as $chunk) {
@@ -146,8 +187,8 @@ class BroadcastService
                 'campaign_id' => $campaign->id,
                 'chat_jid' => $r['phone'],
                 'type' => $type,
-                'body' => $this->personalize($broadcast->body, $r['name']),
-                'upload_id' => $broadcast->upload_id,
+                'body' => $this->personalize($content['body'], $r['name']),
+                'upload_id' => $content['upload_id'],
                 'priority' => $priority,
                 'status' => 'queued',
                 'attempts' => 0,

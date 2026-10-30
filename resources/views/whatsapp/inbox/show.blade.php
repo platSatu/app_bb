@@ -33,6 +33,7 @@
             'sendPoll' => route('whatsapp.inbox.send-poll', $device),
             'realtime' => route('whatsapp.inbox.realtime', $device),
             'quickReplies' => route('whatsapp.inbox.quick-replies', $device),
+            'groups' => route('whatsapp.inbox.groups', $device),
             'labelsPage' => route('whatsapp.labels.index', ['branch' => $device->branch_id]),
             'quickRepliesPage' => route('whatsapp.quick-replies.index', ['branch' => $device->branch_id]),
         ];

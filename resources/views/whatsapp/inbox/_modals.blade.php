@@ -54,6 +54,10 @@
             <label class="wa-modal-label" for="wa-new-chat-input">Nomor WhatsApp</label>
             <input type="text" id="wa-new-chat-input" class="wa-modal-input" placeholder="Contoh: 081234567890" inputmode="numeric" autocomplete="off">
             <div class="wa-modal-hint">Boleh diawali 0, 62, atau +62.</div>
+            <label class="wa-modal-label mt-3" for="wa-new-chat-group">Atau pilih Grup WhatsApp</label>
+            <select id="wa-new-chat-group" class="wa-modal-input">
+                <option value="">Memuat grup...</option>
+            </select>
             <div class="text-danger small mt-1 d-none" id="wa-new-chat-error"></div>
         </div>
         <div class="wa-modal-footer">

@@ -15,7 +15,8 @@
     </div>
 
     <div class="wa-chat-tabs" id="wa-chat-tabs">
-        <button type="button" class="wa-chat-tab active" data-tab="chat">Chat</button>
+        <button type="button" class="wa-chat-tab active" data-tab="all">Semua</button>
+        <button type="button" class="wa-chat-tab" data-tab="chat">Chat</button>
         <button type="button" class="wa-chat-tab" data-tab="group">Grup</button>
         <button type="button" class="wa-chat-tab" data-tab="unread">Belum dibaca</button>
     </div>

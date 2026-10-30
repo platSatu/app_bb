@@ -80,7 +80,7 @@ it('blast WhatsApp bisa ke semua customer aplikasi lain dan group, tanpa nomor d
     $group = tap(new ContactGroup(['name' => 'VIP']), fn ($g) => $g->forceFill(['branch_id' => $branch->id])->save());
     $group->customers()->attach($wa->id, ['created_at' => now()]);
 
-    $broadcast = (new WaBroadcast())->forceFill(['branch_id' => $branch->id, 'type' => 'blast', 'target' => ['group_ids' => [$group->id], 'apps' => ['pages']]]);
+    $broadcast = (new WaBroadcast())->forceFill(['branch_id' => $branch->id, 'type' => 'once', 'target' => ['group_ids' => [$group->id], 'apps' => ['pages']]]);
 
     expect(app(BroadcastService::class)->recipients($broadcast)->pluck('phone')->sort()->values()->all())
         ->toBe(['6281111111111', '6282222222222']);
