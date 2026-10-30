@@ -69,7 +69,7 @@ class InvoiceCheckoutService
             $setting = InvoiceSetting::current();
 
             if ($amount < $setting->min_amount || $amount > $setting->max_amount) {
-                throw new RuntimeException('Total tagihan di luar batas pembayaran online. Coba ubah jumlah tagihan yang dipilih.');
+                throw new RuntimeException($setting->limitMessage($amount).' Coba ubah tagihan yang dipilih.');
             }
 
             $checkout = new InvoiceCheckout();

@@ -28,4 +28,14 @@ class InvoiceSetting extends Model
     {
         return min($total, (int) ceil($total * $this->fee_percent / 100 + $this->fee_flat));
     }
+
+    /** Pesan untuk total di luar batas pembayaran online, menyebut batasnya supaya jelas. */
+    public function limitMessage(int $total): string
+    {
+        $rp = fn (int $v) => 'Rp '.number_format($v, 0, ',', '.');
+
+        return $total < $this->min_amount
+            ? 'Minimal pembayaran online '.$rp($this->min_amount).', total tagihan ini '.$rp($total).'.'
+            : 'Maksimal pembayaran online '.$rp($this->max_amount).', total tagihan ini '.$rp($total).'.';
+    }
 }

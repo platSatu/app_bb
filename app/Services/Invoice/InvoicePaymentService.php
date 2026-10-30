@@ -82,7 +82,7 @@ class InvoicePaymentService
             $setting = InvoiceSetting::current();
 
             if ($total < $setting->min_amount || $total > $setting->max_amount) {
-                throw new RuntimeException('Nominal invoice di luar batas pembayaran online. Silakan hubungi penagih.');
+                throw new RuntimeException($setting->limitMessage($total).' Silakan hubungi penagih.');
             }
 
             // Order Duitku yang masih berlaku dengan nominal sama dipakai lagi, supaya tidak menumpuk.
