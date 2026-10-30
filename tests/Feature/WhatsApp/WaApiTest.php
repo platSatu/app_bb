@@ -105,3 +105,18 @@ it('owner membuat API key: secret tampil sekali, halaman memakai API Host, Token
 
     $this->get(route('whatsapp.api-key.show', $device))->assertOk()->assertSee('API Host')->assertSee('X-WA-Token')->assertSee('/api/wa-api/v1/send-message');
 });
+
+it('Request Terakhir menampilkan nomor tujuan, isi pesan, dan status kirimnya', function () {
+    [$key, $secret, $device] = waApiClient();
+    $outboxId = (string) \Illuminate\Support\Str::uuid();
+    Http::swap(new \Illuminate\Http\Client\Factory()); // ganti fake bawaan beforeEach dengan ID antrean asli
+    Http::fake(['*/v1/messages' => Http::response(['success' => true, 'data' => ['outbox_id' => $outboxId]])]);
+    DB::table('wa_outbox')->insert(['id' => $outboxId, 'branch_id' => $device->branch_id, 'device_id' => $device->id, 'chat_jid' => '6281234567890', 'type' => 'text', 'body' => 'Tagihan SPP bulan ini', 'status' => 'sent', 'created_at' => now(), 'updated_at' => now()]);
+
+    waApiPost($key, $secret, ['to' => '081234567890', 'message' => 'Tagihan SPP bulan ini'])->assertOk();
+    waApiPost($key, $secret, ['to' => '12345', 'message' => 'x'])->assertStatus(422);
+
+    expect($key->logs()->whereNotNull('outbox_id')->value('outbox_id'))->toBe($outboxId);
+    $this->actingAs(User::find($device->branch->user_id))->get(route('whatsapp.api-key.show', $device))
+        ->assertOk()->assertSee('+6281234567890')->assertSee('Tagihan SPP bulan ini')->assertSee('Terkirim')->assertSee('Nomor tujuan tidak valid');
+});

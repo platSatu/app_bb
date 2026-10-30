@@ -87,24 +87,39 @@
             <div class="col-12">
                 <div class="card mb-0">
                     <div class="card-body">
-                        <h6 class="mb-2">Request Terakhir</h6>
+                        <h6 class="mb-2">Riwayat Request</h6>
                         <div class="table-responsive">
                             <table class="table table-sm align-middle mb-0">
-                                <thead class="table-light"><tr><th>Waktu</th><th>Request</th><th>Status</th><th>IP</th></tr></thead>
+                                <thead class="table-light"><tr><th>Waktu</th><th>Request</th><th style="min-width: 260px">Pesan</th><th>Status</th><th>IP</th></tr></thead>
                                 <tbody>
-                                    @forelse ($logs as $log)
+                                    @forelse ($logs ?? [] as $log)
                                         <tr>
                                             <td class="text-nowrap small">{{ $log->created_at->translatedFormat('d M Y H:i:s') }}</td>
                                             <td class="font-monospace small">{{ $log->method }} /{{ $log->path }}</td>
+                                            <td class="small">
+                                                @if ($log->to)
+                                                    <div class="fw-semibold">{{ str_contains($log->to, '@g.us') ? 'Grup '.\Illuminate\Support\Str::before($log->to, '@') : '+'.$log->to }}</div>
+                                                    <div class="text-muted text-break" style="max-width: 360px">{{ $log->message_type !== 'text' ? '📎 ' : '' }}{{ \Illuminate\Support\Str::limit($log->message_body ?? '', 120) ?: '(file)' }}</div>
+                                                    @php([$deliveryLabel, $deliveryColor] = ['queued' => ['Antre', 'secondary'], 'sending' => ['Mengirim', 'info'], 'sent' => ['Terkirim', 'success'], 'failed' => ['Gagal', 'danger'], 'skipped' => ['Dilewati', 'warning'], 'cancelled' => ['Dibatalkan', 'secondary']][$log->delivery] ?? ['-', 'secondary'])
+                                                    <span class="badge bg-{{ $deliveryColor }}-subtle text-{{ $deliveryColor }}" title="{{ $log->delivery_error }}">{{ $deliveryLabel }}</span>
+                                                @elseif ($log->error)
+                                                    <span class="text-danger">{{ $log->error }}</span>
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
+                                            </td>
                                             <td><span class="badge {{ $log->status < 300 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger' }}">{{ $log->status }}</span></td>
                                             <td class="small text-muted">{{ $log->ip }}</td>
                                         </tr>
                                     @empty
-                                        <tr><td colspan="4" class="text-center text-muted py-3">Belum ada request.</td></tr>
+                                        <tr><td colspan="5" class="text-center text-muted py-3">Belum ada request.</td></tr>
                                     @endforelse
                                 </tbody>
                             </table>
                         </div>
+                        @if ($logs && $logs->hasPages())
+                            <div class="mt-3">{{ $logs->links() }}</div>
+                        @endif
                     </div>
                 </div>
             </div>

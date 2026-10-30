@@ -21,7 +21,11 @@ class ApiKeyController extends Controller
         return view('whatsapp.devices.api-key', [
             'device' => $model,
             'key' => $model->apiKey,
-            'logs' => $model->apiKey ? $model->apiKey->logs()->latest('id')->limit(30)->get() : collect(),
+            // Tujuan, isi, dan status kirim diambil dari antrean pesan device ini (satu query, tanpa menyalin isi pesan ke log).
+            'logs' => $model->apiKey ? $model->apiKey->logs()
+                ->leftJoin('wa_outbox as o', fn ($j) => $j->on('o.id', '=', 'wa_api_logs.outbox_id')->where('o.device_id', $model->id))
+                ->select('wa_api_logs.*', 'o.chat_jid as to', 'o.type as message_type', 'o.body as message_body', 'o.status as delivery', 'o.error as delivery_error')
+                ->latest('wa_api_logs.id')->paginate(25)->withQueryString() : null,
         ]);
     }
 

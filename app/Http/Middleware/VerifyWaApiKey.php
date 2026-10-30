@@ -5,8 +5,10 @@ namespace App\Http\Middleware;
 use App\Models\WaApiKey;
 use App\Services\Subscription\AppAccess;
 use Closure;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -54,7 +56,17 @@ class VerifyWaApiKey
         $request->attributes->set('waApiKey', $client);
         $response = $next($request);
 
-        $client->logs()->create(['method' => $request->method(), 'path' => substr($request->path(), 0, 100), 'status' => $response->getStatusCode(), 'ip' => $request->ip()]);
+        // ID antrean (untuk menampilkan tujuan & isi pesan di Request Terakhir) atau alasan bila ditolak.
+        $body = $response instanceof JsonResponse ? $response->getData(true) : [];
+        $outboxId = $response->isSuccessful() ? ($body['message']['id'] ?? null) : null;
+        $client->logs()->create([
+            'method' => $request->method(),
+            'path' => substr($request->path(), 0, 100),
+            'status' => $response->getStatusCode(),
+            'outbox_id' => is_string($outboxId) && Str::isUuid($outboxId) ? $outboxId : null,
+            'error' => $response->isSuccessful() ? null : (Str::limit((string) ($body['error'] ?? $body['message'] ?? ''), 250, '') ?: null),
+            'ip' => $request->ip(),
+        ]);
         if (! $client->last_used_at || $client->last_used_at->lt(now()->subMinute())) {
             $client->forceFill(['last_used_at' => now()])->saveQuietly();
         }
