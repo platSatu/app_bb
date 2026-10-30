@@ -4,24 +4,68 @@
 @section('page-section', 'WhatsApp')
 
 @section('content')
-    <div class="card">
-        <div class="card-body">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-                <ul class="nav nav-pills">
-                    @foreach (['' => 'Semua'] + \App\Models\WaBroadcast::TYPES as $key => $label)
-                        <li class="nav-item"><a class="nav-link py-1 {{ request('type', '') === $key ? 'active' : '' }}" href="{{ route('whatsapp.messages.index', array_filter(['branch' => $branch->id, 'type' => $key, 'q' => request('q')])) }}">{{ $label }}</a></li>
-                    @endforeach
-                </ul>
-                <div class="d-flex flex-wrap gap-2 align-items-center">
-                    <form method="GET" class="d-flex gap-2">
-                        <input type="hidden" name="branch" value="{{ $branch->id }}">
-                        @if (request('type')) <input type="hidden" name="type" value="{{ request('type') }}"> @endif
-                        <input type="search" name="q" value="{{ request('q') }}" class="form-control form-control-sm" placeholder="Cari nama pesan" style="width: 200px">
-                    </form>
-                    @include('whatsapp._branch-filter')
-                    <a href="{{ route('whatsapp.messages.create', ['branch' => $branch->id]) }}" class="btn btn-primary btn-sm"><i class="ri-add-line"></i> Buat Pesan</a>
+    <div class="row g-3 mb-3">
+        @foreach ([
+            ['Total Jadwal', $summary['total'], 'ri-calendar-schedule-line', 'primary'],
+            ['Jadwal Berjalan', $summary['running'], 'ri-broadcast-line', 'warning'],
+            ['Total Terkirim', $summary['sent'], 'ri-check-double-line', 'success'],
+            ['Total Gagal', $summary['failed'], 'ri-error-warning-line', 'danger'],
+        ] as [$label, $value, $icon, $color])
+            <div class="col-6 col-xl-3">
+                <div class="card mb-0 h-100">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <span class="rounded-circle bg-{{ $color }}-subtle text-{{ $color }} d-flex align-items-center justify-content-center flex-shrink-0" style="width:56px;height:56px"><i class="{{ $icon }} fs-3"></i></span>
+                        <div class="min-w-0">
+                            <div class="text-muted text-truncate">{{ $label }}</div>
+                            <div class="fs-3 fw-semibold lh-sm">{{ number_format($value, 0, ',', '.') }}</div>
+                        </div>
+                    </div>
                 </div>
             </div>
+        @endforeach
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+                <div>
+                    <h4 class="mb-1">Pesan Terjadwal</h4>
+                    <div class="text-muted small">Sekali kirim, berulang, atau bertahap per kontak, semua dari satu tempat.</div>
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                    @include('whatsapp._branch-filter')
+                    <a href="{{ route('whatsapp.messages.create', ['branch' => $branch->id]) }}" class="btn btn-primary"><i class="ri-add-line"></i> Buat Pesan</a>
+                </div>
+            </div>
+
+            <form method="GET" class="row g-2 mb-3" data-auto-filter>
+                <input type="hidden" name="branch" value="{{ $branch->id }}">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <input type="search" name="q" value="{{ request('q') }}" class="form-control" placeholder="Cari nama pesan...">
+                        <button class="btn btn-light border" title="Cari"><i class="ri-search-line"></i></button>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select name="type" class="form-select">
+                        <option value="">Semua Jenis</option>
+                        @foreach (\App\Models\WaBroadcast::TYPES as $key => $label)
+                            <option value="{{ $key }}" @selected(request('type') === $key)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select name="status" class="form-select">
+                        <option value="">Semua Status</option>
+                        @foreach (\App\Models\WaBroadcast::STATUSES as $key => [$label])
+                            <option value="{{ $key }}" @selected(request('status') === $key)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @if (request()->hasAny(['q', 'type', 'status']))
+                    <div class="col-md-2"><a href="{{ route('whatsapp.messages.index', ['branch' => $branch->id]) }}" class="btn btn-light w-100">Reset</a></div>
+                @endif
+            </form>
 
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0" style="min-width: 1080px">
@@ -103,3 +147,12 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+    <script>
+        // Pilihan Jenis/Status langsung menyaring tanpa tombol.
+        document.querySelectorAll('[data-auto-filter] select').forEach(function (el) {
+            el.addEventListener('change', function () { el.form.submit(); });
+        });
+    </script>
+@endpush

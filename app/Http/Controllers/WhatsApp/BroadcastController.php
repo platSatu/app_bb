@@ -38,9 +38,13 @@ class BroadcastController extends Controller
             return $this->branchRequired();
         }
 
+        $type = array_key_exists((string) $request->query('type'), WaBroadcast::TYPES) ? $request->query('type') : null;
+        $status = array_key_exists((string) $request->query('status'), WaBroadcast::STATUSES) ? $request->query('status') : null;
+
         $broadcasts = WaBroadcast::where('branch_id', $branch->id)
             ->with('device:id,name')
-            ->when($request->query('type'), fn ($q, $type) => $q->where('type', $type))
+            ->when($type, fn ($q) => $q->where('type', $type))
+            ->when($status, fn ($q) => $q->where('status', $status))
             ->when($request->query('q'), fn ($q, $term) => $q->where('name', 'like', '%'.addcslashes($term, '%_\\').'%'))
             ->latest()->paginate(20)->withQueryString();
 
@@ -49,7 +53,19 @@ class BroadcastController extends Controller
             'branch' => $branch,
             'broadcasts' => $broadcasts,
             'stats' => $this->stats($broadcasts->pluck('id')->all()),
+            'summary' => $this->summary($branch->id),
         ]);
+    }
+
+    /** Kotak ringkasan di atas daftar: dua query agregat untuk seluruh branch, tidak per baris. */
+    private function summary(string $branchId): array
+    {
+        $jadwal = WaBroadcast::where('branch_id', $branchId)
+            ->selectRaw("count(*) as total, sum(case when status = 'active' then 1 else 0 end) as running")->first();
+        $kirim = DB::table('wa_campaigns')->where('branch_id', $branchId)->whereNotNull('broadcast_id')
+            ->selectRaw('coalesce(sum(sent), 0) as sent, coalesce(sum(failed), 0) as failed')->first();
+
+        return ['total' => (int) $jadwal->total, 'running' => (int) $jadwal->running, 'sent' => (int) $kirim->sent, 'failed' => (int) $kirim->failed];
     }
 
     public function create(Request $request): View|RedirectResponse
