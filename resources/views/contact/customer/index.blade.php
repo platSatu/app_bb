@@ -37,6 +37,9 @@
                     </div>
                     @if ($writable->isNotEmpty())
                         <div class="d-flex gap-2">
+                            @if ($registerLinks !== null)
+                                <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#register-link-modal"><i class="ri-link"></i> Link Pendaftaran</button>
+                            @endif
                             <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#customer-import-modal"><i class="ri-file-excel-2-line"></i> Impor Excel</button>
                             <button type="button" class="btn btn-primary btn-sm" data-customer-new><i class="ri-add-line"></i> Tambah Customer</button>
                         </div>
@@ -210,6 +213,9 @@
 
         @include('contact.customer._import-modal', ['action' => route($base.'.import'), 'template' => route($base.'.template'), 'branches' => $writable])
         @include('contact.customer._modal-script')
+        @if ($registerLinks !== null)
+            @include('contact.customer._register-link-modal', ['branches' => $writable, 'links' => $registerLinks])
+        @endif
     @endif
 
     @if ($canBulk)

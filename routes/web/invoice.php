@@ -7,6 +7,7 @@ use App\Http\Controllers\Invoice\DisbursementController;
 use App\Http\Controllers\Invoice\DocsController;
 use App\Http\Controllers\Invoice\InvoiceController;
 use App\Http\Controllers\Invoice\PublicInvoiceController;
+use App\Http\Controllers\Invoice\RegisterLinkController;
 use App\Http\Controllers\Superadmin\Invoice\InvoiceSettingController;
 use Illuminate\Support\Facades\Route;
 
@@ -49,6 +50,12 @@ Route::middleware('auth')->prefix('invoices')->name('invoices.')->group(function
             Route::put('customers/{subscription}', 'updateSubscription')->name('subscriptions.update');
             Route::delete('customers/{subscription}', 'unsubscribe')->name('subscriptions.destroy');
         });
+    });
+
+    // Link pendaftaran customer per branch (dikelola dari Invoice > Customers).
+    Route::middleware(['permission:invoices.customers', 'throttle:20,1'])->prefix('register-links/{branch}')->name('register-links.')->whereUuid('branch')->controller(RegisterLinkController::class)->group(function () {
+        Route::post('/', 'store')->name('store');
+        Route::post('toggle', 'toggle')->name('toggle');
     });
 
     Route::middleware('permission:invoices.api')->prefix('api')->name('api.')->controller(ApiClientController::class)->group(function () {

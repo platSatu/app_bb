@@ -63,7 +63,7 @@
             </div></div>
         @elseif ($groups->isEmpty())
             <div class="card"><div class="card-body">
-                @include('portal._empty', ['icon' => 'ri-emotion-happy-line', 'title' => 'Semua tagihan sudah lunas', 'text' => 'Terima kasih sudah membayar tepat waktu!'])
+                @include('portal._empty', ['icon' => 'ri-emotion-happy-line', 'title' => 'Tidak ada tagihan yang perlu dibayar', 'text' => 'Tagihan baru dari '.($tabs[$active] ?? 'penagih').' akan muncul di sini.'])
             </div></div>
         @else
             @foreach ($open as $checkout)

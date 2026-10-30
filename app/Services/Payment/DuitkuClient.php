@@ -4,6 +4,8 @@ namespace App\Services\Payment;
 
 use App\Models\PaymentGatewaySetting;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
@@ -35,20 +37,24 @@ class DuitkuClient
      */
     public function createInvoice(array $invoice, int $timeout = 20): array
     {
+        // Batas panjang field Duitku (lebih dari ini order ditolak dan halaman bayar tidak muncul):
+        // customerVaName 20, nama item 50, productDetails/email/merchantUserInfo 255, phoneNumber 50.
         $customer = $invoice['customer'];
-        [$firstName, $lastName] = array_pad(explode(' ', trim($customer['name'] ?: 'Customer'), 2), 2, '');
-        $phone = (string) ($customer['phone'] ?? '');
+        $name = trim(preg_replace('/\s+/', ' ', (string) ($customer['name'] ?: 'Customer')));
+        [$firstName, $lastName] = array_pad(explode(' ', $name, 2), 2, '');
+        $phone = Str::limit(preg_replace('/[^0-9+]/', '', (string) ($customer['phone'] ?? '')), 50, '');
+        $email = Str::limit((string) $customer['email'], 255, '');
 
         $payload = [
             'paymentAmount' => $invoice['amount'],
             'merchantOrderId' => $invoice['orderId'],
-            'productDetails' => $invoice['product'],
-            'merchantUserInfo' => $invoice['userInfo'] ?? $customer['email'],
-            'customerVaName' => $customer['name'],
-            'email' => $customer['email'],
+            'productDetails' => Str::limit($invoice['product'], 255, ''),
+            'merchantUserInfo' => Str::limit($invoice['userInfo'] ?? $email, 255, ''),
+            'customerVaName' => Str::limit($name, 20, ''),
+            'email' => $email,
             'phoneNumber' => $phone,
-            'itemDetails' => $invoice['items'],
-            'customerDetail' => ['firstName' => $firstName, 'lastName' => $lastName, 'email' => $customer['email'], 'phoneNumber' => $phone],
+            'itemDetails' => array_map(fn (array $item) => [...$item, 'name' => Str::limit(trim((string) $item['name']) ?: 'Tagihan', 50, '')], $invoice['items']),
+            'customerDetail' => ['firstName' => Str::limit($firstName, 50, ''), 'lastName' => Str::limit($lastName, 50, ''), 'email' => $email, 'phoneNumber' => $phone],
             'callbackUrl' => route('payment.duitku.callback'),
             'returnUrl' => $invoice['returnUrl'],
             'expiryPeriod' => $this->setting->expiry_minutes,
@@ -63,6 +69,11 @@ class DuitkuClient
         ])->post($this->baseUrl().'/api/merchant/createinvoice', $payload);
 
         $data = $response->json() ?? [];
+
+        if (empty($data['paymentUrl'])) {
+            // Alasan penolakan dicatat supaya bisa dicek di storage/logs/laravel.log.
+            Log::warning('Duitku createInvoice gagal', ['order' => $invoice['orderId'], 'http' => $response->status(), 'body' => Str::limit($response->body(), 500)]);
+        }
 
         return [
             'paymentUrl' => $data['paymentUrl'] ?? null,

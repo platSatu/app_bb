@@ -68,6 +68,11 @@ class InvoicePaymentService
                 throw new RuntimeException('Batas waktu pembayaran invoice ini sudah lewat. Silakan minta invoice baru ke penagih.');
             }
 
+            // Lewat jatuh tempo & tanpa denda: ditutup, tidak dibuatkan order Duitku baru.
+            if ($locked->isPastDueClosed()) {
+                throw new RuntimeException('Invoice ini sudah lewat jatuh tempo, jadi link pembayarannya ditutup. Silakan hubungi penagih.');
+            }
+
             // Sedang dibayar bersama tagihan lain di dashboard Tagihan: jangan sampai terbayar dua kali.
             if ($group = InvoiceCheckoutService::openCheckoutFor($locked->getKey())) {
                 throw new RuntimeException('Tagihan ini sedang dalam proses pembayaran di menu Tagihan sampai pukul '.$group->expires_at->format('H:i').'. Selesaikan pembayaran di sana ya.');
@@ -221,22 +226,48 @@ class InvoicePaymentService
                 }
             });
 
-        Invoice::where('status', Invoice::STATUS_UNPAID)
-            ->whereNotNull('expires_at')
-            ->where('expires_at', '<', now())
-            ->whereDoesntHave('payments', fn ($q) => $q->where('status', InvoicePayment::STATUS_PENDING))
-            ->chunkById(100, function ($invoices) use (&$summary) {
-                foreach ($invoices as $invoice) {
-                    $closed = Invoice::whereKey($invoice->getKey())->where('status', Invoice::STATUS_UNPAID)->update(['status' => Invoice::STATUS_EXPIRED, 'updated_at' => now()]);
+        // Dua jalur tutup: batas expires_at (invoice API) dan lewat jatuh tempo tanpa denda (dashboard / Google Form).
+        $stale = [
+            Invoice::where('status', Invoice::STATUS_UNPAID)->whereNotNull('expires_at')->where('expires_at', '<', now()),
+            Invoice::pastDueClosed(),
+        ];
 
-                    if ($closed) {
-                        $summary['expired_invoices']++;
-                        SendInvoiceWebhook::for($invoice->refresh(), 'invoice.expired');
+        foreach ($stale as $query) {
+            $query->select('id')
+                // Yang sedang dibayar (order Duitku masih terbuka) ditunggu dulu.
+                ->whereDoesntHave('payments', fn ($q) => $q->where('status', InvoicePayment::STATUS_PENDING))
+                ->chunkById(200, function ($invoices) use (&$summary) {
+                    foreach ($invoices as $invoice) {
+                        $this->close($invoice->getKey()) && $summary['expired_invoices']++;
                     }
-                }
-            });
+                });
+        }
 
         return $summary;
+    }
+
+    /** Halaman bayar dibuka setelah lewat jatuh tempo (tanpa denda): langsung ditutup tanpa menunggu scheduler. */
+    public function closeIfPastDue(Invoice $invoice): void
+    {
+        if ($invoice->isPastDueClosed() && ! $invoice->payments()->where('status', InvoicePayment::STATUS_PENDING)->exists()) {
+            $this->close($invoice->getKey());
+        }
+    }
+
+    /** Unpaid -> expired sekali saja (update bersyarat, aman dari proses paralel), lalu webhook invoice.expired. */
+    private function close(string $invoiceId): bool
+    {
+        if (InvoiceCheckoutService::openCheckoutFor($invoiceId)) {
+            return false; // sedang dibayar bersama tagihan lain di menu Tagihan
+        }
+
+        $closed = Invoice::whereKey($invoiceId)->where('status', Invoice::STATUS_UNPAID)->update(['status' => Invoice::STATUS_EXPIRED, 'updated_at' => now()]);
+
+        if ($closed) {
+            SendInvoiceWebhook::for(Invoice::findOrFail($invoiceId), 'invoice.expired');
+        }
+
+        return (bool) $closed;
     }
 
     /** Satu-satunya jalur ke "lunas". Saldo owner dikreditkan sekali per percobaan bayar (idempotency key). */

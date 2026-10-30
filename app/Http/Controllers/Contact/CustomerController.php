@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Contact;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\InvoiceRegisterLink;
 use App\Models\UserBranch;
 use App\Services\Contact\ContactBookService;
 use App\Services\Customer\CustomerAccount;
@@ -47,14 +48,19 @@ class CustomerController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        $writable = $app ? $this->writableBranches($request, $app)
+            : ($user->canAccess('superadmin.customers', \App\Support\Menu::ABILITY_MANAGE) ? $this->activeBranches(Apps::ANY) : collect());
+
         return view('contact.customer.index', [
             'customers' => $customers,
             'app' => $app,
             // Superadmin memfilter lewat pencarian; owner memilih dari branch miliknya.
             'branches' => $user->isPlatformTeam() ? collect() : UserBranch::where('user_id', $user->getKey())->orderBy('name')->get(['id', 'name']),
             // Branch yang boleh ditambah customer: paket aplikasinya aktif. Superadmin: semua branch aktif, dicek lagi per aplikasi saat import.
-            'writable' => $app ? $this->writableBranches($request, $app)
-                : ($user->canAccess('superadmin.customers', \App\Support\Menu::ABILITY_MANAGE) ? $this->activeBranches(Apps::ANY) : collect()),
+            'writable' => $writable,
+            // Link pendaftaran customer Invoice per branch (owner).
+            'registerLinks' => $app === 'invoices' && ! $user->isPlatformTeam()
+                ? InvoiceRegisterLink::whereIn('branch_id', $writable->modelKeys())->get()->keyBy('branch_id') : null,
             'accounts' => CustomerAccount::emailsWithAccount($customers->items()),
             'base' => $base,
         ]);

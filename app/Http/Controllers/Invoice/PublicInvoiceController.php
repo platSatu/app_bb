@@ -31,6 +31,9 @@ class PublicInvoiceController extends Controller
             $this->refresh($invoice);
         }
 
+        // Lewat jatuh tempo tanpa denda: tutup sekarang juga, tidak menunggu scheduler 5 menitan.
+        $this->payments->closeIfPastDue($invoice);
+
         $invoice->refresh()->load(['company', 'category', 'branch']);
 
         return response()->view('invoice.public.pay', [

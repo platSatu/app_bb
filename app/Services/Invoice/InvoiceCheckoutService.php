@@ -50,7 +50,7 @@ class InvoiceCheckoutService
             $invoices = PayerInvoices::query($user)->where('branch_id', $branchId)->whereKey($invoiceIds)
                 ->orderBy('id')->lockForUpdate()->get()->load('category');
 
-            if ($invoices->count() !== count($invoiceIds) || $invoices->contains(fn (Invoice $i) => ! $i->isUnpaid() || $i->expires_at?->isPast())) {
+            if ($invoices->count() !== count($invoiceIds) || $invoices->contains(fn (Invoice $i) => ! $i->isUnpaid() || $i->expires_at?->isPast() || $i->isPastDueClosed())) {
                 throw new RuntimeException('Ada tagihan yang sudah berubah. Muat ulang halaman dulu ya.');
             }
 

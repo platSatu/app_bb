@@ -44,8 +44,13 @@
                         @break
                     @case('expired')
                         <i class="ri-timer-flash-line fs-1 text-muted"></i>
-                        <h1 class="h5 mt-1 mb-0">Batas waktu pembayaran sudah lewat</h1>
-                        <div class="text-muted small">Silakan minta invoice baru ke penagih.</div>
+                        @if (! $invoice->expires_at && $invoice->due_date)
+                            <h1 class="h5 mt-1 mb-0">Invoice sudah lewat jatuh tempo</h1>
+                            <div class="text-muted small">Jatuh tempo {{ $invoice->due_date->translatedFormat('d F Y') }}, link pembayaran sudah ditutup. Silakan hubungi penagih.</div>
+                        @else
+                            <h1 class="h5 mt-1 mb-0">Batas waktu pembayaran sudah lewat</h1>
+                            <div class="text-muted small">Silakan minta invoice baru ke penagih.</div>
+                        @endif
                         @break
                     @default
                         <div class="text-muted small">Total yang harus dibayar</div>
@@ -54,6 +59,9 @@
                             <span class="badge bg-danger-subtle text-danger">Lewat jatuh tempo</span>
                         @elseif ($invoice->due_date)
                             <span class="badge bg-light text-dark border">Jatuh tempo {{ $invoice->due_date->translatedFormat('d F Y') }}</span>
+                            @if (! $invoice->expires_at && ! $invoice->chargesLateFee())
+                                <div class="small text-muted mt-1">Lewat tanggal ini, link pembayaran ditutup.</div>
+                            @endif
                         @endif
                 @endswitch
             </div>
@@ -75,7 +83,7 @@
                 </form>
                 <div class="small text-muted text-center mt-2">
                     Virtual account, QRIS, atau e-wallet.
-                    @if ($invoice->apply_late_fee && $invoice->category?->hasLateFee())
+                    @if ($invoice->chargesLateFee())
                         Denda setelah jatuh tempo: {{ $invoice->category->lateFeeSummary() }}.
                     @endif
                 </div>

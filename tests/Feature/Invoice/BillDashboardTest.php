@@ -247,3 +247,95 @@ it('menu Customers tampil per aplikasi aktif, tidak untuk pembayar saja', functi
     $this->actingAs($sd->user)->get(route('dashboard'))->assertOk()->assertSee(route('invoices.customers.index'))->assertDontSee(route('pages.customers.index'));
     $this->get(route('invoices.customers.index'))->assertOk();
 });
+
+it('link pendaftaran: daftar akun + jadi customer Invoice cabang itu, verifikasi email, lalu masuk Tagihan Saya', function () {
+    config(['services.turnstile.secret_key' => null]);
+    \Illuminate\Support\Facades\Notification::fake();
+    $sd = billBranch();
+    $this->actingAs($sd->user)->post(route('invoices.register-links.store', $sd->id))->assertSessionHas('success');
+    $link = \App\Models\InvoiceRegisterLink::sole();
+    // Branch milik owner lain tidak bisa dibuatkan link.
+    $this->actingAs(billBranch('Lain')->user)->post(route('invoices.register-links.store', $sd->id))->assertNotFound();
+    auth()->logout();
+
+    $this->get($link->url())->assertOk()->assertSee('Daftar sebagai customer')->assertSee('SD Harapan');
+    $this->post(route('bills.register.store', $link->token), [
+        'name' => 'Ibu Sari', 'email' => 'Sari@Mail.test', 'handphone' => '081234567890',
+        'password' => 'Rahasia#2026x', 'password_confirmation' => 'Rahasia#2026x', 'terms' => '1',
+    ])->assertRedirect(route('verification.notice'));
+
+    $user = User::where('email', 'sari@mail.test')->sole();
+    $customer = \App\Models\Customer::forApp('invoices')->where('branch_id', $sd->id)->sole();
+    expect($customer->email)->toBe('sari@mail.test')->and($customer->phone)->toBe('6281234567890')->and($customer->source)->toBe('Link Pendaftaran')
+        ->and(auth()->id())->toBe($user->id)->and($user->portalRoles()['payer'])->toBeTrue();
+    \Illuminate\Support\Facades\Notification::assertSentTo($user, \App\Notifications\QueuedVerifyEmail::class);
+
+    // Setelah verifikasi: kembali ke Tagihan Saya cabang ini, tab cabang tampil walau belum ada tagihan.
+    $verify = \Illuminate\Support\Facades\URL::temporarySignedRoute('verification.verify', now()->addHour(), ['id' => $user->id, 'hash' => sha1($user->email)]);
+    $this->get($verify)->assertRedirect(route('bills.index', ['cabang' => $sd->id]));
+    $this->get(route('bills.index', ['cabang' => $sd->id]))->assertOk()->assertSee('Tidak ada tagihan yang perlu dibayar');
+
+    // Tagihan baru dari owner untuk customer ini langsung muncul.
+    bill($sd, null, 'sari@mail.test', 'Uang Gedung', 300000, now()->addWeek()->toDateString(), ['customer_id' => $customer->id]);
+    $this->get(route('bills.index', ['cabang' => $sd->id]))->assertSee('Uang Gedung');
+});
+
+it('link pendaftaran: akun yang sudah ada cukup gabung, data customer lama tidak ditimpa; link ditutup ditolak', function () {
+    $sd = billBranch();
+    $link = tap((new \App\Models\InvoiceRegisterLink())->forceFill(['branch_id' => $sd->id, 'token' => \App\Models\InvoiceRegisterLink::newToken()]))->save();
+    $old = tap((new \App\Models\Customer())->forceFill([
+        'company_id' => $sd->company_id, 'branch_id' => $sd->id, 'app_key' => 'invoices', 'name' => 'Nama Dari Admin', 'email' => 'ortu@mail.test',
+        'first_seen_at' => now(), 'last_seen_at' => now(),
+    ]))->save();
+    $user = parent();
+
+    $this->actingAs($user)->post(route('bills.register.store', $link->token))->assertRedirect(route('bills.index', ['cabang' => $sd->id]));
+    $this->actingAs($user)->post(route('bills.register.store', $link->token));
+    expect(\App\Models\Customer::forApp('invoices')->count())->toBe(1)->and($old->fresh()->name)->toBe('Nama Dari Admin');
+
+    $link->forceFill(['is_active' => false])->save();
+    $this->actingAs(parent('baru@mail.test'))->post(route('bills.register.store', $link->token))->assertSessionHas('error');
+    expect(\App\Models\Customer::forApp('invoices')->count())->toBe(1);
+    $this->get(route('bills.register', str_repeat('x', 40)))->assertNotFound();
+});
+
+it('lewat jatuh tempo tanpa denda: kedaluwarsa & tidak bisa dibayar; dengan denda: tetap bisa dibayar dan dendanya berjalan', function () {
+    $this->travelTo('2026-03-15 09:00');
+    $sd = billBranch();
+    $noFee = new InvoiceCategory(['name' => 'Kegiatan', 'prefix' => 'KEG', 'late_fee_mode' => 'none', 'status' => 'active']);
+    $noFee->branch_id = $sd->id;
+    $noFee->save();
+
+    $closed = bill($sd, $noFee, 'ortu@mail.test', 'Study Tour', 400000, '2026-03-10');
+    $spp = sppCategory($sd);
+    $unchecked = bill($sd, $spp, 'ortu@mail.test', 'SPP tanpa centang denda', 500000, '2026-03-10', ['apply_late_fee' => false]);
+    $running = bill($sd, $spp, 'ortu@mail.test', 'SPP Februari', 500000, '2026-03-09');
+    $today = bill($sd, $noFee, 'ortu@mail.test', 'Jatuh tempo hari ini', 100000, '2026-03-15');
+    $api = bill($sd, null, 'ortu@mail.test', 'Dari API', 100000, '2026-03-10', ['source' => 'api', 'expires_at' => now()->addDay()]);
+
+    // Halaman bayar langsung menutup tanpa menunggu scheduler.
+    $this->get($closed->payUrl())->assertOk()->assertSee('sudah lewat jatuh tempo');
+    expect($closed->fresh()->status)->toBe('expired');
+    expect(fn () => app(InvoicePaymentService::class)->checkout($unchecked->fresh(), 'https://x.test'))->toThrow(RuntimeException::class, 'jatuh tempo');
+
+    $summary = app(InvoicePaymentService::class)->expireStale();
+    expect($summary['expired_invoices'])->toBe(1)
+        ->and($unchecked->fresh()->status)->toBe('expired')
+        ->and($running->fresh()->status)->toBe('unpaid')->and($running->fresh()->currentLateFee())->toBe(10000)
+        ->and($today->fresh()->status)->toBe('unpaid')
+        ->and($api->fresh()->status)->toBe('unpaid');
+
+    $this->get($running->payUrl())->assertOk()->assertSee('Rp 510.000');
+    $this->actingAs(parent())->get(route('bills.index'))->assertSee('SPP Februari')->assertDontSee('Study Tour');
+    $this->travelBack();
+});
+
+it('Duitku: nama pembayar & nama item dipotong sesuai batas Duitku supaya halaman bayar tetap terbuka', function () {
+    $sd = billBranch();
+    $invoice = bill($sd, null, 'ortu@mail.test', str_repeat('Pembayaran uang kegiatan semester ganjil ', 3), 250000, now()->addWeek()->toDateString(),
+        ['customer_name' => 'Maria Fransiska Kristiani Wulandari Putri', 'customer_phone' => '6281234567890']);
+
+    $this->post(route('invoice.pay.checkout', $invoice->token))->assertRedirectContains('https://duitku.test/pay/INV');
+    Http::assertSent(fn (HttpRequest $r) => str_contains($r->url(), 'createinvoice')
+        && mb_strlen($r['customerVaName']) <= 20 && mb_strlen($r['itemDetails'][0]['name']) <= 50 && mb_strlen($r['productDetails']) <= 255);
+});

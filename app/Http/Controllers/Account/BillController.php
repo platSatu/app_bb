@@ -27,7 +27,9 @@ class BillController extends Controller
         }
 
         $branches = UserBranch::with('company:id,name')
-            ->whereIn('id', PayerInvoices::query($user)->whereIn('status', [Invoice::STATUS_UNPAID, Invoice::STATUS_PAID])->select('branch_id'))
+            ->where(fn ($q) => $q->whereIn('id', PayerInvoices::query($user)->whereIn('status', [Invoice::STATUS_UNPAID, Invoice::STATUS_PAID])->select('branch_id'))
+                // Customer dari link pendaftaran: tab cabangnya tampil walau belum ada tagihan.
+                ->orWhereIn('id', PayerInvoices::customerBranches($user)))
             ->orderBy('name')->get();
         // Nama perusahaan ikut ditampilkan kalau tagihan datang dari lebih dari satu perusahaan.
         $tabs = $branches->mapWithKeys(fn ($b) => [$b->id => ($branches->pluck('company_id')->unique()->count() > 1 ? $b->company?->name.' · ' : '').$b->name])->all();

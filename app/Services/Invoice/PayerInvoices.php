@@ -25,10 +25,17 @@ class PayerInvoices
                 ->orWhereIn('customer_id', Customer::forApp('invoices')->where('email', $email)->select('id')));
     }
 
-    /** Untuk menu: punya tagihan (belum bayar / sudah lunas) atau tidak. */
+    /** Untuk menu: punya tagihan (belum bayar / sudah lunas), atau sudah terdaftar sebagai customer Invoice (link pendaftaran). */
     public static function has(User $user): bool
     {
-        return filled($user->email) && self::query($user)->whereIn('status', [Invoice::STATUS_UNPAID, Invoice::STATUS_PAID])->exists();
+        return filled($user->email) && (self::customerBranches($user)->exists()
+            || self::query($user)->whereIn('status', [Invoice::STATUS_UNPAID, Invoice::STATUS_PAID])->exists());
+    }
+
+    /** branch_id tempat email akun ini terdaftar sebagai customer Invoice (subquery, pakai indeks app_key+email). */
+    public static function customerBranches(User $user): Builder
+    {
+        return Customer::forApp('invoices')->where('email', mb_strtolower(trim((string) $user->email)))->select('branch_id');
     }
 
     public static function verified(User $user): bool
@@ -44,7 +51,9 @@ class PayerInvoices
             ->where('status', Invoice::STATUS_UNPAID)
             ->where(fn (Builder $q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->with('category')
-            ->get());
+            ->get()
+            // Lewat jatuh tempo tanpa denda sudah tidak bisa dibayar (scheduler menutupnya).
+            ->reject(fn (Invoice $i) => $i->isPastDueClosed()));
     }
 
     public static function sortForPayment(Collection $invoices): Collection

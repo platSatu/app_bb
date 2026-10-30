@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\ScopedToBranch;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -132,6 +133,32 @@ class Invoice extends Model
     public function isOverdue(): bool
     {
         return $this->isUnpaid() && $this->due_date && $this->due_date->lt(today());
+    }
+
+    /** Denda keterlambatan berlaku untuk invoice ini (dicentang di invoice & kategorinya punya aturan denda). */
+    public function chargesLateFee(): bool
+    {
+        return $this->apply_late_fee && $this->category?->hasLateFee();
+    }
+
+    /**
+     * Lewat jatuh tempo tanpa denda = link bayar ditutup (kedaluwarsa). Dengan denda: tetap bisa dibayar, dendanya berjalan.
+     * Hanya untuk invoice tanpa expires_at sendiri (dashboard, Google Form); invoice API mengikuti expires_at-nya.
+     */
+    public function isPastDueClosed(): bool
+    {
+        return $this->isOverdue() && $this->expires_at === null && ! $this->chargesLateFee();
+    }
+
+    /** Query pasangan isPastDueClosed(), dipakai scheduler & daftar tagihan pembayar. */
+    public function scopePastDueClosed(Builder $query): Builder
+    {
+        return $query->where('status', self::STATUS_UNPAID)
+            ->whereNull('expires_at')
+            ->where('due_date', '<', today()->toDateString())
+            ->where(fn (Builder $q) => $q->where('apply_late_fee', false)
+                ->orWhereNull('category_id')
+                ->orWhereIn('category_id', InvoiceCategory::query()->where('late_fee_mode', 'none')->select('id')));
     }
 
     public function sourceLabel(): string
