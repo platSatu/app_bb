@@ -75,8 +75,36 @@ class BroadcastController extends Controller
             return $this->branchRequired();
         }
 
+        // Kirim Ulang: form baru berisi salinan pesan lama (isi, lampiran, tujuan), dikirim sekarang atau dijadwalkan ulang.
+        if ($request->filled('from')) {
+            $source = $this->broadcast($request, (string) $request->query('from'))->load('steps');
+            $branch = $this->ownerBranches($request)->firstWhere('id', $source->branch_id);
+
+            return view('whatsapp.messages.create', $this->formData($request, $branch) + [
+                'type' => $source->type,
+                'copyFrom' => $source,
+                'defaults' => $this->copyDefaults($source),
+            ]);
+        }
+
         return view('whatsapp.messages.create', $this->formData($request, $branch) + [
             'type' => array_key_exists((string) $request->query('type'), WaBroadcast::TYPES) ? $request->query('type') : 'once',
+        ]);
+    }
+
+    /** Nilai awal Kirim Ulang: sama dengan pesan asal, tapi jadwalnya mulai sekarang/hari ini dan belum ada yang terkirim. */
+    private function copyDefaults(WaBroadcast $source): array
+    {
+        $d = $this->formDefaults($source);
+        $time = $d['send_time'] ?? now()->format('H:i');
+
+        return array_merge($d, [
+            'schedule' => $source->type === 'once' ? 'now' : $source->schedule,
+            'send_at' => null,
+            'start_date' => $source->type === 'once' ? null : max(now()->toDateString(), (string) $d['start_date']),
+            'end_date' => $d['end_date'] && $d['end_date'] < now()->toDateString() ? null : $d['end_date'],
+            'send_time' => $time,
+            'steps' => collect($d['steps'])->map(fn ($step) => ['sent' => false] + $step)->all(),
         ]);
     }
 
@@ -173,9 +201,13 @@ class BroadcastController extends Controller
         }
         $device = $this->device($request, (string) $request->input('device_id'));
         $started = $existing && $existing->type === 'drip' && $existing->runs_count > 0;
+        // Kirim Ulang: lampiran pesan asal dipakai lagi bila tidak diganti (hanya dari branch yang sama).
+        $source = ! $existing && $request->filled('copy_from')
+            ? WaBroadcast::with('steps')->whereIn('branch_id', $this->ownerBranches($request)->pluck('id'))->where('branch_id', $device->branch_id)->find((string) $request->input('copy_from'))
+            : null;
         $data = $this->validated($request, $device, $existing, $started);
 
-        $broadcast = DB::transaction(function () use ($request, $device, $data, $existing, $started) {
+        $broadcast = DB::transaction(function () use ($request, $device, $data, $existing, $started, $source) {
             // Dikunci supaya tidak bertabrakan dengan scheduler yang sedang menjalankan pesan ini.
             $broadcast = $existing ? WaBroadcast::whereKey($existing->id)->lockForUpdate()->firstOrFail()
                 : new WaBroadcast(['type' => $data['type']]);
@@ -195,12 +227,12 @@ class BroadcastController extends Controller
                 $fill += ['status' => 'active', 'created_by' => $request->user()->id];
             }
             if ($data['type'] !== 'drip') {
-                $fill += $this->content($device, $data['use_template'] ?? false, $data['wa_template_id'] ?? null, $data['body'] ?? null, $request->file('file'), 'file', $existing);
+                $fill += $this->content($device, $data['use_template'] ?? false, $data['wa_template_id'] ?? null, $data['body'] ?? null, $request->file('file'), 'file', $existing ?? $source);
             }
             $broadcast->forceFill($fill)->save();
 
             if ($data['type'] === 'drip' && ! $started) {
-                $old = $broadcast->steps()->get()->keyBy('id');
+                $old = ($existing ? $broadcast->steps()->get() : ($source?->steps ?? collect()))->keyBy('id');
                 $broadcast->steps()->delete();
                 foreach (array_values($data['steps']) as $i => $step) {
                     $row = new WaBroadcastStep(['position' => $i + 1, 'delay_days' => (int) $step['delay_days'], 'body' => null]);
@@ -235,6 +267,7 @@ class BroadcastController extends Controller
             'stats' => $this->stats([$model->id])[$model->id] ?? null,
             'campaigns' => $model->campaigns()->latest()->limit(20)->get(),
             'recipients' => $model->status === 'active' ? $this->broadcasts->recipients($model)->count() : null,
+            'retryable' => $this->broadcasts->failedTargets($model)->count(),
             'targets' => collect()
                 ->concat(ContactGroup::whereIn('id', $target['group_ids'] ?? [])->pluck('name')->map(fn ($n) => 'Group kontak: '.$n))
                 ->concat(collect($target['apps'] ?? [])->map(fn ($app) => 'Semua customer '.(Customer::APPS[$app] ?? $app)))
@@ -293,6 +326,15 @@ class BroadcastController extends Controller
      *
      * @return array<string, object{total:int, sent:int, delivered:int, read:int, failed:int}>
      */
+    /** Kirim Ulang › hanya yang gagal: tujuan yang gagal (dan belum pernah berhasil) dikirimi lagi sekarang. */
+    public function retryFailed(Request $request, string $broadcast): RedirectResponse
+    {
+        $model = $this->broadcast($request, $broadcast);
+        [$campaign, $message] = $this->broadcasts->retryFailed($model->id);
+
+        return redirect()->route('whatsapp.messages.show', $model)->with($campaign ? 'success' : 'error', $message);
+    }
+
     private function stats(array $broadcastIds): array
     {
         if (! $broadcastIds) {

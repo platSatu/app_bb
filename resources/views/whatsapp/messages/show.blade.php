@@ -75,6 +75,18 @@
                     @endif
 
                     <div class="d-flex flex-wrap gap-2">
+                        {{-- Satu tombol: kirim ulang ke semua tujuan (salinan pesan) atau hanya ke tujuan yang gagal. --}}
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="ri-repeat-2-line"></i> Kirim Ulang</button>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="{{ route('whatsapp.messages.create', ['from' => $broadcast->id]) }}"><i class="ri-send-plane-line me-1"></i> Ke semua tujuan
+                                    <div class="small text-muted">Buka salinan pesan, kirim sekarang atau jadwalkan</div></a>
+                                <form method="POST" action="{{ route('whatsapp.messages.retry-failed', $broadcast) }}" onsubmit="return confirm('Kirim ulang sekarang ke {{ $retryable }} tujuan yang gagal?')">@csrf
+                                    <button class="dropdown-item" @disabled(! $retryable)><i class="ri-error-warning-line me-1"></i> Hanya yang gagal ({{ $retryable }})
+                                        <div class="small text-muted">{{ $retryable ? 'Langsung dikirim lagi ke tujuan yang gagal' : 'Tidak ada tujuan yang gagal' }}</div></button>
+                                </form>
+                            </div>
+                        </div>
                         @if (in_array($broadcast->status, ['active', 'paused'], true))
                             <a href="{{ route('whatsapp.messages.edit', $broadcast) }}" class="btn btn-sm btn-outline-primary"><i class="ri-pencil-line"></i> Edit</a>
                         @endif
@@ -130,7 +142,7 @@
                                 <tbody>
                                     @foreach ($failures as $fail)
                                         <tr>
-                                            <td class="text-nowrap">+{{ $fail->chat_jid }}</td>
+                                            <td class="text-nowrap">{{ str_contains($fail->chat_jid, '@') ? $fail->chat_jid : '+'.$fail->chat_jid }}</td>
                                             <td class="small">{{ $fail->error ?: ($fail->status === 'skipped' ? 'Dilewati' : 'Gagal') }}</td>
                                             <td class="small text-nowrap text-muted">{{ \Illuminate\Support\Carbon::parse($fail->updated_at)->translatedFormat('d M H:i') }}</td>
                                         </tr>

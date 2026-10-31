@@ -128,6 +128,17 @@
                                 <td class="text-center"><span class="badge {{ ($stat->failed ?? 0) > 0 ? 'bg-danger-subtle text-danger' : 'bg-light text-muted' }} fs-12">{{ (int) ($stat->failed ?? 0) }}</span></td>
                                 <td class="text-end text-nowrap">
                                     <a href="{{ route('whatsapp.messages.show', $item) }}" class="btn btn-sm btn-light" title="Detail & riwayat"><i class="ri-history-line"></i></a>
+                                    <div class="dropdown d-inline-block">
+                                        <button type="button" class="btn btn-sm btn-light" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" title="Kirim Ulang"><i class="ri-repeat-2-line"></i></button>
+                                        <div class="dropdown-menu dropdown-menu-end">
+                                            <a class="dropdown-item" href="{{ route('whatsapp.messages.create', ['from' => $item->id]) }}"><i class="ri-send-plane-line me-1"></i> Kirim ulang ke semua tujuan</a>
+                                            @if (($stat->failed ?? 0) > 0)
+                                                <form method="POST" action="{{ route('whatsapp.messages.retry-failed', $item) }}" onsubmit="return confirm('Kirim ulang sekarang ke tujuan yang gagal?')">@csrf
+                                                    <button class="dropdown-item"><i class="ri-error-warning-line me-1"></i> Kirim ulang yang gagal</button>
+                                                </form>
+                                            @endif
+                                        </div>
+                                    </div>
                                     @if (in_array($item->status, ['active', 'paused'], true))
                                         <a href="{{ route('whatsapp.messages.edit', $item) }}" class="btn btn-sm btn-light" title="Edit"><i class="ri-pencil-line"></i></a>
                                     @endif

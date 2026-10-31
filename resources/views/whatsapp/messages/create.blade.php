@@ -1,6 +1,6 @@
 @extends('layouts.dashboard')
 
-@section('title', isset($broadcast) ? 'Edit Pesan' : 'Buat Pesan')
+@section('title', isset($broadcast) ? 'Edit Pesan' : (isset($copyFrom) ? 'Kirim Ulang Pesan' : 'Buat Pesan'))
 @section('page-section', 'WhatsApp')
 
 @php
@@ -35,7 +35,7 @@
 @section('content')
     <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
-            <h5 class="mb-0">{{ $editing ? 'Edit Jadwal Pesan' : 'Tambah Jadwal Pesan' }}</h5>
+            <h5 class="mb-0">{{ $editing ? 'Edit Jadwal Pesan' : (isset($copyFrom) ? 'Kirim Ulang Pesan' : 'Tambah Jadwal Pesan') }}</h5>
             <div class="small text-muted">Jadwalkan pesan WhatsApp: sekali kirim, berulang, atau bertahap, ke satu atau banyak tujuan sekaligus.</div>
         </div>
         <div class="d-flex gap-2 align-items-center">
@@ -51,6 +51,9 @@
             <div class="alert alert-danger small">Periksa lagi isian yang ditandai merah di bawah.</div>
         @endif
 
+        @isset($copyFrom)
+            <div class="alert alert-info small">Salinan dari <strong>{{ $copyFrom->name }}</strong>: isi, lampiran, dan tujuan sudah terisi. Periksa lalu pilih kirim sekarang atau atur jadwal baru. Pesan lama dan riwayatnya tidak berubah.</div>
+        @endisset
         @if ($editing)
             <div class="alert alert-info small">Perubahan berlaku untuk pengiriman berikutnya. Pesan yang sudah masuk antrean atau sudah terkirim tidak ikut berubah. Jenis pengiriman tidak bisa diganti.</div>
         @endif
@@ -58,6 +61,7 @@
               data-groups-url="{{ route('whatsapp.messages.wa-groups', '__ID__') }}" data-old-groups='@json(array_values((array) $val('wa_groups', [])))'>
             @csrf
             @if ($editing) @method('PUT') @endif
+            @isset($copyFrom) <input type="hidden" name="copy_from" value="{{ $copyFrom->id }}"> @endisset
 
             {{-- Jenis --}}
             <div class="card">

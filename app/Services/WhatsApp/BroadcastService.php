@@ -121,6 +121,75 @@ class BroadcastService
         return $campaign;
     }
 
+    /**
+     * Tujuan yang gagal dan belum pernah berhasil di pesan ini (satu baris per tujuan, isi terakhir yang dicoba).
+     * Yang sedang antre/terkirim di putaran lain tidak ikut, jadi klik berulang tidak mengirim dua kali.
+     */
+    public function failedTargets(WaBroadcast $broadcast): Collection
+    {
+        $outbox = DB::table('wa_outbox')->whereIn('campaign_id', $broadcast->campaigns()->select('id'));
+        $ok = (clone $outbox)->whereNotIn('status', ['failed', 'skipped', 'cancelled'])->select('chat_jid');
+
+        return (clone $outbox)->where('status', 'failed')->whereNotIn('chat_jid', $ok)
+            ->orderByDesc('updated_at')->limit(self::MAX_RECIPIENTS * 2)
+            ->get(['chat_jid', 'type', 'body', 'upload_id'])->unique('chat_jid')->take(self::MAX_RECIPIENTS)->values();
+    }
+
+    /**
+     * Kirim ulang hanya ke tujuan yang gagal: satu putaran (campaign) baru dengan isi yang sama seperti percobaan sebelumnya.
+     * Dikunci per pesan; kuota bulanan dipakai seperti pengiriman biasa.
+     *
+     * @return array{0: ?WaCampaign, 1: string}
+     */
+    public function retryFailed(string $broadcastId): array
+    {
+        [$campaign, $message] = DB::transaction(function () use ($broadcastId) {
+            $broadcast = WaBroadcast::whereKey($broadcastId)->lockForUpdate()->firstOrFail();
+            $optOuts = DB::table('wa_optouts')->where('branch_id', $broadcast->branch_id)->pluck('phone')->flip();
+            $rows = $this->failedTargets($broadcast)->reject(fn ($r) => isset($optOuts[$r->chat_jid]))->values();
+
+            if ($rows->isEmpty()) {
+                return [null, 'Tidak ada tujuan gagal yang perlu dikirim ulang.'];
+            }
+
+            $wanted = $rows->count();
+            $granted = $this->limits->takeMessages($broadcast->branch_id, $wanted, partial: true);
+            if ($granted === 0) {
+                return [null, 'Kuota pesan WhatsApp bulan ini habis. Kuota kembali tanggal 1, atau upgrade paket.'];
+            }
+            $rows = $rows->take($granted);
+
+            $campaign = new WaCampaign();
+            $campaign->forceFill([
+                'id' => (string) Str::uuid(),
+                'branch_id' => $broadcast->branch_id,
+                'device_id' => $broadcast->device_id,
+                'broadcast_id' => $broadcast->id,
+                'name' => Str::limit($broadcast->name.' · Kirim ulang yang gagal · '.now()->translatedFormat('d M Y H:i'), 150, ''),
+                'status' => 'draft',
+                'total' => $rows->count(),
+            ])->save();
+
+            $now = now();
+            $priority = $rows->count() <= self::DIRECT_LIMIT ? 0 : 10;
+            foreach ($rows->chunk(500) as $chunk) {
+                DB::table('wa_outbox')->insert($chunk->map(fn ($r) => [
+                    'id' => (string) Str::uuid(), 'branch_id' => $broadcast->branch_id, 'device_id' => $broadcast->device_id, 'campaign_id' => $campaign->id,
+                    'chat_jid' => $r->chat_jid, 'type' => $r->type, 'body' => $r->body, 'upload_id' => $r->upload_id, 'priority' => $priority,
+                    'status' => 'queued', 'attempts' => 0, 'available_at' => $now, 'created_at' => $now, 'updated_at' => $now,
+                ])->all());
+            }
+
+            return [$campaign, "Dikirim ulang ke {$rows->count()} tujuan yang gagal.".($granted < $wanted ? ' Sebagian dilewati karena kuota habis.' : '')];
+        });
+
+        if ($campaign) {
+            $this->start($campaign);
+        }
+
+        return [$campaign, $message];
+    }
+
     /** Minta go_bizbos mulai mengirim. Bila gagal, campaign tetap draft dan dicoba lagi oleh scheduler. */
     public function start(WaCampaign $campaign): bool
     {

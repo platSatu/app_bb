@@ -135,6 +135,7 @@ Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function
         Route::post('{broadcast}/pause', 'pause')->whereUuid('broadcast')->name('pause');
         Route::post('{broadcast}/resume', 'resume')->whereUuid('broadcast')->name('resume');
         Route::post('{broadcast}/cancel', 'cancel')->whereUuid('broadcast')->name('cancel');
+        Route::post('{broadcast}/retry-failed', 'retryFailed')->whereUuid('broadcast')->middleware('throttle:10,1')->name('retry-failed');
         Route::delete('{broadcast}', 'destroy')->whereUuid('broadcast')->name('destroy');
     });
 

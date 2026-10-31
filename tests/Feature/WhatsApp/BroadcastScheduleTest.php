@@ -183,3 +183,52 @@ it('Grup WhatsApp bisa diketik manual (ID tanpa @g.us ikut diterima), tersimpan 
         'type' => 'once', 'schedule' => 'now', 'device_id' => $device->id, 'name' => 'Salah', 'body' => 'x', 'group_jids' => 'bukan-id',
     ])->assertSessionHasErrors('wa_groups.0');
 });
+
+it('Kirim Ulang ke semua tujuan: form berisi salinan pesan, lampiran lama ikut, pesan lama tidak berubah', function () {
+    $device = broadcastDevice();
+    $this->actingAs($device->branch->user);
+    $upload = (string) Str::uuid();
+    DB::table('wa_uploads')->insert(['id' => $upload, 'branch_id' => $device->branch_id, 'path' => 'wa/ayat.jpg', 'mime' => 'image/jpeg', 'name' => 'ayat.jpg', 'size' => 1000, 'created_at' => now()]);
+    $source = tap((new WaBroadcast(['name' => 'Renungan Sabtu', 'type' => 'once', 'schedule' => 'at']))->forceFill([
+        'branch_id' => $device->branch_id, 'device_id' => $device->id, 'body' => 'Isi renungan', 'upload_id' => $upload, 'upload_kind' => 'image', 'upload_name' => 'ayat.jpg',
+        'target' => ['wa_groups' => [['jid' => '120363025246125486@g.us', 'name' => 'Ortu Kelas 7']]], 'status' => 'done', 'runs_count' => 1,
+    ]))->save();
+
+    $this->get(route('whatsapp.messages.create', ['from' => $source->id]))->assertOk()
+        ->assertSee('Kirim Ulang Pesan')->assertSee('Isi renungan')->assertSee('ayat.jpg')->assertSee('name="copy_from"', false);
+
+    $this->post(route('whatsapp.messages.store'), [
+        'type' => 'once', 'schedule' => 'now', 'device_id' => $device->id, 'name' => 'Renungan Sabtu', 'body' => 'Isi renungan',
+        'wa_groups' => ['120363025246125486@g.us'], 'copy_from' => $source->id,
+    ])->assertSessionHasNoErrors();
+
+    $copy = WaBroadcast::whereKeyNot($source->id)->sole();
+    expect($copy->upload_id)->toBe($upload)->and($copy->upload_name)->toBe('ayat.jpg')
+        ->and(DB::table('wa_outbox')->where('campaign_id', $copy->campaigns()->value('id'))->value('upload_id'))->toBe($upload)
+        ->and($source->fresh()->status)->toBe('done')->and($source->fresh()->runs_count)->toBe(1);
+});
+
+it('Kirim Ulang hanya yang gagal: hanya tujuan yang gagal & belum pernah berhasil, klik kedua tidak mengirim dobel', function () {
+    $device = broadcastDevice();
+    $this->actingAs($device->branch->user);
+    $broadcast = tap((new WaBroadcast(['name' => 'Promo', 'type' => 'once', 'schedule' => 'now']))->forceFill([
+        'branch_id' => $device->branch_id, 'device_id' => $device->id, 'target' => ['phones' => ['6281']], 'status' => 'done',
+    ]))->save();
+    $campaign = (string) Str::uuid();
+    DB::table('wa_campaigns')->insert(['id' => $campaign, 'branch_id' => $device->branch_id, 'device_id' => $device->id, 'broadcast_id' => $broadcast->id, 'name' => 'x', 'status' => 'done', 'total' => 4, 'created_at' => now(), 'updated_at' => now()]);
+    foreach ([['6281111', 'failed'], ['6282222', 'sent'], ['6283333', 'failed'], ['6283333', 'sent'], ['120363025246125486@g.us', 'failed']] as [$jid, $status]) {
+        DB::table('wa_outbox')->insert(['id' => (string) Str::uuid(), 'branch_id' => $device->branch_id, 'device_id' => $device->id, 'campaign_id' => $campaign,
+            'chat_jid' => $jid, 'type' => 'text', 'body' => 'Halo '.$jid, 'status' => $status, 'created_at' => now(), 'updated_at' => now()]);
+    }
+
+    $this->get(route('whatsapp.messages.show', $broadcast))->assertOk()->assertSee('Hanya yang gagal (2)')->assertSee('120363025246125486@g.us');
+    $this->post(route('whatsapp.messages.retry-failed', $broadcast))->assertSessionHas('success', fn ($m) => str_contains($m, '2 tujuan'));
+
+    $retry = $broadcast->campaigns()->where('id', '!=', $campaign)->sole();
+    expect(DB::table('wa_outbox')->where('campaign_id', $retry->id)->pluck('body', 'chat_jid')->sortKeys()->all())
+        ->toBe(['120363025246125486@g.us' => 'Halo 120363025246125486@g.us', '6281111' => 'Halo 6281111']);
+    Http::assertSent(fn (HttpRequest $r) => str_contains($r->url(), '/v1/campaigns/'.$retry->id.'/start'));
+
+    $this->post(route('whatsapp.messages.retry-failed', $broadcast))->assertSessionHas('error');
+    expect($broadcast->campaigns()->count())->toBe(2);
+});
