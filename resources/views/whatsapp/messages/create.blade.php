@@ -294,6 +294,10 @@
                                 <div class="text-muted small" data-groups-status>Memuat grup dari device...</div>
                             </div>
                             <div class="form-text">Grup yang hanya admin boleh mengirim pesan tidak bisa dipilih bila nomor ini bukan admin.</div>
+                            <label class="form-label mt-3 mb-1">Atau ketik ID Grup WhatsApp</label>
+                            <textarea name="group_jids" rows="2" class="form-control form-control-sm @error('wa_groups.*') is-invalid @enderror" placeholder="120363405106497623@g.us" data-group-jids></textarea>
+                            @error('wa_groups.*') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <div class="form-text">Untuk grup yang tidak muncul di daftar. ID grup terlihat di daftar di atas (angka sebelum @g.us); pisahkan beberapa ID dengan baris baru.</div>
                         </div>
                     </div>
                 </div>
@@ -392,12 +396,14 @@
             // ---- Hitungan tujuan per tab.
             function count() {
                 qs('[data-count="contacts"]').textContent = qsa('[data-pick="contacts"]:checked').length;
-                qs('[data-count="groups"]').textContent = qsa('[name="wa_groups[]"]:checked').length;
+                qs('[data-count="groups"]').textContent = qsa('[name="wa_groups[]"]:checked').length
+                    + qs('[data-group-jids]').value.split(/[\s,;]+/).filter(function (j) { return /^[0-9-]{10,40}(@g\.us)?$/i.test(j); }).length;
                 var phones = qs('[data-phones]').value.split(/[\s,;]+/).filter(function (p) { return p.replace(/\D/g, '').length >= 9; });
                 qs('[data-count="phones"]').textContent = phones.length;
             }
             form.addEventListener('change', count);
             qs('[data-phones]').addEventListener('input', count);
+            qs('[data-group-jids]').addEventListener('input', count);
 
             // ---- Pencarian di daftar kontak & grup.
             qsa('[data-filter]').forEach(function (input) {
@@ -412,6 +418,14 @@
             // ---- Grup WhatsApp: dimuat dari device yang dipilih.
             var groupsBox = qs('[data-list="groups"]');
             var picked = JSON.parse(form.dataset.oldGroups || '[]');
+            var jidBox = qs('[data-group-jids]');
+            // Grup terpilih yang tidak ada di daftar device (atau daftar gagal dimuat) dipindah ke kolom ketik manual, supaya tidak hilang saat disimpan.
+            function keepUnlisted(listed) {
+                var typed = jidBox.value.split(/[\s,;]+/).filter(Boolean);
+                picked.forEach(function (jid) { if (listed.indexOf(jid) < 0 && typed.indexOf(jid) < 0) typed.push(jid); });
+                jidBox.value = typed.join('\n');
+                count();
+            }
             function loadGroups(refresh) {
                 var device = qs('[data-device]').value;
                 groupsBox.innerHTML = '<div class="text-muted small">Memuat grup dari device...</div>';
@@ -422,14 +436,14 @@
                         if (!res.groups || !res.groups.length) {
                             groupsBox.innerHTML = '<div class="text-muted small"></div>';
                             groupsBox.firstChild.textContent = res.message || 'Nomor ini belum ikut grup WhatsApp mana pun.';
-                            return count();
+                            return keepUnlisted([]);
                         }
                         res.groups.forEach(function (g, i) {
                             var locked = g.announce && !g.is_admin;
                             var row = document.createElement('div');
                             row.className = 'form-check';
                             row.dataset.row = '';
-                            row.dataset.text = (g.name || '').toLowerCase();
+                            row.dataset.text = ((g.name || '') + ' ' + g.jid).toLowerCase();
                             var input = document.createElement('input');
                             input.type = 'checkbox'; input.className = 'form-check-input'; input.name = 'wa_groups[]'; input.value = g.jid; input.id = 'wg-' + i;
                             input.disabled = locked;
@@ -437,12 +451,15 @@
                             var label = document.createElement('label');
                             label.className = 'form-check-label'; label.htmlFor = input.id;
                             label.textContent = g.name + (g.size ? ' (' + g.size + ' anggota)' : '') + (locked ? ' · hanya admin' : '');
+                            var id = document.createElement('div');
+                            id.className = 'small text-muted'; id.textContent = g.jid;
+                            label.appendChild(id);
                             row.appendChild(input); row.appendChild(label);
                             groupsBox.appendChild(row);
                         });
-                        count();
+                        keepUnlisted(res.groups.map(function (g) { return g.jid; }));
                     })
-                    .catch(function () { groupsBox.innerHTML = '<div class="text-danger small">Gagal memuat grup. Coba Muat ulang.</div>'; });
+                    .catch(function () { groupsBox.innerHTML = '<div class="text-danger small">Gagal memuat grup. Coba Muat ulang, atau ketik ID grup di bawah.</div>'; keepUnlisted([]); });
             }
             qs('[data-device]').addEventListener('change', function () { picked = []; loadGroups(false); });
             qs('[data-refresh-groups]').addEventListener('click', function () {

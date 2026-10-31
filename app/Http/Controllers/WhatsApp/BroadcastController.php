@@ -238,7 +238,7 @@ class BroadcastController extends Controller
             'targets' => collect()
                 ->concat(ContactGroup::whereIn('id', $target['group_ids'] ?? [])->pluck('name')->map(fn ($n) => 'Group kontak: '.$n))
                 ->concat(collect($target['apps'] ?? [])->map(fn ($app) => 'Semua customer '.(Customer::APPS[$app] ?? $app)))
-                ->concat(collect($target['wa_groups'] ?? [])->map(fn ($g) => 'Grup WhatsApp: '.($g['name'] ?? $g['jid'])))
+                ->concat(collect($target['wa_groups'] ?? [])->map(fn ($g) => 'Grup WhatsApp: '.(($g['name'] ?? null) ? $g['name'].' ('.$g['jid'].')' : $g['jid'])))
                 ->when(count($target['customer_ids'] ?? []), fn ($c) => $c->push(count($target['customer_ids']).' kontak'))
                 ->when(count($target['phones'] ?? []), fn ($c) => $c->push(count($target['phones']).' nomor')),
             'failures' => DB::table('wa_outbox')->whereIn('campaign_id', $model->campaigns()->select('id'))
@@ -320,6 +320,12 @@ class BroadcastController extends Controller
             'phones' => collect(preg_split('/[\s,;]+/', (string) $request->input('phones'), -1, PREG_SPLIT_NO_EMPTY))
                 ->map(fn ($p) => User::normalizePhone($p))->filter(fn ($p) => strlen($p) >= 10)->unique()->values()->all(),
             'use_template' => $request->boolean('use_template'),
+            // Grup WhatsApp: centang dari daftar + ID grup yang diketik manual (angka saja otomatis ditambah @g.us).
+            'wa_groups' => collect((array) $request->input('wa_groups', []))
+                ->concat(preg_split('/[\s,;]+/', (string) $request->input('group_jids'), -1, PREG_SPLIT_NO_EMPTY))
+                ->map(fn ($jid) => strtolower(trim((string) $jid)))
+                ->map(fn ($jid) => str_contains($jid, '@') ? $jid : $jid.'@g.us')
+                ->unique()->values()->all(),
         ]);
         $type = (string) $request->input('type');
         $template = Rule::exists('wa_templates', 'id')->where('branch_id', $branchId)->where('is_active', true);
@@ -383,7 +389,7 @@ class BroadcastController extends Controller
             'steps.*.delay_days.distinct' => 'Setiap pesan harus dikirim di hari yang berbeda.',
             'file.max' => 'Ukuran file maksimal 64 MB.',
             'steps.*.file.max' => 'Ukuran file maksimal 64 MB.',
-            'wa_groups.*.regex' => 'Grup WhatsApp tidak valid.',
+            'wa_groups.*.regex' => 'ID Grup WhatsApp tidak valid. Contoh: 120363405106497623@g.us',
         ], ['name' => 'nama pesan', 'send_at' => 'waktu kirim', 'start_date' => 'tanggal mulai', 'end_date' => 'tanggal berakhir', 'send_time' => 'jam kirim', 'steps' => 'pesan bertahap']);
 
         $errors = [];

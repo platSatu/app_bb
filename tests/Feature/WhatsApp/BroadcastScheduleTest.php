@@ -164,3 +164,22 @@ it('edit: berulang yang sudah berjalan dihitung ulang ke jadwal berikutnya; bert
     expect($drip->name)->toBe('Onboarding 2')->and($drip->steps->pluck('body')->all())->toBe(['Satu', 'Dua'])
         ->and($drip->target['phones'])->toBe(['6289999999999']);
 });
+
+it('Grup WhatsApp bisa diketik manual (ID tanpa @g.us ikut diterima), tersimpan dengan ID-nya dan ikut dikirim', function () {
+    $device = broadcastDevice();
+    $this->actingAs($device->branch->user);
+
+    $this->post(route('whatsapp.messages.store'), [
+        'type' => 'once', 'schedule' => 'now', 'device_id' => $device->id, 'name' => 'Renungan', 'body' => 'Selamat pagi',
+        'wa_groups' => ['120363025246125486@g.us'], 'group_jids' => "120363405106497623\n120363025246125486@g.us",
+    ])->assertSessionHasNoErrors();
+
+    $broadcast = WaBroadcast::firstOrFail();
+    expect(collect($broadcast->target['wa_groups'])->pluck('jid')->all())->toBe(['120363025246125486@g.us', '120363405106497623@g.us'])
+        ->and(DB::table('wa_outbox')->pluck('chat_jid')->sort()->values()->all())->toBe(['120363025246125486@g.us', '120363405106497623@g.us']);
+    $this->get(route('whatsapp.messages.show', $broadcast))->assertSee('Ortu Kelas 7 (120363025246125486@g.us)')->assertSee('120363405106497623@g.us');
+
+    $this->post(route('whatsapp.messages.store'), [
+        'type' => 'once', 'schedule' => 'now', 'device_id' => $device->id, 'name' => 'Salah', 'body' => 'x', 'group_jids' => 'bukan-id',
+    ])->assertSessionHasErrors('wa_groups.0');
+});
