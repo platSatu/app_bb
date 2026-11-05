@@ -17,6 +17,7 @@ use App\Http\Controllers\Superadmin\Page\TicketFeeController;
 use App\Http\Controllers\Superadmin\PaymentGateway\PaymentGatewayController;
 use App\Http\Controllers\Superadmin\Referral\ReferralController;
 use App\Http\Controllers\Superadmin\Role\RoleController;
+use App\Http\Controllers\Superadmin\Tools\GooglePlacesController;
 use App\Http\Controllers\Superadmin\User\UserController;
 use App\Http\Controllers\Superadmin\Voucher\VoucherController;
 use App\Http\Controllers\Superadmin\Withdrawal\BankAccountController;
@@ -195,6 +196,11 @@ Route::middleware(['auth', 'superadmin'])
                 Route::post('/', 'store')->middleware('throttle:5,1')->name('store');
                 Route::get('{file}', 'download')->where('file', '[A-Za-z0-9_.\-]+')->name('download');
             });
+
+        // Tools › Google Places. Dibatasi 20x/menit; batas harian ada di GooglePlacesClient.
+        Route::get('tools/google-places', [GooglePlacesController::class, 'index'])
+            ->middleware(['permission:superadmin.tools.google-places,view', 'throttle:20,1'])
+            ->name('tools.google-places.index');
 
         Route::resource('roles', RoleController::class)
             ->except('show')

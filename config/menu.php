@@ -315,6 +315,19 @@ return [
                     ],
                 ],
             ],
+            // Alat bantu marketing (cari & kelola calon pelanggan). Disusun bertahap.
+            'tools' => [
+                'label' => 'Tools',
+                'icon' => 'ri-tools-line',
+                'items' => [
+                    // Cari tempat usaha dari Google Maps (Places API resmi, berbayar per pencarian).
+                    'superadmin.tools.google-places' => [
+                        'label' => 'Google Places',
+                        'route' => 'superadmin.tools.google-places.index',
+                        'active' => 'superadmin.tools.google-places.*',
+                    ],
+                ],
+            ],
             'settings' => [
                 'label' => 'Settings',
                 'icon' => 'ri-settings-3-line',

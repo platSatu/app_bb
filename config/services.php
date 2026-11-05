@@ -68,6 +68,12 @@ return [
         'id' => env('GOOGLE_ANALYTICS_ID'),
     ],
 
+    // Tools › Google Places (Places API New). daily_limit = maksimal pencarian per hari (penahan biaya).
+    'google_places' => [
+        'key' => env('GOOGLE_PLACES_API_KEY'),
+        'daily_limit' => (int) env('GOOGLE_PLACES_DAILY_LIMIT', 100),
+    ],
+
     // Lokasi mysqldump untuk Backup Database (XAMPP Windows: C:\xampp\mysql\bin\mysqldump.exe).
     'backup' => [
         'mysqldump' => env('BACKUP_MYSQLDUMP', 'mysqldump'),
