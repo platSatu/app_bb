@@ -5,6 +5,7 @@ namespace App\Services\Invoice;
 use App\Jobs\SendInvoiceWebhook;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
+use App\Models\InvoiceFeeRule;
 use App\Models\InvoiceSetting;
 use App\Models\PaymentCallback;
 use App\Models\PaymentGatewaySetting;
@@ -29,7 +30,7 @@ class InvoicePaymentService
     public const PREFIX = 'INV';
     private const EXPIRY_GRACE_MINUTES = 10;
 
-    public function __construct(private readonly WalletService $wallets, private readonly InvoiceService $invoices)
+    public function __construct(private readonly WalletService $wallets, private readonly InvoiceService $invoices, private readonly InvoiceFees $fees)
     {
     }
 
@@ -81,26 +82,48 @@ class InvoicePaymentService
             $total = $locked->totalDue();
             $setting = InvoiceSetting::current();
 
-            if ($total < $setting->min_amount || $total > $setting->max_amount) {
-                throw new RuntimeException($setting->limitMessage($total).' Silakan hubungi penagih.');
+            // 5 Nov 2026: biaya "ditanggung pembayar" (aturan per customer) ditambahkan ke yang dibayar ke Duitku.
+            $payerFee = $this->fees->payerFee($locked->branch_id, $total);
+            $charge = $total + ($payerFee ?? 0);
+
+            if ($charge < $setting->min_amount || $charge > $setting->max_amount) {
+                throw new RuntimeException($setting->limitMessage($charge).' Silakan hubungi penagih.');
             }
 
             // Order Duitku yang masih berlaku dengan nominal sama dipakai lagi, supaya tidak menumpuk.
-            $open = $locked->payments()->where('status', InvoicePayment::STATUS_PENDING)->where('amount', $total)
+            $open = $locked->payments()->where('status', InvoicePayment::STATUS_PENDING)->where('amount', $charge)
                 ->where('expires_at', '>', now()->addMinutes(2))->whereNotNull('payment_url')->latest()->first();
 
             if ($open) {
                 return $open;
             }
 
+            // 5 Nov 2026: order Duitku tidak boleh hidup lebih lama dari batas waktu invoice (invoice API,
+            // mis. persembahan komeveryone 60 menit). Dulu memakai masa berlaku Duitku penuh (bisa 24 jam):
+            // pembayar yang menutup browser masih bisa membayar VA setelah pendaftarannya dibatalkan
+            // aplikasi pemanggil -> uang masuk ke invoice batal (refund manual).
+            $minutes = (int) PaymentGatewaySetting::duitku()->expiry_minutes;
+
+            if ($locked->expires_at) {
+                $remaining = (int) floor(now()->diffInSeconds($locked->expires_at, false) / 60);
+
+                if ($remaining < 2) {
+                    throw new RuntimeException('Batas waktu pembayaran invoice ini hampir habis. Silakan minta invoice baru ke penagih.');
+                }
+
+                $minutes = min($minutes, $remaining);
+            }
+
             $payment = new InvoicePayment();
             $payment->forceFill([
                 'invoice_id' => $locked->getKey(),
                 'merchant_order_id' => $this->uniqueOrderId(),
-                'amount' => $total,
+                'amount' => $charge,
                 'late_fee' => $total - $locked->amount,
+                'service_fee' => $payerFee,
+                'fee_bearer' => $payerFee !== null ? InvoiceFeeRule::BEARER_PAYER : null,
                 'status' => InvoicePayment::STATUS_PENDING,
-                'expires_at' => now()->addMinutes(PaymentGatewaySetting::duitku()->expiry_minutes),
+                'expires_at' => now()->addMinutes($minutes),
             ])->save();
 
             return $payment;
@@ -124,8 +147,11 @@ class InvoicePaymentService
                 'items' => array_values(array_filter([
                     ['name' => Str::limit($invoice->description, 90, ''), 'price' => $invoice->amount, 'quantity' => 1],
                     $payment->late_fee > 0 ? ['name' => 'Denda keterlambatan', 'price' => $payment->late_fee, 'quantity' => 1] : null,
+                    // Jumlah item harus sama dengan paymentAmount (aturan Duitku).
+                    (int) $payment->service_fee > 0 ? ['name' => 'Biaya layanan', 'price' => (int) $payment->service_fee, 'quantity' => 1] : null,
                 ])),
                 'returnUrl' => $returnUrl,
+                'expiryMinutes' => max(1, (int) floor(now()->diffInSeconds($payment->expires_at, false) / 60)),
             ], $timeout);
         } catch (Throwable $e) {
             report($e);
@@ -283,7 +309,18 @@ class InvoicePaymentService
             $invoice = Invoice::with('branch.user')->whereKey($lockedPayment->invoice_id)->lockForUpdate()->firstOrFail();
             // Invoice kedaluwarsa tetap diterima (customer memang membayar); sudah lunas/dibatalkan = perlu refund.
             $accepted = in_array($invoice->status, [Invoice::STATUS_UNPAID, Invoice::STATUS_EXPIRED], true);
-            $fee = InvoiceSetting::current()->feeFor($lockedPayment->amount);
+
+            // 5 Nov 2026: biaya per customer & metode (InvoiceFees). Snapshot pembayar dipakai apa adanya;
+            // aturan customer dihitung dari metode yang dilaporkan Duitku. Tanpa aturan = cara lama.
+            if ($lockedPayment->fee_bearer === InvoiceFeeRule::BEARER_PAYER) {
+                $fee = (int) $lockedPayment->service_fee;
+            } else {
+                $fee = $this->fees->merchantFee($invoice->branch_id, $method, $lockedPayment->amount);
+            }
+
+            // Aturan biaya = potongan all-in: potongan QRIS terpisah tidak ditambahkan lagi.
+            $ruleBased = $fee !== null;
+            $fee = min($lockedPayment->amount, $fee ?? InvoiceSetting::current()->feeFor($lockedPayment->amount));
             $net = $lockedPayment->amount - $fee;
 
             $lockedPayment->forceFill([
@@ -318,6 +355,7 @@ class InvoicePaymentService
                         .' (biaya layanan Rp '.number_format($fee, 0, ',', '.').')'.($accepted ? '' : ' · PEMBAYARAN GANDA, mohon refund ke customer'),
                     paymentMethod: $method,
                     availableAt: SettlementCalendar::availableAt($method),
+                    chargeMethodFee: ! $ruleBased,
                 );
             }
 

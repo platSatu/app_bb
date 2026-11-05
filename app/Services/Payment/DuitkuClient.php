@@ -32,7 +32,7 @@ class DuitkuClient
     /**
      * Buat invoice Duitku untuk apa saja (top up, tiket, ...).
      *
-     * @param  array{amount: int, orderId: string, product: string, customer: array{name: string, email: string, phone: ?string}, items: array, returnUrl: string, userInfo?: string}  $invoice
+     * @param  array{amount: int, orderId: string, product: string, customer: array{name: string, email: string, phone: ?string}, items: array, returnUrl: string, userInfo?: string, expiryMinutes?: int}  $invoice
      * @return array{paymentUrl: ?string, reference: ?string, message: ?string}
      */
     public function createInvoice(array $invoice, int $timeout = 20): array
@@ -57,7 +57,8 @@ class DuitkuClient
             'customerDetail' => ['firstName' => Str::limit($firstName, 50, ''), 'lastName' => Str::limit($lastName, 50, ''), 'email' => $email, 'phoneNumber' => $phone],
             'callbackUrl' => route('payment.duitku.callback'),
             'returnUrl' => $invoice['returnUrl'],
-            'expiryPeriod' => $this->setting->expiry_minutes,
+            // Order tidak boleh hidup lebih lama dari tagihannya (expiryMinutes = sisa waktu tagihan, kalau ada).
+            'expiryPeriod' => max(1, min((int) $this->setting->expiry_minutes, (int) ($invoice['expiryMinutes'] ?? $this->setting->expiry_minutes))),
         ];
 
         $timestamp = (string) round(microtime(true) * 1000);

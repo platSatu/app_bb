@@ -101,10 +101,11 @@ class WalletService
      * @param  int  $paidAmount  nominal yang dibayar customer di Duitku (dasar potongan QRIS)
      * @return WalletTransaction|null null kalau setelah dipotong tidak ada yang masuk
      */
-    public function creditPayment(User $user, int $amount, int $paidAmount, string $type, string $idempotencyKey, ?Model $reference = null, ?string $description = null, ?string $paymentMethod = null, ?CarbonInterface $availableAt = null): ?WalletTransaction
+    public function creditPayment(User $user, int $amount, int $paidAmount, string $type, string $idempotencyKey, ?Model $reference = null, ?string $description = null, ?string $paymentMethod = null, ?CarbonInterface $availableAt = null, bool $chargeMethodFee = true): ?WalletTransaction
     {
         $setting = PaymentGatewaySetting::duitku();
-        $fee = min($amount, $setting->qrisFeeFor($paymentMethod, $paidAmount));
+        // $chargeMethodFee = false: biayanya sudah all-in dari aturan biaya per customer (Invoice), QRIS tidak dipotong lagi.
+        $fee = $chargeMethodFee ? min($amount, $setting->qrisFeeFor($paymentMethod, $paidAmount)) : 0;
 
         if ($fee > 0) {
             $persen = rtrim(rtrim(number_format($setting->qrisFeePercent(), 2, ',', '.'), '0'), ',');

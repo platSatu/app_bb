@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Invoice;
 
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
+use App\Models\InvoicePayment;
+use App\Services\Invoice\InvoiceFees;
 use App\Services\Invoice\InvoicePaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -19,29 +21,47 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class PublicInvoiceController extends Controller
 {
-    public function __construct(private readonly InvoicePaymentService $payments)
+    public function __construct(private readonly InvoicePaymentService $payments, private readonly InvoiceFees $fees)
     {
     }
 
     public function show(Request $request, string $token): Response
     {
         $invoice = $this->find($token);
+        $returned = $request->boolean('returned');
 
-        if ($request->boolean('returned')) {
+        if ($returned) {
             $this->refresh($invoice);
         }
 
         // Lewat jatuh tempo tanpa denda: tutup sekarang juga, tidak menunggu scheduler 5 menitan.
         $this->payments->closeIfPastDue($invoice);
 
-        $invoice->refresh()->load(['company', 'category', 'branch']);
+        // 5 Nov 2026: relasi sudah dimuat find(); cukup baca ulang kolom invoice (status bisa berubah di atas).
+        $invoice->setRawAttributes(Invoice::whereKey($invoice->getKey())->firstOrFail()->getAttributes(), true);
+
+        // Satu query untuk percobaan bayar yang masih terbuka (tombol "Lanjutkan pembayaran", timer, auto-redirect).
+        $openPayment = $invoice->isUnpaid()
+            ? $invoice->payments()->where('status', InvoicePayment::STATUS_PENDING)->where('expires_at', '>', now())
+                ->whereNotNull('payment_url')->latest()->first()
+            : null;
 
         return response()->view('invoice.public.pay', [
             'invoice' => $invoice,
             'origin' => $this->origin($request, $invoice),
+            'returned' => $returned,
+            'openPayment' => $openPayment,
+            // Biaya "ditanggung pembayar" (aturan per customer): order yang sedang terbuka memakai snapshot-nya.
+            'payerFee' => $invoice->isUnpaid() ? ($openPayment?->service_fee ?? $this->fees->payerFee($invoice->branch_id, $invoice->totalDue())) : null,
+            // Timer di halaman: batas order Duitku yang sedang terbuka, kalau tidak ada: batas invoice (invoice API).
+            // Hanya kalau masih di masa depan (yang sudah lewat tidak ditampilkan, supaya tidak memuat ulang terus).
+            'deadline' => $invoice->isUnpaid() ? collect([$openPayment?->expires_at ?? $invoice->expires_at])->filter(fn ($d) => $d?->isFuture())->first() : null,
+            // Batas invoice sudah lewat, tidak ada order yang masih berjalan: tidak bisa membuat pembayaran baru,
+            // tapi status bisa saja masih berubah jadi lunas (bank telat mengirim konfirmasi).
+            'timeUp' => $invoice->isUnpaid() && ! $openPayment && $invoice->expires_at?->isPast(),
             // Langsung ke Duitku (tanpa klik "Bayar"), kecuali baru kembali dari Duitku atau ada error.
-            'autoPay' => $invoice->isUnpaid() && ! $request->boolean('returned') && ! session()->has('error'),
-            'autoPayUrl' => $invoice->openPaymentUrl(),
+            'autoPay' => $invoice->isUnpaid() && ! $returned && ! session()->has('error') && ! ($invoice->expires_at?->isPast() && ! $openPayment),
+            'autoPayUrl' => $openPayment?->payment_url,
         ])->withHeaders($this->headers());
     }
 
@@ -104,7 +124,11 @@ class PublicInvoiceController extends Controller
     {
         return [
             'X-Frame-Options' => 'DENY',
-            'Content-Security-Policy' => "frame-ancestors 'none'",
+            // 5 Nov 2026: CSP lengkap. Halaman bayar hanya memuat skrip & gaya miliknya sendiri (inline) + font Google.
+            // form-action tidak dibatasi: tombol Bayar diarahkan server ke domain Duitku.
+            'Content-Security-Policy' => "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                ."font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'",
+            'X-Content-Type-Options' => 'nosniff',
             'Referrer-Policy' => 'no-referrer',
             'Cache-Control' => 'no-store, private',
             'X-Robots-Tag' => 'noindex, nofollow',
