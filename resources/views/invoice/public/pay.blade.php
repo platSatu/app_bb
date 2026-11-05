@@ -25,6 +25,14 @@
     <link rel="shortcut icon" href="{{ asset('be') }}/assets/images/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    @php
+        // Sambungan ke server Duitku disiapkan sejak awal supaya halaman Duitku terbuka lebih cepat.
+        $duitkuUrl = $autoPayUrl ?: $openPayment?->payment_url;
+        $duitkuOrigin = $duitkuUrl ? parse_url($duitkuUrl, PHP_URL_SCHEME).'://'.parse_url($duitkuUrl, PHP_URL_HOST) : null;
+    @endphp
+    @if ($duitkuOrigin && str_starts_with($duitkuOrigin, 'https://'))
+        <link rel="preconnect" href="{{ $duitkuOrigin }}">
+    @endif
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -35,7 +43,8 @@
         * { box-sizing: border-box; border-radius: 0; }
         html, body { margin: 0; }
         body {
-            min-height: 100vh; background: var(--bg); color: var(--ink);
+            min-height: 100vh; min-height: 100dvh; background: var(--bg); color: var(--ink);
+            display: flex; flex-direction: column;
             font: 15px/1.5 "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
             -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums;
         }
@@ -47,7 +56,8 @@
         .brand-mark { width: 30px; height: 30px; background: var(--accent); display: grid; place-items: center; font-weight: 800; }
         .brand b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .secure { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #cbd5e1; white-space: nowrap; }
-        .wrap { padding-top: 20px; padding-bottom: 32px; }
+        /* Kartu pembayaran berada di tengah layar (vertikal & horizontal); kalau lebih tinggi dari layar, mengalir biasa. */
+        .wrap { flex: 1 0 auto; width: 100%; display: flex; flex-direction: column; justify-content: center; padding-top: 24px; padding-bottom: 32px; }
 
         .card { background: var(--card); border: 1px solid var(--line); }
         .hero { position: relative; padding: 22px 20px 20px; border-left: 4px solid var(--accent); }
