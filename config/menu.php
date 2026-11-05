@@ -306,6 +306,13 @@ return [
                         'active' => ['superadmin.withdrawals.*', 'superadmin.bank-accounts.*', 'superadmin.disbursement.*', 'superadmin.payouts.*'],
                         'superadmin_only' => true,
                     ],
+                    // Semua uang masuk & keluar lewat Duitku (top up, invoice, tiket, toko online, tarik saldo, disbursement).
+                    'superadmin.mutations' => [
+                        'label' => 'Mutasi',
+                        'route' => 'superadmin.mutations.index',
+                        'active' => 'superadmin.mutations.*',
+                        'superadmin_only' => true,
+                    ],
                     'superadmin.wallet-adjustment' => [
                         'label' => 'Koreksi Saldo',
                         'route' => 'superadmin.wallet-adjustment.create',

@@ -9,6 +9,7 @@ use App\Http\Controllers\Superadmin\CategoryApplication\CategoryApplicationContr
 use App\Http\Controllers\Superadmin\Company\CompanyController;
 use App\Http\Controllers\Superadmin\Deposit\AdjustmentController;
 use App\Http\Controllers\Superadmin\Deposit\DepositController;
+use App\Http\Controllers\Superadmin\Deposit\MutationController;
 use App\Http\Controllers\Superadmin\Email\EmailLogController;
 use App\Http\Controllers\Superadmin\Package\PackageController;
 use App\Http\Controllers\Superadmin\Page\PageController;
@@ -107,6 +108,11 @@ Route::middleware(['auth', 'superadmin'])
                 Route::get('/', 'create')->name('create');
                 Route::post('/', 'store')->middleware('throttle:20,1')->name('store');
             });
+
+        // Mutasi Duitku: semua uang masuk (Kredit) & keluar (Debit) dari semua sumber. Hanya baca.
+        Route::get('mutations', [MutationController::class, 'index'])
+            ->middleware(['permission:superadmin.mutations,view', 'throttle:60,1'])
+            ->name('mutations.index');
 
         // Tarik saldo: khusus superadmin (uang keluar dari Duitku).
         Route::middleware('permission:superadmin.withdrawals,manage')->group(function () {
