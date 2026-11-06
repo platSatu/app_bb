@@ -1,6 +1,6 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Mutasi')
+@section('title', 'Sett & Lap')
 @section('page-section', 'Superadmin')
 
 @php
@@ -43,6 +43,8 @@
 @endpush
 
 @section('content')
+    @include('superadmin.deposit._tabs', ['active' => 'mutations'])
+
     {{-- Saldo asli Duitku vs saldo tercatat bizbos: diperbarui otomatis tiap 30 detik (tanpa tombol). --}}
     <div class="card mb-3 mutasi-live" data-live-url="{{ route('superadmin.mutations.duitku-balance') }}">
         <div class="card-body">

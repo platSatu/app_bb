@@ -1,6 +1,6 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Deposit')
+@section('title', 'Sett & Lap')
 @section('page-section', 'Superadmin')
 
 @section('content')

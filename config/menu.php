@@ -284,14 +284,14 @@ return [
                 ],
             ],
             'deposit' => [
-                'label' => 'Deposit',
+                'label' => 'Sett & Lap',
                 'icon' => 'ri-wallet-3-line',
                 'items' => [
-                    // Tab Data Deposit & History Saldo User.
+                    // Tab Data Deposit, History Saldo User & Mutasi.
                     'superadmin.deposits' => [
                         'label' => 'Data Deposit',
                         'route' => 'superadmin.deposits.index',
-                        'active' => ['superadmin.deposits.*', 'superadmin.wallet-adjustment.*'],
+                        'active' => ['superadmin.deposits.*', 'superadmin.wallet-adjustment.*', 'superadmin.mutations.*'],
                     ],
                     // Lihat = lihat pengaturan, Kelola = ubah kredensial Duitku.
                     'superadmin.payment-gateway' => [
@@ -306,12 +306,13 @@ return [
                         'active' => ['superadmin.withdrawals.*', 'superadmin.bank-accounts.*', 'superadmin.disbursement.*', 'superadmin.payouts.*'],
                         'superadmin_only' => true,
                     ],
-                    // Semua uang masuk & keluar lewat Duitku (top up, invoice, tiket, toko online, tarik saldo, disbursement).
+                    // Tab Mutasi di Data Deposit: semua uang masuk & keluar lewat Duitku. Khusus superadmin.
                     'superadmin.mutations' => [
                         'label' => 'Mutasi',
                         'route' => 'superadmin.mutations.index',
                         'active' => 'superadmin.mutations.*',
                         'superadmin_only' => true,
+                        'sidebar' => false,
                     ],
                     'superadmin.wallet-adjustment' => [
                         'label' => 'Koreksi Saldo',

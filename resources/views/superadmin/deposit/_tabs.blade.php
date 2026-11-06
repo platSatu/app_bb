@@ -3,6 +3,7 @@
     $tabs = array_filter([
         'deposits' => $user->canAccess('superadmin.deposits') ? ['Data Deposit', 'ri-wallet-3-line', 'superadmin.deposits.index'] : null,
         'history' => $user->canAccess('superadmin.deposits') ? ['History Saldo User', 'ri-history-line', 'superadmin.deposits.history'] : null,
+        'mutations' => $user->canAccess('superadmin.mutations') ? ['Mutasi', 'ri-exchange-funds-line', 'superadmin.mutations.index'] : null,
         'setting' => $user->canAccess('superadmin.payment-gateway') ? ['Payment Gateway', 'ri-bank-card-line', 'superadmin.payment-gateway.setting'] : null,
     ]);
 @endphp
