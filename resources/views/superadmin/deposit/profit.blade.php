@@ -67,6 +67,10 @@
     <div class="card">
         <div class="card-body">
             <form method="GET" class="row g-2 align-items-end mb-3">
+                <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Pelanggan</label>
+                    <input type="text" name="customer" class="form-control" maxlength="100" value="{{ request('customer') }}" placeholder="Nama, email, atau perusahaan (untuk tabel Laba per pelanggan)">
+                </div>
                 <div class="col-6 col-md-4">
                     <label class="form-label small text-muted mb-1">Dari tanggal</label>
                     <input type="date" name="date_from" class="form-control" value="{{ request('date_from') }}">
@@ -77,7 +81,7 @@
                 </div>
                 <div class="col-12 col-md-4 d-flex gap-2">
                     <button type="submit" class="btn btn-primary flex-grow-1"><i class="ri-search-line"></i></button>
-                    @if (request()->hasAny(['date_from', 'date_to']))
+                    @if (request()->hasAny(['date_from', 'date_to', 'customer']))
                         <a href="{{ route('superadmin.mutations.profit') }}" class="btn btn-outline-danger" title="Hapus filter"><i class="ri-close-line"></i></a>
                     @endif
                 </div>
@@ -91,14 +95,16 @@
                             <th>Aplikasi</th>
                             <th class="num">Transaksi</th>
                             <th class="num">Nilai<small>dibayar / ditarik</small></th>
-                            <th class="num">Fee layanan<small>invoice, tiket, transfer, paket</small></th>
+                            <th class="num">Fee layanan<small>invoice, tiket, transfer</small></th>
                             <th class="num">Fee payment gateway<small>dari pelanggan</small></th>
                             <th class="num">Biaya Duitku<small>QRIS & transfer</small></th>
                             <th class="num">Laba</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (MutationLedger::APPS as $key => $label)
+                        {{-- Aplikasi transaksi, lalu sewa paket per aplikasi (yang ada di periode ini), bonus referral paling akhir. --}}
+                        @foreach ([...array_keys(array_diff_key(MutationLedger::APPS, ['referral' => 1])), ...$apps->keys()->filter(fn ($k) => str_starts_with($k, 'sewa:'))->sort()->values(), 'referral'] as $key)
+                            @php($label = MutationLedger::appLabel($key))
                             @php($row = $apps->get($key))
                             @php($profit = (int) ($row->profit ?? 0))
                             <tr>
@@ -144,7 +150,7 @@
                             <tr>
                                 <td>
                                     {{ $customer->company ?: ($customer->name ?: '-') }}<span class="sub">{{ $customer->email }}</span>
-                                    <span class="sub">{{ $customer->apps->map(fn ($a) => (MutationLedger::APPS[$a->app] ?? $a->app).' '.$rp($a->profit))->implode(' · ') }}</span>
+                                    <span class="sub">{{ $customer->apps->map(fn ($a) => MutationLedger::appLabel($a->app).' '.$rp($a->profit))->implode(' · ') }}</span>
                                 </td>
                                 <td class="num">{{ number_format((int) $customer->trx, 0, ',', '.') }}</td>
                                 <td class="num">{{ $rp($customer->service) }}</td>
@@ -160,7 +166,7 @@
             </div>
 
             <div class="small text-muted mt-3">
-                Laba = fee layanan + fee payment gateway − biaya Duitku (+ biaya langganan, − bonus referral).
+                Laba = fee layanan + fee payment gateway − biaya Duitku (+ sewa paket, − bonus referral). Sewa dihitung saat paket dibeli.
                 Biaya Duitku QRIS dihitung dari tarif default di Payment Gateway; biaya transfer dari pengaturan Disbursement.
                 Koreksi saldo admin bukan laba: masuk {{ $rp($adjustment['in']) }}, keluar {{ $rp($adjustment['out']) }} di periode ini.
             </div>

@@ -192,9 +192,14 @@ class MutationLedger
         'catalog' => 'Toko Online',
         'withdrawal' => 'Tarik Saldo',
         'disbursement' => 'Disbursement',
-        'subscription' => 'Biaya Langganan (paket)',
         'referral' => 'Bonus Referral (biaya)',
     ];
+
+    /** Nama tampilan aplikasi; sewa paket = "Sewa <aplikasi>". */
+    public static function appLabel(string $app): string
+    {
+        return str_starts_with($app, 'sewa:') ? 'Sewa '.substr($app, 5) : (self::APPS[$app] ?? $app);
+    }
 
     /**
      * Laba bizbos per aplikasi & per pelanggan untuk satu periode. Sumber:
@@ -206,7 +211,7 @@ class MutationLedger
      *
      * @return array{apps: \Illuminate\Support\Collection, customers: \Illuminate\Support\Collection, adjustment: array{in: int, out: int}}
      */
-    public function profit(?CarbonInterface $from, ?CarbonInterface $until): array
+    public function profit(?CarbonInterface $from, ?CarbonInterface $until, ?string $customer = null): array
     {
         $gateway = \App\Models\PaymentGatewaySetting::duitku();
         $qris = "'".implode("','", array_map(fn ($m) => preg_replace('/[^A-Z0-9]/', '', $m), $gateway->qrisMethods()))."'";
@@ -221,23 +226,26 @@ class MutationLedger
             ->whereIn('w.type', ['deposit', 'invoice_payment', 'ticket_sale', 'catalog_sale']), 'w.created_at')
             ->selectRaw("CAST(CASE w.type WHEN 'deposit' THEN 'topup' WHEN 'ticket_sale' THEN 'ticket' WHEN 'catalog_sale' THEN 'catalog'
                     ELSE CASE WHEN w.reference_type = ? THEN 'invoice_bulk'
-                        WHEN i.source = 'api' THEN 'invoice_api' WHEN i.source = 'form' THEN 'invoice_form' ELSE 'invoice_dashboard' END END AS CHAR(20)) AS app,
+                        WHEN i.source = 'api' THEN 'invoice_api' WHEN i.source = 'form' THEN 'invoice_form' ELSE 'invoice_dashboard' END END AS CHAR(160)) AS app,
                 w.user_id, 1 AS trx, {$num('w.paid_amount')} AS gross,
                 {$num('w.paid_amount')} - {$num('w.amount')} - {$num('w.method_fee')} AS service, {$num('w.method_fee')} AS gateway,
                 CASE WHEN w.payment_method IN ({$qris}) THEN CEIL(w.paid_amount * {$pct} / 100) ELSE 0 END AS duitku, 0 AS extra", [InvoiceCheckout::class]);
 
         $withdrawals = $period(DB::table('wallet_withdrawals as x')->where('x.status', WalletWithdrawal::STATUS_SUCCESS), 'x.processed_at')
-            ->selectRaw("CAST('withdrawal' AS CHAR(20)) AS app, x.user_id, 1 AS trx, {$num('x.amount')} AS gross, {$num('x.fee')} AS service, 0 AS gateway,
+            ->selectRaw("CAST('withdrawal' AS CHAR(160)) AS app, x.user_id, 1 AS trx, {$num('x.amount')} AS gross, {$num('x.fee')} AS service, 0 AS gateway,
                 {$num('COALESCE(x.duitku_fee, 0)')} AS duitku, 0 AS extra");
 
         $disbursements = $period(DB::table('disbursements as x')->join('user_branches as b', 'b.id', '=', 'x.branch_id')
             ->where('x.status', Disbursement::STATUS_SUCCESS), 'x.processed_at')
-            ->selectRaw("CAST('disbursement' AS CHAR(20)) AS app, b.user_id, 1 AS trx, {$num('x.amount')} AS gross, {$num('x.fee')} AS service, 0 AS gateway,
+            ->selectRaw("CAST('disbursement' AS CHAR(160)) AS app, b.user_id, 1 AS trx, {$num('x.amount')} AS gross, {$num('x.fee')} AS service, 0 AS gateway,
                 {$num('COALESCE(x.duitku_fee, 0)')} AS duitku, 0 AS extra");
 
         // Paket dibayar dari saldo: seluruhnya pendapatan. Bonus referral: biaya bizbos (negatif).
-        $wallet = $period(DB::table('wallet_transactions as w')->whereIn('w.type', ['purchase', 'referral_bonus']), 'w.created_at')
-            ->selectRaw("CAST(CASE w.type WHEN 'purchase' THEN 'subscription' ELSE 'referral' END AS CHAR(20)) AS app, w.user_id, 1 AS trx,
+        // Sewa: pembelian paket dipecah per aplikasi yang disewa (paket -> kategori aplikasi), app = "sewa:<nama aplikasi>".
+        $wallet = $period(DB::table('wallet_transactions as w')->whereIn('w.type', ['purchase', 'referral_bonus'])
+            ->leftJoin('vouchers as v', fn ($j) => $j->on('v.id', '=', 'w.reference_id')->where('w.reference_type', \App\Models\Voucher::class))
+            ->leftJoin('packages as k', 'k.id', '=', 'v.package_id')->leftJoin('category_applications as ca', 'ca.id', '=', 'k.category_application_id'), 'w.created_at')
+            ->selectRaw("CAST(CASE w.type WHEN 'purchase' THEN CONCAT('sewa:', COALESCE(ca.name, 'Lainnya')) ELSE 'referral' END AS CHAR(160)) AS app, w.user_id, 1 AS trx,
                 {$num('w.amount')} AS gross, 0 AS service, 0 AS gateway, 0 AS duitku,
                 CASE w.type WHEN 'purchase' THEN {$num('w.amount')} ELSE -{$num('w.amount')} END AS extra");
 
@@ -248,6 +256,8 @@ class MutationLedger
         $apps = (clone $all)->groupBy('app')->selectRaw("app, {$sum}")->get()->keyBy('app');
 
         $customers = (clone $all)->leftJoin('users as u', 'u.id', '=', 'p.user_id')->leftJoin('user_companies as c', 'c.user_id', '=', 'p.user_id')
+            ->when(filled($customer), fn ($q) => $q->where(fn ($w) => $w->where('u.name', 'like', "%{$customer}%")
+                ->orWhere('u.email', 'like', "%{$customer}%")->orWhere('c.name', 'like', "%{$customer}%")))
             ->groupBy('p.user_id', 'u.name', 'u.email', 'c.name')
             ->selectRaw("p.user_id, u.name, u.email, c.name AS company, {$sum}")
             ->orderByDesc('profit')->limit(50)->get();

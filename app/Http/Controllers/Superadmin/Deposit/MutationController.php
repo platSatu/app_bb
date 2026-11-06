@@ -72,12 +72,12 @@ class MutationController extends Controller
     /** Tab Laba & Neraca: laba per aplikasi & per pelanggan untuk satu periode, neraca posisi saat ini. */
     public function profit(Request $request, MutationLedger $ledger): View
     {
-        $request->validate(['date_from' => ['nullable', 'date'], 'date_to' => ['nullable', 'date']]);
+        $request->validate(['date_from' => ['nullable', 'date'], 'date_to' => ['nullable', 'date'], 'customer' => ['nullable', 'string', 'max:100']]);
         $from = $request->date('date_from')?->startOfDay();
         $until = $request->date('date_to')?->endOfDay();
         $now = $ledger->summary(['search' => null, 'source' => null, 'direction' => null, 'from' => null, 'until' => null]);
 
-        return view('superadmin.deposit.profit', $ledger->profit($from, $until) + [
+        return view('superadmin.deposit.profit', $ledger->profit($from, $until, trim((string) $request->query('customer'))) + [
             'from' => $from,
             'until' => $until,
             'duitku' => $this->duitku(),
