@@ -225,14 +225,13 @@
                 </table>
             </div>
 
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-                <div class="small text-muted">
-                    @if ($narrowed)
-                        Saldo per baris disembunyikan saat memakai filter sumber/arah/cari.
-                    @endif
-                    Debit = nominal transfer + biaya Duitku per transfer (lihat pengaturan Disbursement). Uang masuk belum dikurangi potongan Duitku (MDR).
-                </div>
-                {{ $rows->links() }}
+            <div class="mt-3">{{ $rows->links() }}</div>
+
+            <div class="small text-muted mt-2">
+                @if ($narrowed)
+                    Saldo per baris disembunyikan saat memakai filter sumber/arah/cari.
+                @endif
+                Debit = nominal transfer + biaya Duitku per transfer (lihat pengaturan Disbursement). Uang masuk belum dikurangi potongan Duitku (MDR).
             </div>
         </div>
     </div>

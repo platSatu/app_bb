@@ -118,13 +118,12 @@
                 </table>
             </div>
 
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-                <div class="small text-muted">
-                    {{ $type === 'callback'
-                        ? 'Setiap kabar dari Duitku tercatat, termasuk yang ditolak. "Sudah diproses sebelumnya" = kiriman ulang Duitku, aman.'
-                        : 'Webhook gagal dikirim ulang otomatis (1 menit, 5 menit, 30 menit, …). Isi kabar & balasan server pelanggan tidak ditampilkan.' }}
-                </div>
-                {{ $logs->links() }}
+            <div class="mt-3">{{ $logs->links() }}</div>
+
+            <div class="small text-muted mt-2">
+                {{ $type === 'callback'
+                    ? 'Setiap kabar dari Duitku tercatat, termasuk yang ditolak. "Sudah diproses sebelumnya" = kiriman ulang Duitku, aman.'
+                    : 'Webhook gagal dikirim ulang otomatis (1 menit, 5 menit, 30 menit, …). Isi kabar & balasan server pelanggan tidak ditampilkan.' }}
             </div>
         </div>
     </div>
