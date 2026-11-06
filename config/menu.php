@@ -341,6 +341,13 @@ return [
                         'active' => 'superadmin.tools.open-places.*',
                         'superadmin_only' => true,
                     ],
+                    // Calon pelanggan yang disimpan dari Open Places, dengan status follow-up.
+                    'superadmin.tools.prospects' => [
+                        'label' => 'Prospek',
+                        'route' => 'superadmin.tools.prospects.index',
+                        'active' => 'superadmin.tools.prospects.*',
+                        'superadmin_only' => true,
+                    ],
                 ],
             ],
             'settings' => [

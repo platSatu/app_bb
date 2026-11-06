@@ -50,23 +50,50 @@
                     @endif
                 </div>
 
+                @php($open = $provider === 'open')
+                {{-- Open Places: centang lalu unduh ke Excel (dari hasil yang tampil, tidak memakai kuota). --}}
+                @if ($open && count($result['places']))
+                    <form method="POST" action="{{ route('superadmin.tools.open-places.export') }}" id="places-export" class="d-flex justify-content-end gap-2 mb-2">
+                        @csrf
+                        <button type="submit" formaction="{{ route('superadmin.tools.open-places.save') }}" class="btn btn-sm btn-primary"><i class="ri-bookmark-line"></i> Simpan ke Prospek (<span data-selected>{{ count($result['places']) }}</span>)</button>
+                        <button type="submit" class="btn btn-sm btn-success"><i class="ri-file-excel-2-line"></i> Download Excel</button>
+                    </form>
+                @endif
+
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light text-nowrap">
-                            <tr><th>#</th><th>Nama</th><th>Alamat</th><th>Telepon</th><th>Rating</th><th class="text-end">Aksi</th></tr>
+                            <tr>
+                                @if ($open)
+                                    <th><input type="checkbox" class="form-check-input" data-check-all checked title="Pilih semua"></th>
+                                @endif
+                                <th>#</th><th>Nama</th><th>Alamat</th><th>Telepon</th>
+                                <th>{{ $open ? 'Jarak' : 'Rating' }}</th><th class="text-end">Aksi</th>
+                            </tr>
                         </thead>
                         <tbody class="small">
                             @forelse ($result['places'] as $i => $place)
                                 <tr @class(['opacity-50' => $place['closed']])>
+                                    @if ($open)
+                                        <td><input type="checkbox" class="form-check-input" name="rows[]" form="places-export" value="{{ json_encode($place) }}" checked></td>
+                                    @endif
                                     <td class="text-muted">{{ $i + 1 }}</td>
                                     <td class="fw-semibold" style="min-width: 180px">
                                         {{ $place['name'] }}
                                         @if ($place['closed']) <span class="badge bg-secondary ms-1">Tutup</span> @endif
+                                        @if (! empty($place['category'])) <div class="text-muted fw-normal">{{ $place['category'] }}</div> @endif
                                     </td>
-                                    <td style="min-width: 240px">{{ $place['address'] ?? '-' }}</td>
+                                    <td style="min-width: 240px">
+                                        {{ $place['address'] ?? '-' }}
+                                        @if ($open && ($place['city'] || $place['province']))
+                                            <div class="text-muted">{{ collect([$place['city'], $place['province'], $place['postal_code']])->filter()->implode(', ') }}</div>
+                                        @endif
+                                    </td>
                                     <td class="text-nowrap">{{ $place['phone'] ?? '-' }}</td>
                                     <td class="text-nowrap">
-                                        @if ($place['rating'])
+                                        @if ($open)
+                                            {{ $place['distance_km'] !== null ? $place['distance_km'].' km' : '-' }}
+                                        @elseif ($place['rating'])
                                             <i class="ri-star-fill text-warning"></i> {{ number_format($place['rating'], 1) }}
                                             <span class="text-muted">({{ number_format($place['rating_count'], 0, ',', '.') }})</span>
                                         @else
@@ -86,13 +113,38 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="6" class="text-center text-muted py-4">Tidak ada hasil. Coba kata kunci atau lokasi lain.</td></tr>
+                                <tr><td colspan="{{ $open ? 7 : 6 }}" class="text-center text-muted py-4">Tidak ada hasil. Coba kata kunci lain (mis. kursus, bimbel, LPK) atau lokasi lain.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
-                <p class="text-muted small mt-3 mb-0">{{ $provider === 'open' ? 'Data dari Open Places API (Overture Maps). Tombol peta membuka lokasi di Google Maps.' : 'Data dari Google Maps.' }}</p>
+                <p class="text-muted small mt-3 mb-0">{{ $open
+                    ? 'Data dari Open Places API (Overture Maps). Hanya tempat yang namanya / kategorinya memuat kata kunci secara utuh. Excel berisi kolom lengkap: kategori, alamat, kota, provinsi, kode pos, telepon, WhatsApp, website, koordinat, jarak, link peta.'
+                    : 'Data dari Google Maps. Ketentuan Google tidak mengizinkan data Places diunduh / disimpan.' }}</p>
             </div>
         </div>
+
+        @if ($open)
+            <script>
+                (function () {
+                    var all = document.querySelector('[data-check-all]');
+                    var boxes = Array.prototype.slice.call(document.querySelectorAll('input[name="rows[]"]'));
+                    var count = document.querySelector('[data-selected]');
+                    var buttons = Array.prototype.slice.call(document.querySelectorAll('#places-export button'));
+                    var form = document.getElementById('places-export');
+                    if (!all || !form) return;
+                    var update = function () {
+                        var n = boxes.filter(function (b) { return b.checked; }).length;
+                        count.textContent = n;
+                        buttons.forEach(function (b) { b.disabled = n === 0; });
+                        all.checked = n === boxes.length;
+                        all.indeterminate = n > 0 && n < boxes.length;
+                    };
+                    all.addEventListener('change', function () { boxes.forEach(function (b) { b.checked = all.checked; }); update(); });
+                    boxes.forEach(function (b) { b.addEventListener('change', update); });
+                    update();
+                })();
+            </script>
+        @endif
     @endif
 @endsection

@@ -1,0 +1,173 @@
+@extends('layouts.dashboard')
+
+@section('title', 'Prospek')
+@section('page-section', 'Tools')
+
+@php
+    use App\Models\Prospect;
+@endphp
+
+@push('styles')
+    <style>
+        .prospect-table { font-size: .875rem; }
+        .prospect-table th { font-weight: 600; white-space: nowrap; }
+        .prospect-table .sub { display: block; font-size: .78rem; color: var(--bs-secondary-color, #6c757d); margin-top: 2px; }
+        .prospect-edit td { background: var(--bs-tertiary-bg, #f8f9fa); }
+    </style>
+@endpush
+
+@section('content')
+    <div class="card">
+        <div class="card-body">
+            {{-- Jumlah per status; klik untuk menyaring. --}}
+            <ul class="nav nav-pills mb-3 flex-wrap">
+                <li class="nav-item">
+                    <a class="nav-link {{ request('status') ? '' : 'active' }}" href="{{ route('superadmin.tools.prospects.index', request()->except('status', 'page')) }}">Semua <span class="badge bg-light text-dark ms-1">{{ $counts->sum() }}</span></a>
+                </li>
+                @foreach (Prospect::STATUSES as $key => [$label])
+                    <li class="nav-item">
+                        <a class="nav-link {{ request('status') === $key ? 'active' : '' }}" href="{{ route('superadmin.tools.prospects.index', ['status' => $key] + request()->except('status', 'page')) }}">{{ $label }} <span class="badge bg-light text-dark ms-1">{{ $counts[$key] ?? 0 }}</span></a>
+                    </li>
+                @endforeach
+            </ul>
+
+            <form method="GET" class="row g-2 align-items-end mb-3">
+                @if (request('status')) <input type="hidden" name="status" value="{{ request('status') }}"> @endif
+                <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Cari</label>
+                    <input type="text" name="search" class="form-control" maxlength="100" value="{{ request('search') }}" placeholder="Nama, kategori, telepon, alamat">
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted mb-1">Kecamatan / Kota</label>
+                    <select name="city" class="form-select">
+                        <option value="">Semua</option>
+                        @foreach ($cities as $city)
+                            <option value="{{ $city }}" @selected(request('city') === $city)>{{ $city }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-12 col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-grow-1" title="Filter"><i class="ri-search-line"></i></button>
+                    <a href="{{ route('superadmin.tools.prospects.export', request()->except('page')) }}" class="btn btn-success" title="Download Excel (sesuai filter)"><i class="ri-file-excel-2-line"></i></a>
+                    @if (request()->hasAny(['search', 'city', 'status']))
+                        <a href="{{ route('superadmin.tools.prospects.index') }}" class="btn btn-outline-danger" title="Hapus filter"><i class="ri-close-line"></i></a>
+                    @endif
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 prospect-table">
+                    <thead class="table-light">
+                        <tr><th>Nama</th><th>Alamat</th><th>Kontak</th><th>Rating</th><th>Status</th><th class="text-end">Aksi</th></tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($prospects as $prospect)
+                            <tr @class(['opacity-50' => $prospect->is_closed])>
+                                <td style="min-width: 200px">
+                                    <span class="fw-semibold">{{ $prospect->name }}</span>
+                                    @if ($prospect->is_closed) <span class="badge bg-secondary ms-1">Tutup</span> @endif
+                                    <span class="sub">{{ $prospect->category ?: '-' }}</span>
+                                </td>
+                                <td style="min-width: 220px">
+                                    {{ $prospect->address ?: '-' }}
+                                    <span class="sub">{{ collect([$prospect->city, $prospect->province, $prospect->postal_code])->filter()->implode(', ') }}</span>
+                                </td>
+                                <td class="text-nowrap">
+                                    {{ $prospect->phone ?: '-' }}
+                                    @if ($prospect->email) <span class="sub">{{ $prospect->email }}</span> @endif
+                                    @if ($prospect->opening_hours) <span class="sub"><i class="ri-time-line"></i> {{ $prospect->opening_hours }}</span> @endif
+                                </td>
+                                <td class="text-nowrap">
+                                    @if ($prospect->rating)
+                                        <i class="ri-star-fill text-warning"></i> {{ number_format($prospect->rating, 1) }}
+                                        <span class="text-muted">({{ number_format((int) $prospect->rating_count, 0, ',', '.') }})</span>
+                                    @else
+                                        -
+                                    @endif
+                                </td>
+                                <td>
+                                    <span class="badge {{ $prospect->statusBadge() }}">{{ $prospect->statusLabel() }}</span>
+                                    @if ($prospect->notes) <span class="sub text-truncate" style="max-width: 200px" title="{{ $prospect->notes }}">{{ $prospect->notes }}</span> @endif
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    @if ($prospect->whatsapp)
+                                        <a href="https://wa.me/{{ $prospect->whatsapp }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success" title="WhatsApp"><i class="ri-whatsapp-line"></i></a>
+                                    @endif
+                                    @if ($prospect->website)
+                                        <a href="{{ $prospect->website }}" target="_blank" rel="noopener nofollow" class="btn btn-sm btn-outline-secondary" title="Website"><i class="ri-global-line"></i></a>
+                                    @endif
+                                    @if ($prospect->maps_url)
+                                        <a href="{{ $prospect->maps_url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary" title="Buka di Google Maps (lihat rating, ulasan, jam buka)"><i class="ri-map-pin-line"></i></a>
+                                    @endif
+                                    <button type="button" class="btn btn-sm btn-outline-dark" data-bs-toggle="collapse" data-bs-target="#edit-{{ $prospect->id }}" title="Ubah status & lengkapi data"><i class="ri-edit-line"></i></button>
+                                </td>
+                            </tr>
+                            <tr class="collapse prospect-edit" id="edit-{{ $prospect->id }}">
+                                <td colspan="6">
+                                    <form method="POST" action="{{ route('superadmin.tools.prospects.update', $prospect) }}" class="row g-2 align-items-end">
+                                        @csrf
+                                        @method('PUT')
+                                        <div class="col-6 col-md-2">
+                                            <label class="form-label small text-muted mb-1">Status</label>
+                                            <select name="status" class="form-select form-select-sm">
+                                                @foreach (Prospect::STATUSES as $key => [$label])
+                                                    <option value="{{ $key }}" @selected($prospect->status === $key)>{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-6 col-md-2">
+                                            <label class="form-label small text-muted mb-1">Telepon / WA</label>
+                                            <input type="text" name="phone" class="form-control form-control-sm" maxlength="30" value="{{ $prospect->phone }}">
+                                        </div>
+                                        <div class="col-6 col-md-2">
+                                            <label class="form-label small text-muted mb-1">Rating</label>
+                                            <input type="number" name="rating" class="form-control form-control-sm" min="0" max="5" step="0.1" value="{{ $prospect->rating }}">
+                                        </div>
+                                        <div class="col-6 col-md-2">
+                                            <label class="form-label small text-muted mb-1">Jumlah ulasan</label>
+                                            <input type="number" name="rating_count" class="form-control form-control-sm" min="0" value="{{ $prospect->rating_count }}">
+                                        </div>
+                                        <div class="col-12 col-md-4">
+                                            <label class="form-label small text-muted mb-1">Jam buka</label>
+                                            <input type="text" name="opening_hours" class="form-control form-control-sm" maxlength="300" value="{{ $prospect->opening_hours }}" placeholder="mis. Senin–Sabtu 08.00–20.00">
+                                        </div>
+                                        <div class="col-12 col-md-3">
+                                            <label class="form-label small text-muted mb-1">Email</label>
+                                            <input type="email" name="email" class="form-control form-control-sm" maxlength="150" value="{{ $prospect->email }}">
+                                        </div>
+                                        <div class="col-12 col-md-3">
+                                            <label class="form-label small text-muted mb-1">Website</label>
+                                            <input type="url" name="website" class="form-control form-control-sm" maxlength="300" value="{{ $prospect->website }}" placeholder="https://">
+                                        </div>
+                                        <div class="col-12 col-md-4">
+                                            <label class="form-label small text-muted mb-1">Catatan</label>
+                                            <input type="text" name="notes" class="form-control form-control-sm" maxlength="2000" value="{{ $prospect->notes }}" placeholder="mis. minta demo minggu depan">
+                                        </div>
+                                        <div class="col-12 col-md-2 d-flex gap-2">
+                                            <button type="submit" class="btn btn-sm btn-primary flex-grow-1">Simpan</button>
+                                        </div>
+                                    </form>
+                                    <form method="POST" action="{{ route('superadmin.tools.prospects.destroy', $prospect) }}" class="mt-2" onsubmit="return confirm('Hapus prospek {{ e(addslashes($prospect->name)) }}?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-link text-danger p-0"><i class="ri-delete-bin-line"></i> Hapus prospek ini</button>
+                                        @if ($prospect->contacted_at) <span class="small text-muted ms-3">Pertama dihubungi {{ $prospect->contacted_at->translatedFormat('d M Y H:i') }}</span> @endif
+                                    </form>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" class="text-center text-muted py-4">Belum ada prospek. Simpan dari Tools › Open Places.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-3">{{ $prospects->links() }}</div>
+
+            <div class="small text-muted mt-2">
+                Rating, jumlah ulasan & jam buka diisi manual (lihat lewat tombol peta), karena data Google tidak boleh disimpan otomatis.
+                Excel berisi semua kolom sesuai filter.
+            </div>
+        </div>
+    </div>
+@endsection

@@ -19,6 +19,7 @@ use App\Http\Controllers\Superadmin\PaymentGateway\PaymentGatewayController;
 use App\Http\Controllers\Superadmin\Referral\ReferralController;
 use App\Http\Controllers\Superadmin\Role\RoleController;
 use App\Http\Controllers\Superadmin\Tools\GooglePlacesController;
+use App\Http\Controllers\Superadmin\Tools\ProspectController;
 use App\Http\Controllers\Superadmin\User\UserController;
 use App\Http\Controllers\Superadmin\Voucher\VoucherController;
 use App\Http\Controllers\Superadmin\Withdrawal\BankAccountController;
@@ -223,6 +224,20 @@ Route::middleware(['auth', 'superadmin'])
             ->defaults('provider', 'open')
             ->middleware(['permission:superadmin.tools.open-places,view', 'throttle:20,1'])
             ->name('tools.open-places.index');
+        Route::post('tools/open-places/export', [GooglePlacesController::class, 'export'])
+            ->middleware(['permission:superadmin.tools.open-places,view', 'throttle:20,1'])
+            ->name('tools.open-places.export');
+        Route::post('tools/open-places/save', [GooglePlacesController::class, 'save'])
+            ->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:20,1'])
+            ->name('tools.open-places.save');
+
+        // Tools › Prospek: hasil Open Places yang disimpan, untuk follow-up.
+        Route::controller(ProspectController::class)->prefix('tools/prospects')->name('tools.prospects.')->group(function () {
+            Route::get('/', 'index')->middleware('permission:superadmin.tools.prospects,view')->name('index');
+            Route::get('export', 'export')->middleware(['permission:superadmin.tools.prospects,view', 'throttle:10,1'])->name('export');
+            Route::put('{prospect}', 'update')->middleware('permission:superadmin.tools.prospects,manage')->name('update');
+            Route::delete('{prospect}', 'destroy')->middleware('permission:superadmin.tools.prospects,manage')->name('destroy');
+        });
 
         Route::resource('roles', RoleController::class)
             ->except('show')

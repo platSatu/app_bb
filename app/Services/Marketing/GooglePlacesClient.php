@@ -132,8 +132,17 @@ class GooglePlacesClient
             });
         }
 
+        // Open Places mencocokkan potongan kata ("les" ikut menangkap "Sales", "Styles"): hanya ambil yang setiap
+        // kata kuncinya muncul utuh di nama atau kategori.
+        $words = array_filter(preg_split('/\s+/u', mb_strtolower($query)));
+        $matches = function (array $p) use ($words) {
+            $text = mb_strtolower(($p['name'] ?? '').' '.str_replace('_', ' ', implode(' ', [$p['category'] ?? '', ...($p['categories'] ?? [])])));
+
+            return collect($words)->every(fn ($word) => preg_match('/(?<![\p{L}\p{N}])'.preg_quote($word, '/').'(?![\p{L}\p{N}])/u', $text));
+        };
+
         return [
-            'places' => collect($response->json('results', []))->map(fn (array $p) => $this->mapPlace([
+            'places' => collect($response->json('results', []))->filter($matches)->map(fn (array $p) => $this->mapPlace([
                 'id' => $p['place_id'] ?? null,
                 'displayName' => ['text' => $p['name'] ?? '-'],
                 'formattedAddress' => $p['address']['formatted'] ?? null,
@@ -141,7 +150,16 @@ class GooglePlacesClient
                 'websiteUri' => $p['website'] ?? null,
                 'googleMapsUri' => isset($p['lat'], $p['lon']) ? "https://www.google.com/maps/search/?api=1&query={$p['lat']},{$p['lon']}" : null,
                 'businessStatus' => ($p['operating_status'] ?? null) === 'closed' ? 'CLOSED_PERMANENTLY' : null,
-            ]))->all(),
+            ]) + [
+                // Kolom tambahan Open Places (untuk tabel & Excel).
+                'category' => ucfirst(str_replace('_', ' ', (string) ($p['category'] ?? ''))) ?: null,
+                'city' => $p['address']['locality'] ?? null,
+                'province' => $p['address']['region'] ?? null,
+                'postal_code' => $p['address']['postal_code'] ?? null,
+                'lat' => $p['lat'] ?? null,
+                'lon' => $p['lon'] ?? null,
+                'distance_km' => isset($p['distance_mi']) ? round($p['distance_mi'] * 1.609, 1) : null,
+            ])->values()->all(),
             'next_page_token' => null,
         ];
     }
