@@ -46,6 +46,7 @@ class WalletWithdrawal extends Model
         return [
             'amount' => 'integer',
             'fee' => 'integer',
+            'duitku_fee' => 'integer',
             'net_amount' => 'integer',
             'duitku_response' => 'array',
             'approved_at' => 'datetime',

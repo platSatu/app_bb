@@ -50,6 +50,7 @@ class Disbursement extends Model
         return [
             'amount' => 'integer',
             'fee' => 'integer',
+            'duitku_fee' => 'integer',
             'net_amount' => 'integer',
             'duitku_response' => 'array',
             'held_at' => 'datetime',

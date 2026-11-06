@@ -22,6 +22,7 @@ class DisbursementSettingRequest extends FormRequest
             'production_email' => ['nullable', 'email', 'max:255'],
             'production_secret_key' => ['nullable', 'string', 'max:255'],
             'withdrawal_fee' => ['required', 'integer', 'min:0', 'max:100000'],
+            'duitku_fee' => ['required', 'integer', 'min:0', 'max:100000'],
             'min_amount' => ['required', 'integer', 'min:10000', 'max:100000000'],
             'is_active' => ['nullable', 'boolean'],
         ];

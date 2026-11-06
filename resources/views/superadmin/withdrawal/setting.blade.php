@@ -40,13 +40,25 @@
                         @error('withdrawal_fee') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
                     <div class="col-md-3">
+                        <label for="duitku_fee" class="form-label">Biaya Duitku per Transfer (Rp)</label>
+                        <input type="number" id="duitku_fee" name="duitku_fee" min="0" max="100000"
+                            class="form-control @error('duitku_fee') is-invalid @enderror" value="{{ old('duitku_fee', $setting->duitku_fee) }}">
+                        @error('duitku_fee') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <div class="form-text">Hanya untuk laporan admin, tidak terlihat user.</div>
+                    </div>
+                    <div class="col-md-3">
                         <label for="min_amount" class="form-label">Minimal Tarik Saldo (Rp)</label>
                         <input type="number" id="min_amount" name="min_amount" min="10000"
                             class="form-control @error('min_amount') is-invalid @enderror" value="{{ old('min_amount', $setting->min_amount) }}">
                         @error('min_amount') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
-                    <div class="col-md-3 d-flex align-items-end">
-                        <div class="form-check form-switch mb-2">
+                    <div class="col-12 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                        {{-- Diisi JS dari dua isian biaya: keuntungan bizbos per transfer. --}}
+                        <div class="small" data-profit>
+                            Biaya ke user <b data-profit-fee></b> − Biaya Duitku <b data-profit-duitku></b> =
+                            <b data-profit-result></b> keuntungan bizbos per transfer
+                        </div>
+                        <div class="form-check form-switch mb-0">
                             <input type="hidden" name="is_active" value="0">
                             <input class="form-check-input" type="checkbox" role="switch" id="is_active" name="is_active" value="1" @checked(old('is_active', $setting->is_active))>
                             <label class="form-check-label" for="is_active">Tarik saldo aktif</label>
@@ -90,4 +102,24 @@
             </form>
         </div>
     </div>
+    <script>
+        (function () {
+            var box = document.querySelector('[data-profit]');
+            if (!box) return;
+            var fee = document.getElementById('withdrawal_fee'), duitku = document.getElementById('duitku_fee');
+            var rp = function (v) { return 'Rp ' + Math.abs(v).toLocaleString('id-ID'); };
+            function update() {
+                var f = parseInt(fee.value, 10) || 0, d = parseInt(duitku.value, 10) || 0, profit = f - d;
+                box.querySelector('[data-profit-fee]').textContent = rp(f);
+                box.querySelector('[data-profit-duitku]').textContent = rp(d);
+                var result = box.querySelector('[data-profit-result]');
+                result.textContent = (profit < 0 ? '−' : '') + rp(profit);
+                result.className = profit < 0 ? 'text-danger' : 'text-success';
+                box.lastChild.textContent = profit < 0 ? ' RUGI per transfer — naikkan biaya ke user.' : ' keuntungan bizbos per transfer';
+            }
+            fee.addEventListener('input', update);
+            duitku.addEventListener('input', update);
+            update();
+        })();
+    </script>
 @endsection

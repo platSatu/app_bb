@@ -162,6 +162,7 @@ class DisbursementService
                 'reference' => $this->uniqueReference(),
                 'amount' => $amount,
                 'fee' => $setting->withdrawal_fee,
+                'duitku_fee' => $setting->duitku_fee, // laporan admin: biaya Duitku saat ini
                 'net_amount' => $net,
                 'bank_code' => $locked->bank_code,
                 'bank_name' => $locked->bank_name,

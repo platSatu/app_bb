@@ -36,28 +36,75 @@
         .mutasi-stat .value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
         .mutasi-src { font-size: .8rem; }
         .mutasi-src a { text-decoration: none; }
+        .mutasi-live .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #adb5bd; margin-right: 4px; vertical-align: middle; }
+        .mutasi-live .live-dot.on { background: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, .18); }
+        .mutasi-live .live-dot.off { background: #dc2626; }
     </style>
 @endpush
 
 @section('content')
-    {{-- Ringkasan untuk filter yang sama dengan tabel. --}}
-    <div class="row g-3 mb-3">
-        @foreach ([
-            ['Kredit · uang masuk', $rp($summary['credit']), 'credit', $summary['credit_count'].' pembayaran · '.$period],
-            ['Debit · uang keluar', $rp($summary['debit']), 'debit', $summary['debit_count'].' transfer · '.$period],
-            ['Saldo tercatat', $rp($summary['balance']), '', ($until ? 'Per '.$until : 'Saat ini').' · kredit − debit semua sumber'],
-            ['Pendapatan fee bizbos', $rp($summary['fee']), '', 'Fee invoice, tiket, tarik saldo & disbursement · '.$period],
-        ] as [$label, $value, $tone, $note])
-            <div class="col-sm-6 col-xl-3">
-                <div class="card h-100 mb-0 mutasi-stat">
-                    <div class="card-body">
-                        <div class="label">{{ $label }}</div>
-                        <div class="value {{ $tone === 'credit' ? 'text-success' : ($tone === 'debit' ? 'text-danger' : '') }}">{{ $value }}</div>
-                        <div class="small text-muted">{{ $note }}</div>
-                    </div>
+    {{-- Saldo asli Duitku vs saldo tercatat bizbos: diperbarui otomatis tiap 30 detik (tanpa tombol). --}}
+    <div class="card mb-3 mutasi-live" data-live-url="{{ route('superadmin.mutations.duitku-balance') }}">
+        <div class="card-body">
+            <div class="row g-3 align-items-center">
+                <div class="col-sm-6 col-xl-3 mutasi-stat">
+                    <div class="label"><span class="live-dot" data-live-dot></span> Saldo Duitku <span data-live-mode></span></div>
+                    <div class="value" data-live-balance>…</div>
+                    <div class="small text-muted" data-live-effective>Mengambil saldo dari Duitku…</div>
+                </div>
+                <div class="col-sm-6 col-xl-3 mutasi-stat">
+                    <div class="label">Saldo tercatat bizbos</div>
+                    <div class="value" data-live-recorded>{{ $rp($summary['balance_now']) }}</div>
+                    <div class="small text-muted">Kredit − debit semua sumber, saat ini</div>
+                </div>
+                <div class="col-sm-6 col-xl-3 mutasi-stat">
+                    <div class="label">Selisih (Duitku − tercatat)</div>
+                    <div class="value" data-live-diff>…</div>
+                    <div class="small text-muted" data-live-diff-note>Selisih = potongan Duitku pada uang masuk (MDR) + uang yang belum cair + top up/tarik manual di Duitku.</div>
+                </div>
+                <div class="col-sm-6 col-xl-3 mutasi-stat">
+                    <div class="label">Total saldo semua user</div>
+                    <div class="value">{{ $rp($summary['user_balance']) }}</div>
+                    <div class="small text-muted">Uang milik user yang wajib tersedia</div>
                 </div>
             </div>
-        @endforeach
+            <div class="small text-muted mt-2" data-live-time></div>
+        </div>
+    </div>
+
+    {{-- Ringkasan untuk filter yang sama dengan tabel. --}}
+    <div class="row g-3 mb-3">
+        <div class="col-sm-6 col-xl-3">
+            <div class="card h-100 mb-0 mutasi-stat"><div class="card-body">
+                <div class="label">Kredit · uang masuk</div>
+                <div class="value text-success">{{ $rp($summary['credit']) }}</div>
+                <div class="small text-muted">{{ $summary['credit_count'] }} pembayaran · {{ $period }}</div>
+            </div></div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="card h-100 mb-0 mutasi-stat"><div class="card-body">
+                <div class="label">Debit · uang keluar</div>
+                <div class="value text-danger">{{ $rp($summary['debit']) }}</div>
+                <div class="small text-muted">{{ $summary['debit_count'] }} transfer, termasuk biaya Duitku · {{ $period }}</div>
+            </div></div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="card h-100 mb-0 mutasi-stat"><div class="card-body">
+                <div class="label">Saldo tercatat</div>
+                <div class="value">{{ $rp($summary['balance']) }}</div>
+                <div class="small text-muted">{{ $until ? 'Per '.$until : 'Saat ini' }} · kredit − debit semua sumber</div>
+            </div></div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="card h-100 mb-0 mutasi-stat"><div class="card-body">
+                <div class="label">Keuntungan bizbos</div>
+                <div class="value {{ $summary['profit'] < 0 ? 'text-danger' : '' }}">{{ $summary['profit'] < 0 ? '−' : '' }}{{ $rp(abs($summary['profit'])) }}</div>
+                <div class="small text-muted">
+                    Fee pembayaran {{ $rp($summary['fee_in']) }} + fee transfer {{ $rp($summary['fee_out']) }}
+                    − biaya Duitku transfer {{ $rp($summary['duitku_fee']) }} · {{ $period }}
+                </div>
+            </div></div>
+        </div>
     </div>
 
     <div class="card mb-3">
@@ -172,7 +219,11 @@
                                 <td class="num">
                                     @if ($row->direction === 'debit')
                                         <span class="debit">−{{ $rp($row->amount) }}</span>
-                                        @if ($row->fee > 0) <span class="sub">fee {{ $rp($row->fee) }}</span> @endif
+                                        {{-- Rincian khusus admin: transfer + biaya Duitku; fee ditagih ke user & untungnya. --}}
+                                        <span class="sub">transfer {{ $rp($row->transfer) }} · Duitku {{ $rp($row->duitku_fee) }}</span>
+                                        @if ($row->fee > 0)
+                                            <span class="sub">fee user {{ $rp($row->fee) }} · untung {{ $row->fee < $row->duitku_fee ? '−' : '' }}{{ $rp(abs($row->fee - $row->duitku_fee)) }}</span>
+                                        @endif
                                     @else
                                         <span class="nil">—</span>
                                     @endif
@@ -192,11 +243,52 @@
                     @if ($narrowed)
                         Saldo per baris disembunyikan saat memakai filter sumber/arah/cari.
                     @endif
-                    Saldo tercatat belum dikurangi potongan Duitku (MDR & biaya transfer); bandingkan dengan saldo asli di dashboard Duitku.
-                    Total saldo user saat ini: {{ $rp($summary['user_balance']) }}.
+                    Debit = nominal transfer + biaya Duitku per transfer (lihat pengaturan Disbursement). Uang masuk belum dikurangi potongan Duitku (MDR).
                 </div>
                 {{ $rows->links() }}
             </div>
         </div>
     </div>
+
+    <script>
+        (function () {
+            var box = document.querySelector('[data-live-url]');
+            if (!box) return;
+            var url = box.getAttribute('data-live-url'), timer = null;
+            var $ = function (sel) { return box.querySelector(sel); };
+            var rp = function (v) { return (v < 0 ? '−' : '') + 'Rp ' + Math.abs(v).toLocaleString('id-ID'); };
+
+            function render(data) {
+                $('[data-live-dot]').className = 'live-dot ' + (data.ok ? 'on' : 'off');
+                if (!data.ok) {
+                    $('[data-live-effective]').textContent = data.message || 'Saldo Duitku belum bisa dicek.';
+                    return;
+                }
+                $('[data-live-mode]').textContent = data.sandbox ? '(sandbox)' : '';
+                $('[data-live-balance]').textContent = rp(data.balance);
+                $('[data-live-effective]').textContent = 'Efektif (bisa dipakai transfer): ' + rp(data.effective);
+                $('[data-live-recorded]').textContent = rp(data.recorded);
+                var diff = $('[data-live-diff]');
+                diff.textContent = rp(data.difference);
+                diff.className = 'value ' + (data.difference < 0 ? 'text-danger' : '');
+                // Saldo Duitku lebih kecil dari yang seharusnya: tanda ada yang perlu dicek.
+                if (data.difference < 0) {
+                    $('[data-live-diff-note]').textContent = 'Saldo Duitku LEBIH KECIL dari catatan bizbos. Cek transfer "Sedang Dicek", refund, atau uang yang belum cair.';
+                }
+                $('[data-live-time]').textContent = 'Diperbarui otomatis tiap 30 detik · terakhir ' + new Date(data.checked_at).toLocaleTimeString('id-ID');
+            }
+
+            function load() {
+                if (document.hidden) return;
+                fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+                    .then(function (r) { return r.json().catch(function () { return { ok: false }; }); })
+                    .then(render)
+                    .catch(function () { render({ ok: false, message: 'Koneksi terputus, mencoba lagi…' }); });
+            }
+
+            load();
+            timer = setInterval(load, 30000);
+            document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
+        })();
+    </script>
 @endsection

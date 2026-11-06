@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Mutasi rekening Duitku bizbos (superadmin › Deposit › Mutasi), seperti mutasi di dashboard Duitku:
  *  Kredit = uang yang benar-benar dibayar lewat Duitku (status lunas, termasuk yang "perlu refund" karena uangnya tetap masuk).
- *  Debit  = uang yang benar-benar keluar lewat Duitku Disbursement (transfer berhasil).
+ *  Debit  = uang yang benar-benar keluar lewat Duitku Disbursement (transfer berhasil): nominal transfer + biaya Duitku.
  *
  * Sumber diambil langsung dari tabel transaksi masing-masing (bukan dari saldo user), satu baris = satu pembayaran/transfer:
  *  - deposits            : Top up saldo (awalan selain TIX/ORD/INV/TGH)
@@ -59,37 +59,37 @@ class MutationLedger
         $topUp = DB::table('deposits as d')->join('users as u', 'u.id', '=', 'd.user_id')
             ->where('d.status', Deposit::STATUS_SUCCESS)->whereNotNull('d.paid_at')
             ->selectRaw("d.paid_at AS at, {$credit} AS direction, CAST('topup' AS CHAR(20)) AS source, d.reference_number AS reference,
-                u.name AS party, u.email AS party_note, d.payment_method AS method, d.amount AS amount, 0 AS fee, CAST(NULL AS CHAR(20)) AS flag");
+                u.name AS party, u.email AS party_note, d.payment_method AS method, d.amount AS amount, 0 AS transfer, 0 AS fee, 0 AS duitku_fee, CAST(NULL AS CHAR(20)) AS flag");
 
         $invoices = DB::table('invoice_payments as p')->join('invoices as i', 'i.id', '=', 'p.invoice_id')
             ->leftJoin('user_companies as c', 'c.id', '=', 'i.company_id')
             ->whereIn('p.status', [InvoicePayment::STATUS_PAID, InvoicePayment::STATUS_REFUND_NEEDED])->whereNotNull('p.paid_at')
             ->selectRaw("p.paid_at AS at, {$credit} AS direction,
                 CAST(CASE i.source WHEN 'api' THEN 'invoice_api' WHEN 'form' THEN 'invoice_form' ELSE 'invoice_dashboard' END AS CHAR(20)) AS source,
-                i.number AS reference, c.name AS party, i.customer_name AS party_note, p.payment_method AS method, p.amount AS amount,
-                CASE WHEN p.status = ? THEN i.fee ELSE 0 END AS fee,
+                i.number AS reference, c.name AS party, i.customer_name AS party_note, p.payment_method AS method, p.amount AS amount, 0 AS transfer,
+                CASE WHEN p.status = ? THEN i.fee ELSE 0 END AS fee, 0 AS duitku_fee,
                 CASE WHEN p.status = ? THEN 'refund' END AS flag", [InvoicePayment::STATUS_PAID, InvoicePayment::STATUS_REFUND_NEEDED]);
 
         $bulk = DB::table('invoice_checkouts as k')->join('user_branches as b', 'b.id', '=', 'k.branch_id')
             ->leftJoin('user_companies as c', 'c.id', '=', 'b.company_id')->leftJoin('users as u', 'u.id', '=', 'k.user_id')
             ->whereIn('k.status', [InvoiceCheckout::STATUS_PAID, InvoiceCheckout::STATUS_REFUND_NEEDED])->whereNotNull('k.paid_at')
             ->selectRaw("k.paid_at AS at, {$credit} AS direction, CAST('invoice_bulk' AS CHAR(20)) AS source, k.merchant_order_id AS reference,
-                c.name AS party, u.name AS party_note, k.payment_method AS method, k.amount AS amount, k.fee AS fee,
+                c.name AS party, u.name AS party_note, k.payment_method AS method, k.amount AS amount, 0 AS transfer, k.fee AS fee, 0 AS duitku_fee,
                 CASE WHEN k.status = ? THEN 'refund' END AS flag", [InvoiceCheckout::STATUS_REFUND_NEEDED]);
 
         // Tiket gratis (total 0) tidak lewat Duitku.
         $tickets = DB::table('ticket_orders as t')->leftJoin('user_companies as c', 'c.id', '=', 't.company_id')
             ->whereIn('t.status', [TicketOrder::STATUS_PAID, TicketOrder::STATUS_REFUND_NEEDED])->whereNotNull('t.paid_at')->where('t.total', '>', 0)
             ->selectRaw("t.paid_at AS at, {$credit} AS direction, CAST('ticket' AS CHAR(20)) AS source, t.reference AS reference,
-                c.name AS party, t.name AS party_note, t.payment_method AS method, t.total AS amount,
-                CASE WHEN t.status = ? THEN t.fee ELSE 0 END AS fee,
+                c.name AS party, t.name AS party_note, t.payment_method AS method, t.total AS amount, 0 AS transfer,
+                CASE WHEN t.status = ? THEN t.fee ELSE 0 END AS fee, 0 AS duitku_fee,
                 CASE WHEN t.status = ? THEN 'refund' END AS flag", [TicketOrder::STATUS_PAID, TicketOrder::STATUS_REFUND_NEEDED]);
 
         // Transfer manual ke rekening toko tidak lewat Duitku, jadi tidak dihitung.
         $catalog = DB::table('catalog_orders as o')->leftJoin('user_companies as c', 'c.id', '=', 'o.company_id')
             ->where('o.payment_type', CatalogOrder::PAYMENT_ONLINE)->whereNotNull('o.paid_at')
             ->selectRaw("o.paid_at AS at, {$credit} AS direction, CAST('catalog' AS CHAR(20)) AS source, o.reference AS reference,
-                c.name AS party, o.name AS party_note, o.payment_method AS method, o.total AS amount, 0 AS fee,
+                c.name AS party, o.name AS party_note, o.payment_method AS method, o.total AS amount, 0 AS transfer, 0 AS fee, 0 AS duitku_fee,
                 CASE WHEN o.payment_note IS NOT NULL THEN 'check' END AS flag");
 
         // Debit = yang ditransfer ke rekening (net). Biaya tarik/disbursement tetap di Duitku bizbos -> kolom fee.
@@ -97,14 +97,14 @@ class MutationLedger
             ->where('w.status', WalletWithdrawal::STATUS_SUCCESS)
             ->selectRaw("COALESCE(w.processed_at, w.updated_at) AS at, {$debit} AS direction, CAST('withdrawal' AS CHAR(20)) AS source, w.reference AS reference,
                 u.name AS party, CONCAT(w.bank_name, ' •••', w.account_last4, ' a.n. ', w.account_name) AS party_note, CAST(NULL AS CHAR(20)) AS method,
-                w.net_amount AS amount, w.fee AS fee, CAST(NULL AS CHAR(20)) AS flag");
+                w.net_amount + COALESCE(w.duitku_fee, 0) AS amount, w.net_amount AS transfer, w.fee AS fee, COALESCE(w.duitku_fee, 0) AS duitku_fee, CAST(NULL AS CHAR(20)) AS flag");
 
         $disbursements = DB::table('disbursements as s')->join('user_branches as b', 'b.id', '=', 's.branch_id')
             ->leftJoin('user_companies as c', 'c.id', '=', 'b.company_id')
             ->where('s.status', Disbursement::STATUS_SUCCESS)
             ->selectRaw("COALESCE(s.processed_at, s.updated_at) AS at, {$debit} AS direction, CAST('disbursement' AS CHAR(20)) AS source, s.reference AS reference,
                 c.name AS party, CONCAT(s.bank_name, ' •••', s.account_last4, ' a.n. ', s.account_name) AS party_note, CAST(UPPER(s.source) AS CHAR(20)) AS method,
-                s.net_amount AS amount, s.fee AS fee, CAST(NULL AS CHAR(20)) AS flag");
+                s.net_amount + COALESCE(s.duitku_fee, 0) AS amount, s.net_amount AS transfer, s.fee AS fee, COALESCE(s.duitku_fee, 0) AS duitku_fee, CAST(NULL AS CHAR(20)) AS flag");
 
         return DB::query()->fromSub(
             $topUp->unionAll($invoices)->unionAll($bulk)->unionAll($tickets)->unionAll($catalog)->unionAll($withdrawals)->unionAll($disbursements),
@@ -159,7 +159,9 @@ class MutationLedger
             SUM(CASE WHEN direction = 'credit' THEN 1 ELSE 0 END) AS credit_count,
             COALESCE(SUM(CASE WHEN direction = 'debit' THEN amount END), 0) AS debit,
             SUM(CASE WHEN direction = 'debit' THEN 1 ELSE 0 END) AS debit_count,
-            COALESCE(SUM(fee), 0) AS fee,
+            COALESCE(SUM(CASE WHEN direction = 'credit' THEN fee END), 0) AS fee_in,
+            COALESCE(SUM(CASE WHEN direction = 'debit' THEN fee END), 0) AS fee_out,
+            COALESCE(SUM(duitku_fee), 0) AS duitku_fee,
             COALESCE(SUM(CASE WHEN flag = 'refund' THEN amount END), 0) AS refund,
             SUM(CASE WHEN flag = 'refund' THEN 1 ELSE 0 END) AS refund_count")->first();
 
@@ -169,11 +171,18 @@ class MutationLedger
         return [
             'credit' => (int) $totals->credit, 'credit_count' => (int) $totals->credit_count,
             'debit' => (int) $totals->debit, 'debit_count' => (int) $totals->debit_count,
-            'fee' => (int) $totals->fee,
+            // Fee yang ditagih bizbos: dari pembayaran masuk (invoice, tiket) & dari transfer keluar (tarik saldo, disbursement).
+            'fee_in' => (int) $totals->fee_in,
+            'fee_out' => (int) $totals->fee_out,
+            'duitku_fee' => (int) $totals->duitku_fee,
+            // Untung bersih transfer = fee transfer - biaya Duitku transfer. Fee masuk belum dikurangi MDR Duitku.
+            'profit' => (int) $totals->fee_in + (int) $totals->fee_out - (int) $totals->duitku_fee,
             'refund' => (int) $totals->refund, 'refund_count' => (int) $totals->refund_count,
             'per_source' => $perSource,
             // Saldo tercatat per akhir rentang (atau saat ini), dari semua sumber.
-            'balance' => $this->balanceUntil($filters['until'] ?? null),
+            'balance' => $balance = $this->balanceUntil($filters['until'] ?? null),
+            // Saldo tercatat saat ini (untuk dibandingkan dengan saldo asli Duitku), tidak terpengaruh filter tanggal.
+            'balance_now' => isset($filters['until']) ? $this->balanceUntil() : $balance,
             // Transfer yang hasilnya belum pasti: bisa jadi uangnya sudah keluar dari Duitku.
             'review' => [
                 'withdrawal' => WalletWithdrawal::where('status', WalletWithdrawal::STATUS_NEEDS_REVIEW)->count(),

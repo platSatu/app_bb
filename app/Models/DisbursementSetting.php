@@ -9,7 +9,7 @@ class DisbursementSetting extends Model
 {
     use HasUuids;
 
-    protected $fillable = ['mode', 'sandbox_user_id', 'sandbox_email', 'production_user_id', 'production_email', 'withdrawal_fee', 'min_amount'];
+    protected $fillable = ['mode', 'sandbox_user_id', 'sandbox_email', 'production_user_id', 'production_email', 'withdrawal_fee', 'duitku_fee', 'min_amount'];
 
     protected $hidden = ['sandbox_secret_key', 'production_secret_key'];
 
@@ -19,6 +19,7 @@ class DisbursementSetting extends Model
             'sandbox_secret_key' => 'encrypted',
             'production_secret_key' => 'encrypted',
             'withdrawal_fee' => 'integer',
+            'duitku_fee' => 'integer',
             'min_amount' => 'integer',
             'is_active' => 'boolean',
         ];
