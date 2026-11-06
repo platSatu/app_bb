@@ -12,6 +12,9 @@ use Throwable;
 /** Pemanggilan API Duitku (pola tanda tangan sama dengan teleios yang sudah berjalan). */
 class DuitkuClient
 {
+    /** Fee asli per order dari cek status terakhir (unpaidReason), dipakai creditPayment di proses yang sama. */
+    private static array $fees = [];
+
     public function __construct(private readonly PaymentGatewaySetting $setting)
     {
     }
@@ -124,7 +127,19 @@ class DuitkuClient
             return 'Nominal di Duitku tidak sama dengan deposit.';
         }
 
+        // Fee yang dipotong Duitku dari uang masuk ini (contoh: BCA VA 5000.00, BSI VA 3000.00).
+        self::$fees[$merchantOrderId] = (int) round((float) ($data['fee'] ?? 0));
+
         return null;
+    }
+
+    /** Fee asli Duitku untuk order yang baru dikonfirmasi lunas; null kalau belum dicek di proses ini. Sekali pakai. */
+    public static function confirmedFee(string $merchantOrderId): ?int
+    {
+        $fee = self::$fees[$merchantOrderId] ?? null;
+        unset(self::$fees[$merchantOrderId]);
+
+        return $fee;
     }
 
     private function baseUrl(): string

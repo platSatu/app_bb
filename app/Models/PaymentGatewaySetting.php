@@ -172,16 +172,16 @@ class PaymentGatewaySetting extends Model
      * Potongan payment gateway untuk SEMUA aplikasi (invoice, API, Google Form, tiket, toko online, top up),
      * dipanggil hanya dari WalletService::creditPayment. Urutan: biaya pelanggan untuk metode ini ->
      * biaya pelanggan "semua metode" -> default (potongan QRIS).
-     * Biaya pelanggan tidak pernah lebih kecil dari fee Duitku yang ditanggung bizbos (QRIS), supaya
-     * aturan khusus (mis. flat Rp 5.000) tidak membuat bizbos rugi pada pembayaran QRIS bernominal besar.
+     * Biaya pelanggan tidak pernah lebih kecil dari fee yang dipotong Duitku ($duitkuFee = fee asli dari cek status
+     * Duitku; kalau tidak ada, perkiraan QRIS), supaya bizbos tidak pernah menanggung fee Duitku.
      */
-    public function paymentFeeFor(string $userId, ?string $method, int $paidAmount): int
+    public function paymentFeeFor(string $userId, ?string $method, int $paidAmount, ?int $duitkuFee = null): int
     {
         $rules = PaymentFeeRule::where('user_id', $userId)->get();
         $method = $method ? strtoupper($method) : null;
         $rule = ($method ? $rules->firstWhere('payment_method', $method) : null) ?? $rules->firstWhere('payment_method', null);
 
-        return max((int) $rule?->feeFor($paidAmount), $this->qrisFeeFor($method, $paidAmount));
+        return max((int) $rule?->feeFor($paidAmount), $duitkuFee ?? $this->qrisFeeFor($method, $paidAmount));
     }
 
     public function isReady(): bool

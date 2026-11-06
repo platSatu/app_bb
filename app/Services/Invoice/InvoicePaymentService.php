@@ -317,6 +317,7 @@ class InvoicePaymentService
                     .' (biaya layanan Rp '.number_format($fee, 0, ',', '.').')'.($accepted ? '' : ' · PEMBAYARAN GANDA, mohon refund ke customer'),
                 paymentMethod: $method,
                 availableAt: SettlementCalendar::availableAt($method),
+                duitkuFee: DuitkuClient::confirmedFee($lockedPayment->merchant_order_id),
             )?->amount : 0;
 
             $lockedPayment->forceFill([

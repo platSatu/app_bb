@@ -229,6 +229,7 @@ class InvoiceCheckoutService
                     .($refund ? ' · '.implode(', ', $refund).' SUDAH LUNAS SEBELUMNYA, mohon refund bagian ini' : ''),
                 paymentMethod: $method,
                 availableAt: SettlementCalendar::availableAt($method),
+                duitkuFee: DuitkuClient::confirmedFee($locked->merchant_order_id),
             )?->amount : 0;
             $fee = $locked->amount - $received; // biaya layanan + potongan payment gateway
             $given = 0;

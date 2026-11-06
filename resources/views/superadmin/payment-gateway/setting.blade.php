@@ -111,11 +111,11 @@
                 <div class="card border mt-4 mb-0">
                     <div class="card-body">
                         <h6 class="mb-1">Biaya Pembayaran Default · Potongan QRIS</h6>
-                        <p class="small text-muted mb-3">Berlaku untuk <b>semua aplikasi</b> yang menerima pembayaran Duitku (invoice, API, Google Form, tiket/pendaftaran, toko online, top up) dan semua pelanggan yang tidak punya biaya khusus di bawah. Dipotong dari nominal yang dibayar saat uangnya masuk ke saldo pelanggan. Metode lain tidak dipotong (fee-nya dibayar pembeli di Duitku). Berlaku untuk pembayaran berikutnya.</p>
+                        <p class="small text-muted mb-3">Berlaku untuk <b>semua aplikasi</b> yang menerima pembayaran Duitku (invoice, API, Google Form, tiket/pendaftaran, toko online, top up) dan semua pelanggan yang tidak punya biaya khusus di bawah. Berlaku untuk pembayaran berikutnya.</p>
                         <ul class="small text-muted mb-3 ps-3">
-                            <li>Isi sama persis dengan tarif QRIS Duitku Anda: potongan ini juga dicatat sebagai fee Duitku di Mutasi.</li>
-                            <li>Biaya per pelanggan tidak pernah lebih kecil dari potongan QRIS ini, supaya bizbos tidak menanggung selisih.</li>
-                            <li>Kode metode yang bukan kode resmi Duitku (kode baru) ikut dipotong seperti QRIS sampai ditambahkan ke daftar metode di atas.</li>
+                            <li><b>Fee asli Duitku</b> setiap transaksi (mis. BCA VA Rp 5.000, BSI VA Rp 3.000, QRIS 0,7%) diambil otomatis dari Duitku saat pembayaran dikonfirmasi, lalu dipotong dari uang yang masuk ke saldo pelanggan dan dicatat di Mutasi. bizbos tidak menanggung fee Duitku.</li>
+                            <li>Potongan QRIS di bawah hanya <b>cadangan</b> kalau Duitku tidak bisa ditanya. Isi sama dengan tarif QRIS Duitku Anda.</li>
+                            <li>Biaya per pelanggan tidak pernah lebih kecil dari fee asli Duitku. Isi lebih besar kalau bizbos ingin mengambil untung.</li>
                         </ul>
                         <div class="row g-3">
                             <div class="col-md-3">

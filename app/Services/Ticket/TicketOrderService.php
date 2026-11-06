@@ -468,6 +468,7 @@ class TicketOrderService
                     'Penjualan tiket '.$locked->reference.($locked->fee > 0 ? ' (dikurangi biaya layanan Rp '.number_format($locked->fee, 0, ',', '.').')' : ''),
                     paymentMethod: $locked->payment_method,
                     availableAt: SettlementCalendar::availableAt($locked->payment_method),
+                    duitkuFee: DuitkuClient::confirmedFee($locked->reference),
                 );
             }
 

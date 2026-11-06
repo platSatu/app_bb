@@ -294,6 +294,7 @@ class CatalogOrderService
                 'Penjualan katalog '.$locked->reference,
                 paymentMethod: $locked->payment_method,
                 availableAt: SettlementCalendar::availableAt($locked->payment_method),
+                duitkuFee: DuitkuClient::confirmedFee($locked->reference),
             );
 
             return 'paid';

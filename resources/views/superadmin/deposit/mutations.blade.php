@@ -234,7 +234,7 @@
                 @if ($narrowed)
                     Saldo per baris disembunyikan saat memakai filter sumber/arah/cari.
                 @endif
-                Kredit = yang masuk ke Duitku (sudah dikurangi fee QRIS yang ditanggung bizbos; transaksi sebelum 6 Nov 2026 tanpa catatan fee). Debit = nominal transfer + biaya Duitku per transfer.
+                Kredit = yang masuk ke Duitku (sudah dikurangi fee asli Duitku per transaksi; transaksi sebelum 6 Nov 2026 tanpa catatan fee). Debit = nominal transfer + biaya Duitku per transfer.
             </div>
         </div>
     </div>
@@ -264,7 +264,7 @@
                 diff.className = 'value ' + (data.difference < 0 ? 'text-danger' : '');
                 // Saldo Duitku lebih kecil dari yang seharusnya: tanda ada yang perlu dicek.
                 if (data.difference < 0) {
-                    $('[data-live-diff-note]').textContent = 'Saldo Duitku LEBIH KECIL dari catatan yang sudah cair. Cek transfer "Sedang Dicek", refund, atau metode QRIS yang belum terdaftar.';
+                    $('[data-live-diff-note]').textContent = 'Saldo Duitku LEBIH KECIL dari catatan yang sudah cair. Cek transfer "Sedang Dicek" atau refund.';
                 }
                 $('[data-live-time]').textContent = 'Diperbarui otomatis tiap 30 detik · terakhir ' + new Date(data.checked_at).toLocaleTimeString('id-ID');
             }

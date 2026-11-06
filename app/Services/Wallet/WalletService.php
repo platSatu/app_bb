@@ -99,11 +99,13 @@ class WalletService
      * @param  int  $paidAmount  nominal yang dibayar pembeli di Duitku (dasar potongan, disimpan sebagai bruto)
      * @return WalletTransaction|null null kalau setelah dipotong tidak ada yang masuk
      */
-    public function creditPayment(User $user, int $amount, int $paidAmount, string $type, string $idempotencyKey, ?Model $reference = null, ?string $description = null, ?string $paymentMethod = null, ?CarbonInterface $availableAt = null): ?WalletTransaction
+    public function creditPayment(User $user, int $amount, int $paidAmount, string $type, string $idempotencyKey, ?Model $reference = null, ?string $description = null, ?string $paymentMethod = null, ?CarbonInterface $availableAt = null, ?int $duitkuFee = null): ?WalletTransaction
     {
-        // Satu setting Payment Gateway untuk semua aplikasi: biaya pelanggan, kalau tidak ada: potongan QRIS default.
+        // Fee asli Duitku (dari cek status sebelum lunas, DuitkuClient::confirmedFee); kalau tidak ada, perkiraan QRIS.
         $gateway = PaymentGatewaySetting::duitku();
-        $fee = min($amount, $gateway->paymentFeeFor($user->getKey(), $paymentMethod, $paidAmount));
+        $duitkuFee ??= $gateway->qrisFeeFor($paymentMethod, $paidAmount);
+        // Satu setting Payment Gateway untuk semua aplikasi: biaya pelanggan, minimal sebesar fee Duitku.
+        $fee = min($amount, $gateway->paymentFeeFor($user->getKey(), $paymentMethod, $paidAmount, $duitkuFee));
 
         if ($fee > 0) {
             $description = trim(($description ?? '').' · potongan payment gateway Rp '.number_format($fee, 0, ',', '.'), ' ·');
@@ -114,7 +116,7 @@ class WalletService
         }
 
         // Fee yang dipotong Duitku dari uang masuk ini (ditanggung bizbos, mis. QRIS) ikut dicatat untuk Mutasi.
-        return $this->mutate($user, WalletTransaction::CREDIT, $amount - $fee, $type, $idempotencyKey, $reference, $description, null, $paymentMethod, $availableAt, $fee, $paidAmount, $gateway->qrisFeeFor($paymentMethod, $paidAmount));
+        return $this->mutate($user, WalletTransaction::CREDIT, $amount - $fee, $type, $idempotencyKey, $reference, $description, null, $paymentMethod, $availableAt, $fee, $paidAmount, $duitkuFee);
     }
 
     /** @throws InsufficientBalanceException */

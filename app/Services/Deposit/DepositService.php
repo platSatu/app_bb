@@ -167,6 +167,7 @@ class DepositService
                 'Top up '.$locked->reference_number,
                 paymentMethod: $locked->payment_method,
                 availableAt: SettlementCalendar::availableAt($locked->payment_method),
+                duitkuFee: DuitkuClient::confirmedFee($locked->reference_number),
             );
 
             return 'credited';
