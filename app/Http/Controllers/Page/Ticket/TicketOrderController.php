@@ -57,6 +57,9 @@ class TicketOrderController extends Controller
             'page' => $model,
             'order' => $item,
             'timeline' => $this->timeline($item),
+            // Yang benar-benar masuk saldo (sudah dipotong biaya payment gateway), dari riwayat saldo.
+            'received' => \App\Models\WalletTransaction::where('reference_type', $item->getMorphClass())->where('reference_id', $item->getKey())
+                ->where('type', \App\Models\WalletTransaction::TYPE_TICKET_SALE)->first(['amount', 'method_fee']),
             'routes' => $this->routes($request),
             'canManage' => $this->canManage($request),
         ]);

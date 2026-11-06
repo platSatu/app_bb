@@ -210,24 +210,41 @@ class InvoiceCheckoutService
 
             $items = $locked->items()->orderBy('invoice_id')->get();
             $invoices = Invoice::whereKey($items->pluck('invoice_id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
-            $fee = InvoiceSetting::current()->feeFor($locked->amount);
+            $serviceFee = InvoiceSetting::current()->feeFor($locked->amount);
+            $isOpen = fn ($invoice) => $invoice && in_array($invoice->status, [Invoice::STATUS_UNPAID, Invoice::STATUS_EXPIRED], true);
+            $refund = $items->reject(fn ($item) => $isOpen($invoices->get($item->invoice_id)))
+                ->map(fn ($item) => $invoices->get($item->invoice_id)?->number ?? $item->invoice_id)->values()->all();
+
+            // Saldo dikreditkan dulu (creditPayment memotong biaya payment gateway), lalu fee & "Diterima"
+            // diisi dari yang benar-benar masuk saldo. Sama dengan bayar satu invoice (InvoicePaymentService).
+            $received = $locked->amount - $serviceFee > 0 ? (int) $this->wallets->creditPayment(
+                $locked->branch->user,
+                $locked->amount - $serviceFee,
+                $locked->amount,
+                WalletTransaction::TYPE_INVOICE_PAYMENT,
+                'invoice-checkout:'.$locked->getKey(),
+                $locked,
+                'Pembayaran '.$items->count().' tagihan '.$locked->merchant_order_id.' Rp '.number_format($locked->amount, 0, ',', '.')
+                    .' (biaya layanan Rp '.number_format($serviceFee, 0, ',', '.').')'
+                    .($refund ? ' · '.implode(', ', $refund).' SUDAH LUNAS SEBELUMNYA, mohon refund bagian ini' : ''),
+                paymentMethod: $method,
+                availableAt: SettlementCalendar::availableAt($method),
+            )?->amount : 0;
+            $fee = $locked->amount - $received; // biaya layanan + potongan payment gateway
             $given = 0;
-            $refund = [];
 
             foreach ($items->values() as $index => $item) {
                 // Sisa pembulatan biaya masuk ke invoice terakhir, supaya jumlahnya pas.
                 $share = $index === $items->count() - 1 ? $fee - $given : intdiv($fee * $item->total, max(1, $locked->amount));
                 $given += $share;
                 $invoice = $invoices->get($item->invoice_id);
-                $accepted = $invoice && in_array($invoice->status, [Invoice::STATUS_UNPAID, Invoice::STATUS_EXPIRED], true);
+                $accepted = $isOpen($invoice);
 
                 if ($accepted) {
                     $invoice->forceFill([
                         'status' => Invoice::STATUS_PAID, 'late_fee' => $item->late_fee, 'paid_amount' => $item->total,
                         'fee' => $share, 'net_amount' => $item->total - $share, 'payment_method' => $method, 'paid_at' => now(),
                     ])->save();
-                } else {
-                    $refund[] = $invoice?->number ?? $item->invoice_id;
                 }
 
                 $item->forceFill(['result' => $accepted ? 'paid' : 'refund_needed'])->save();
@@ -238,26 +255,9 @@ class InvoiceCheckoutService
                 'payment_method' => $method,
                 'provider_reference' => $providerReference ?? $locked->provider_reference,
                 'fee' => $fee,
-                'net_amount' => $locked->amount - $fee,
+                'net_amount' => $received,
                 'paid_at' => now(),
             ])->save();
-
-            if ($locked->net_amount > 0) {
-                // Potongan QRIS (kalau dibayar QRIS) ditangani creditPayment().
-                $this->wallets->creditPayment(
-                    $locked->branch->user,
-                    $locked->net_amount,
-                    $locked->amount,
-                    WalletTransaction::TYPE_INVOICE_PAYMENT,
-                    'invoice-checkout:'.$locked->getKey(),
-                    $locked,
-                    'Pembayaran '.$items->count().' tagihan '.$locked->merchant_order_id.' Rp '.number_format($locked->amount, 0, ',', '.')
-                        .' (biaya layanan Rp '.number_format($fee, 0, ',', '.').')'
-                        .($refund ? ' · '.implode(', ', $refund).' SUDAH LUNAS SEBELUMNYA, mohon refund bagian ini' : ''),
-                    paymentMethod: $method,
-                    availableAt: SettlementCalendar::availableAt($method),
-                );
-            }
 
             return $refund ? 'refund_needed' : 'paid';
         });

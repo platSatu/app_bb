@@ -32,7 +32,7 @@
                 @if ($invoice->expires_at) <dt class="col-5 col-md-3">Berlaku s.d.</dt><dd class="col-7 col-md-9">{{ $invoice->expires_at->translatedFormat('d F Y H:i') }}</dd> @endif
                 @if ($invoice->isPaid())
                     <dt class="col-5 col-md-3">Dibayar</dt><dd class="col-7 col-md-9">{{ $rp($invoice->paid_amount) }} · {{ $invoice->paid_at?->translatedFormat('d M Y H:i') }} {{ $invoice->payment_method ? '('.$invoice->payment_method.')' : '' }}</dd>
-                    <dt class="col-5 col-md-3">Biaya layanan</dt><dd class="col-7 col-md-9">− {{ $rp($invoice->fee) }}</dd>
+                    <dt class="col-5 col-md-3">Biaya layanan &amp; payment gateway</dt><dd class="col-7 col-md-9">− {{ $rp($invoice->fee) }}</dd>
                     <dt class="col-5 col-md-3">Masuk saldo</dt><dd class="col-7 col-md-9 fw-semibold text-success">{{ $rp($invoice->net_amount) }}</dd>
                 @endif
                 @if ($invoice->cancel_reason) <dt class="col-5 col-md-3">Alasan batal</dt><dd class="col-7 col-md-9">{{ $invoice->cancel_reason }}</dd> @endif

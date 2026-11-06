@@ -303,6 +303,22 @@ class InvoicePaymentService
             $fee = InvoiceSetting::current()->feeFor($lockedPayment->amount);
             $net = $lockedPayment->amount - $fee;
 
+            // Saldo dikreditkan dulu: creditPayment() memotong biaya payment gateway (Payment Gateway › biaya
+            // per pelanggan / QRIS default). Fee & "Diterima" di invoice diisi dari yang BENAR-BENAR masuk saldo,
+            // supaya invoice, email, webhook & saldo selalu sama.
+            $received = $net > 0 ? (int) $this->wallets->creditPayment(
+                $invoice->branch->user,
+                $net,
+                $lockedPayment->amount,
+                WalletTransaction::TYPE_INVOICE_PAYMENT,
+                'invoice-payment:'.$lockedPayment->getKey(),
+                $invoice,
+                'Invoice '.$invoice->number.' dibayar Rp '.number_format($lockedPayment->amount, 0, ',', '.')
+                    .' (biaya layanan Rp '.number_format($fee, 0, ',', '.').')'.($accepted ? '' : ' · PEMBAYARAN GANDA, mohon refund ke customer'),
+                paymentMethod: $method,
+                availableAt: SettlementCalendar::availableAt($method),
+            )?->amount : 0;
+
             $lockedPayment->forceFill([
                 'status' => $accepted ? InvoicePayment::STATUS_PAID : InvoicePayment::STATUS_REFUND_NEEDED,
                 'payment_method' => $method,
@@ -315,27 +331,12 @@ class InvoicePaymentService
                     'status' => Invoice::STATUS_PAID,
                     'late_fee' => $lockedPayment->late_fee,
                     'paid_amount' => $lockedPayment->amount,
-                    'fee' => $fee,
-                    'net_amount' => $net,
+                    // Fee = biaya layanan + potongan payment gateway.
+                    'fee' => $lockedPayment->amount - $received,
+                    'net_amount' => $received,
                     'payment_method' => $method,
                     'paid_at' => now(),
                 ])->save();
-            }
-
-            if ($net > 0) {
-                // Potongan QRIS (kalau dibayar QRIS) ditangani creditPayment(), sama untuk semua modul.
-                $this->wallets->creditPayment(
-                    $invoice->branch->user,
-                    $net,
-                    $lockedPayment->amount,
-                    WalletTransaction::TYPE_INVOICE_PAYMENT,
-                    'invoice-payment:'.$lockedPayment->getKey(),
-                    $invoice,
-                    'Invoice '.$invoice->number.' dibayar Rp '.number_format($lockedPayment->amount, 0, ',', '.')
-                        .' (biaya layanan Rp '.number_format($fee, 0, ',', '.').')'.($accepted ? '' : ' · PEMBAYARAN GANDA, mohon refund ke customer'),
-                    paymentMethod: $method,
-                    availableAt: SettlementCalendar::availableAt($method),
-                );
             }
 
             return $accepted ? 'paid' : 'refund_needed';

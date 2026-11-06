@@ -18,7 +18,7 @@
             <div class="fs-5 fw-bold">{{ $rp($totals['paid']) }}</div>
         </div></div></div>
         <div class="col-md-3"><div class="card mb-0 h-100"><div class="card-body">
-            <div class="text-muted small">Biaya layanan bizbos</div>
+            <div class="text-muted small">Biaya layanan &amp; payment gateway</div>
             <div class="fs-5 fw-bold text-muted">{{ $rp($totals['fee']) }}</div>
         </div></div></div>
         <div class="col-md-3"><div class="card mb-0 h-100"><div class="card-body">

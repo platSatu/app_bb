@@ -35,8 +35,11 @@
                                 <tr><td colspan="3" class="text-end">Biaya layanan {{ (float) $order->fee_percent }}% ({{ $order->buyerPaysFee() ? 'ditanggung pembeli' : 'ditanggung penyelenggara' }})</td><td class="text-end">{{ $rp($order->fee) }}</td></tr>
                             @endif
                             <tr><th colspan="3" class="text-end">Dibayar pembeli</th><th class="text-end">{{ $rp($order->total) }}</th></tr>
-                            @if ($order->fee > 0)
-                                <tr class="table-success"><th colspan="3" class="text-end">Masuk ke Saldo Anda</th><th class="text-end">{{ $rp($order->netAmount()) }}</th></tr>
+                            @if ($received?->method_fee)
+                                <tr><td colspan="3" class="text-end">Biaya payment gateway</td><td class="text-end">− {{ $rp($received->method_fee) }}</td></tr>
+                            @endif
+                            @if ($received || $order->fee > 0)
+                                <tr class="table-success"><th colspan="3" class="text-end">Masuk ke Saldo Anda</th><th class="text-end">{{ $rp($received?->amount ?? $order->netAmount()) }}</th></tr>
                             @endif
                         </tfoot>
                     </table>

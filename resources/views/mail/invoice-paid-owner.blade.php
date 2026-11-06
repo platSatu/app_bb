@@ -19,7 +19,7 @@ Invoice **{{ $invoice->number }}** dari **{{ $invoice->customer_name }}** sudah 
 | Denda keterlambatan | {{ $rp($invoice->late_fee) }} |
 @endif
 | Dibayar customer | {{ $rp($invoice->paid_amount) }} |
-| Biaya layanan bizbos | − {{ $rp($invoice->fee) }} |
+| Biaya layanan & payment gateway | − {{ $rp($invoice->fee) }} |
 | **Masuk ke saldo** | **{{ $rp($invoice->net_amount) }}** |
 </x-mail::table>
 
