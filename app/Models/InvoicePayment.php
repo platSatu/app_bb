@@ -30,7 +30,7 @@ class InvoicePayment extends Model
 
     protected function casts(): array
     {
-        return ['amount' => 'integer', 'late_fee' => 'integer', 'service_fee' => 'integer', 'expires_at' => 'datetime', 'paid_at' => 'datetime'];
+        return ['amount' => 'integer', 'late_fee' => 'integer', 'expires_at' => 'datetime', 'paid_at' => 'datetime'];
     }
 
     public function invoice(): BelongsTo

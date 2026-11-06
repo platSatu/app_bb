@@ -150,6 +150,8 @@ Route::middleware(['auth', 'superadmin'])
             ->group(function () {
                 Route::get('/', 'setting')->middleware('permission:superadmin.payment-gateway,view')->name('setting');
                 Route::put('/', 'updateSetting')->middleware('permission:superadmin.payment-gateway,manage')->name('setting.update');
+                Route::post('fee-rules', 'storeFeeRule')->middleware(['permission:superadmin.payment-gateway,manage', 'throttle:30,1'])->name('fee-rules.store');
+                Route::delete('fee-rules/{rule}', 'destroyFeeRule')->whereUuid('rule')->middleware('permission:superadmin.payment-gateway,manage')->name('fee-rules.destroy');
             });
 
         Route::controller(AiController::class)

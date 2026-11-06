@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Invoice;
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
-use App\Services\Invoice\InvoiceFees;
 use App\Services\Invoice\InvoicePaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -21,7 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class PublicInvoiceController extends Controller
 {
-    public function __construct(private readonly InvoicePaymentService $payments, private readonly InvoiceFees $fees)
+    public function __construct(private readonly InvoicePaymentService $payments)
     {
     }
 
@@ -51,8 +50,6 @@ class PublicInvoiceController extends Controller
             'origin' => $this->origin($request, $invoice),
             'returned' => $returned,
             'openPayment' => $openPayment,
-            // Biaya "ditanggung pembayar" (aturan per customer): order yang sedang terbuka memakai snapshot-nya.
-            'payerFee' => $invoice->isUnpaid() ? ($openPayment?->service_fee ?? $this->fees->payerFee($invoice->branch_id, $invoice->totalDue())) : null,
             // Timer di halaman: batas order Duitku yang sedang terbuka, kalau tidak ada: batas invoice (invoice API).
             // Hanya kalau masih di masa depan (yang sudah lewat tidak ditampilkan, supaya tidak memuat ulang terus).
             'deadline' => $invoice->isUnpaid() ? collect([$openPayment?->expires_at ?? $invoice->expires_at])->filter(fn ($d) => $d?->isFuture())->first() : null,

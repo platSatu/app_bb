@@ -145,6 +145,20 @@ class PaymentGatewaySetting extends Model
         return (int) ceil(round($paidAmount * $this->qrisFeePercent() / 100, 4));
     }
 
+    /**
+     * Potongan payment gateway untuk SEMUA aplikasi (invoice, API, Google Form, tiket, toko online, top up),
+     * dipanggil hanya dari WalletService::creditPayment. Urutan: biaya pelanggan untuk metode ini ->
+     * biaya pelanggan "semua metode" -> default (potongan QRIS).
+     */
+    public function paymentFeeFor(string $userId, ?string $method, int $paidAmount): int
+    {
+        $rules = PaymentFeeRule::where('user_id', $userId)->get();
+        $method = $method ? strtoupper($method) : null;
+        $rule = ($method ? $rules->firstWhere('payment_method', $method) : null) ?? $rules->firstWhere('payment_method', null);
+
+        return $rule ? $rule->feeFor($paidAmount) : $this->qrisFeeFor($method, $paidAmount);
+    }
+
     public function isReady(): bool
     {
         return $this->is_active && filled($this->merchantCode()) && filled($this->apiKey());

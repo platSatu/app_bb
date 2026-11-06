@@ -8,7 +8,6 @@ use App\Http\Controllers\Invoice\DocsController;
 use App\Http\Controllers\Invoice\InvoiceController;
 use App\Http\Controllers\Invoice\PublicInvoiceController;
 use App\Http\Controllers\Invoice\RegisterLinkController;
-use App\Http\Controllers\Superadmin\Invoice\InvoiceFeeRuleController;
 use App\Http\Controllers\Superadmin\Invoice\InvoiceSettingController;
 use Illuminate\Support\Facades\Route;
 
@@ -90,10 +89,5 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin/invoices')->name('
     Route::middleware('permission:superadmin.invoice-settings,manage')->group(function () {
         Route::get('settings/fee', [InvoiceSettingController::class, 'edit'])->name('settings');
         Route::put('settings/fee', [InvoiceSettingController::class, 'update'])->name('settings.update');
-
-        // 5 Nov 2026: biaya transaksi per customer & per metode (InvoiceFees).
-        Route::get('settings/fee-rules', [InvoiceFeeRuleController::class, 'index'])->name('settings.fee-rules.index');
-        Route::post('settings/fee-rules', [InvoiceFeeRuleController::class, 'store'])->middleware('throttle:30,1')->name('settings.fee-rules.store');
-        Route::delete('settings/fee-rules/{rule}', [InvoiceFeeRuleController::class, 'destroy'])->whereUuid('rule')->name('settings.fee-rules.destroy');
     });
 });

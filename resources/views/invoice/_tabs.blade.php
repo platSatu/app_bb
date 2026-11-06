@@ -1,6 +1,6 @@
 @php
     $tabs = $isAdmin
-        ? ['invoices' => ['List Invoice', 'ri-file-list-3-line', 'superadmin.invoices.index'], 'setting' => ['Biaya Invoice', 'ri-percent-line', 'superadmin.invoices.settings'], 'fee-rules' => ['Biaya per Customer', 'ri-user-settings-line', 'superadmin.invoices.settings.fee-rules.index']]
+        ? ['invoices' => ['List Invoice', 'ri-file-list-3-line', 'superadmin.invoices.index'], 'setting' => ['Biaya Invoice', 'ri-percent-line', 'superadmin.invoices.settings']]
         : [
             'invoices' => ['Semua Invoice', 'ri-file-list-3-line', 'invoices.index'],
             'batches' => ['Invoice Periode', 'ri-calendar-check-line', 'invoices.batches.index'],
@@ -8,7 +8,7 @@
             'api' => ['API & Integrasi', 'ri-plug-line', 'invoices.api.index'],
             'docs' => ['Dokumentasi', 'ri-book-open-line', 'invoices.docs'],
         ];
-    if ($isAdmin && ! auth()->user()->canAccess('superadmin.invoice-settings', 'manage')) unset($tabs['setting'], $tabs['fee-rules']);
+    if ($isAdmin && ! auth()->user()->canAccess('superadmin.invoice-settings', 'manage')) unset($tabs['setting']);
 @endphp
 
 <ul class="nav nav-tabs mb-3 flex-nowrap overflow-auto text-nowrap">

@@ -110,8 +110,8 @@
 
                 <div class="card border mt-4 mb-0">
                     <div class="card-body">
-                        <h6 class="mb-1">Potongan QRIS</h6>
-                        <p class="small text-muted mb-3">Biaya transaksi QRIS di Duitku ditanggung merchant (tidak bisa dibebankan ke customer). Setiap pembayaran yang dibayar dengan QRIS (top up, invoice, tagihan, tiket, katalog) dipotong persentase ini dari nominal yang dibayar, saat uangnya masuk ke saldo. Metode lain tidak dipotong. Berlaku untuk pembayaran berikutnya.</p>
+                        <h6 class="mb-1">Biaya Pembayaran Default · Potongan QRIS</h6>
+                        <p class="small text-muted mb-3">Berlaku untuk <b>semua aplikasi</b> yang menerima pembayaran Duitku (invoice, API, Google Form, tiket/pendaftaran, toko online, top up) dan semua pelanggan yang tidak punya biaya khusus di bawah. Dipotong dari nominal yang dibayar saat uangnya masuk ke saldo pelanggan. Metode lain tidak dipotong. Berlaku untuk pembayaran berikutnya.</p>
                         <div class="row g-3">
                             <div class="col-md-3">
                                 <label for="qris_fee_percent" class="form-label">Potongan (%)</label>
@@ -143,6 +143,94 @@
                 @endif
                 </fieldset>
             </form>
+        </div>
+    </div>
+
+    {{-- Biaya khusus per pelanggan: menimpa default di atas, untuk semua aplikasi pembayaran pelanggan itu. --}}
+    <div class="card" id="biaya-pelanggan">
+        <div class="card-body">
+            <h5 class="mb-1">Biaya per Pelanggan</h5>
+            <p class="text-muted small mb-3">
+                Menimpa biaya default untuk satu pelanggan, di semua aplikasinya. Urutan: aturan metode yang dibayar → aturan "Semua metode" pelanggan itu → biaya default di atas.
+            </p>
+
+            @if ($canManage)
+                <form method="POST" action="{{ route('superadmin.payment-gateway.fee-rules.store') }}" class="mb-4">
+                    @csrf
+                    <div class="row g-3">
+                        <div class="col-md-6 col-xl-4">
+                            <label for="fee_user_id" class="form-label">Pelanggan</label>
+                            <select id="fee_user_id" name="user_id" class="form-select @error('user_id') is-invalid @enderror" required>
+                                <option value="">Pilih pelanggan…</option>
+                                @foreach ($customers as $customer)
+                                    <option value="{{ $customer->id }}" @selected(old('user_id') === $customer->id)>{{ $customer->company?->name ?: $customer->name }} — {{ $customer->email }}</option>
+                                @endforeach
+                            </select>
+                            @error('user_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-md-6 col-xl-3">
+                            <label for="fee_payment_method" class="form-label">Metode</label>
+                            <select id="fee_payment_method" name="payment_method" class="form-select @error('payment_method') is-invalid @enderror">
+                                <option value="">Semua metode</option>
+                                @foreach ($setting->settlementMethods() as $code => $method)
+                                    <option value="{{ $code }}" @selected(old('payment_method') === $code)>{{ $method['name'] }} ({{ $code }})</option>
+                                @endforeach
+                            </select>
+                            @error('payment_method') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-sm-6 col-xl-2">
+                            <label for="fee_type" class="form-label">Jenis</label>
+                            <select id="fee_type" name="fee_type" class="form-select" required>
+                                @foreach (\App\Models\PaymentFeeRule::TYPE_LABELS as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('fee_type', 'percent') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-sm-6 col-xl-3">
+                            <label for="fee_value" class="form-label">Nilai</label>
+                            <input type="number" id="fee_value" name="fee_value" min="0" step="0.01" inputmode="decimal" placeholder="0"
+                                class="form-control @error('fee_value') is-invalid @enderror" value="{{ old('fee_value') }}" required>
+                            @error('fee_value') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top pt-3 mt-3">
+                        <div class="form-text m-0">Pelanggan + metode yang sama akan diperbarui (tidak dobel).</div>
+                        <button type="submit" class="btn btn-primary px-4"><i class="ri-save-line me-1"></i>Simpan Biaya</button>
+                    </div>
+                </form>
+            @endif
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-nowrap">
+                        <tr><th>Pelanggan</th><th>Metode</th><th>Biaya</th><th>Diubah</th>@if ($canManage)<th class="text-end">Aksi</th>@endif</tr>
+                    </thead>
+                    <tbody class="small">
+                        @forelse ($feeRules as $rule)
+                            <tr>
+                                <td>
+                                    {{ $rule->user?->company?->name ?: $rule->user?->name }}
+                                    <div class="text-muted">{{ $rule->user?->email }}</div>
+                                </td>
+                                <td>{{ $rule->payment_method ? (($setting->settlementMethods()[$rule->payment_method]['name'] ?? $rule->payment_method).' ('.$rule->payment_method.')') : 'Semua metode' }}</td>
+                                <td class="fw-semibold">{{ $rule->valueLabel() }}</td>
+                                <td class="text-muted text-nowrap">{{ $rule->updated_at?->translatedFormat('d M Y H:i') }}</td>
+                                @if ($canManage)
+                                    <td class="text-end">
+                                        <form method="POST" action="{{ route('superadmin.payment-gateway.fee-rules.destroy', $rule) }}" onsubmit="return confirm('Hapus biaya khusus ini? Pelanggan kembali ke biaya default.');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button class="btn btn-sm btn-outline-danger" title="Hapus"><i class="ri-delete-bin-line"></i></button>
+                                        </form>
+                                    </td>
+                                @endif
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="text-center text-muted py-4">Belum ada biaya khusus. Semua pelanggan memakai biaya default.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 @endsection

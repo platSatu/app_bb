@@ -5,7 +5,6 @@ namespace App\Services\Invoice;
 use App\Jobs\SendInvoiceWebhook;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
-use App\Models\InvoiceFeeRule;
 use App\Models\InvoiceSetting;
 use App\Models\PaymentCallback;
 use App\Models\PaymentGatewaySetting;
@@ -30,7 +29,7 @@ class InvoicePaymentService
     public const PREFIX = 'INV';
     private const EXPIRY_GRACE_MINUTES = 10;
 
-    public function __construct(private readonly WalletService $wallets, private readonly InvoiceService $invoices, private readonly InvoiceFees $fees)
+    public function __construct(private readonly WalletService $wallets, private readonly InvoiceService $invoices)
     {
     }
 
@@ -82,16 +81,12 @@ class InvoicePaymentService
             $total = $locked->totalDue();
             $setting = InvoiceSetting::current();
 
-            // 5 Nov 2026: biaya "ditanggung pembayar" (aturan per customer) ditambahkan ke yang dibayar ke Duitku.
-            $payerFee = $this->fees->payerFee($locked->branch_id, $total);
-            $charge = $total + ($payerFee ?? 0);
-
-            if ($charge < $setting->min_amount || $charge > $setting->max_amount) {
-                throw new RuntimeException($setting->limitMessage($charge).' Silakan hubungi penagih.');
+            if ($total < $setting->min_amount || $total > $setting->max_amount) {
+                throw new RuntimeException($setting->limitMessage($total).' Silakan hubungi penagih.');
             }
 
             // Order Duitku yang masih berlaku dengan nominal sama dipakai lagi, supaya tidak menumpuk.
-            $open = $locked->payments()->where('status', InvoicePayment::STATUS_PENDING)->where('amount', $charge)
+            $open = $locked->payments()->where('status', InvoicePayment::STATUS_PENDING)->where('amount', $total)
                 ->where('expires_at', '>', now()->addMinutes(2))->whereNotNull('payment_url')->latest()->first();
 
             if ($open) {
@@ -118,10 +113,8 @@ class InvoicePaymentService
             $payment->forceFill([
                 'invoice_id' => $locked->getKey(),
                 'merchant_order_id' => $this->uniqueOrderId(),
-                'amount' => $charge,
+                'amount' => $total,
                 'late_fee' => $total - $locked->amount,
-                'service_fee' => $payerFee,
-                'fee_bearer' => $payerFee !== null ? InvoiceFeeRule::BEARER_PAYER : null,
                 'status' => InvoicePayment::STATUS_PENDING,
                 'expires_at' => now()->addMinutes($minutes),
             ])->save();
@@ -147,8 +140,6 @@ class InvoicePaymentService
                 'items' => array_values(array_filter([
                     ['name' => Str::limit($invoice->description, 90, ''), 'price' => $invoice->amount, 'quantity' => 1],
                     $payment->late_fee > 0 ? ['name' => 'Denda keterlambatan', 'price' => $payment->late_fee, 'quantity' => 1] : null,
-                    // Jumlah item harus sama dengan paymentAmount (aturan Duitku).
-                    (int) $payment->service_fee > 0 ? ['name' => 'Biaya layanan', 'price' => (int) $payment->service_fee, 'quantity' => 1] : null,
                 ])),
                 'returnUrl' => $returnUrl,
                 'expiryMinutes' => max(1, (int) floor(now()->diffInSeconds($payment->expires_at, false) / 60)),
@@ -309,16 +300,7 @@ class InvoicePaymentService
             $invoice = Invoice::with('branch.user')->whereKey($lockedPayment->invoice_id)->lockForUpdate()->firstOrFail();
             // Invoice kedaluwarsa tetap diterima (customer memang membayar); sudah lunas/dibatalkan = perlu refund.
             $accepted = in_array($invoice->status, [Invoice::STATUS_UNPAID, Invoice::STATUS_EXPIRED], true);
-
-            // 5 Nov 2026: biaya per customer & metode (InvoiceFees). Snapshot pembayar dipakai apa adanya;
-            // aturan customer dihitung dari metode yang dilaporkan Duitku. Tanpa aturan = cara lama.
-            if ($lockedPayment->fee_bearer === InvoiceFeeRule::BEARER_PAYER) {
-                $fee = (int) $lockedPayment->service_fee;
-            } else {
-                $fee = $this->fees->merchantFee($invoice->branch_id, $method, $lockedPayment->amount);
-            }
-
-            $fee = min($lockedPayment->amount, $fee ?? InvoiceSetting::current()->feeFor($lockedPayment->amount));
+            $fee = InvoiceSetting::current()->feeFor($lockedPayment->amount);
             $net = $lockedPayment->amount - $fee;
 
             $lockedPayment->forceFill([

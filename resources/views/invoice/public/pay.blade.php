@@ -9,9 +9,7 @@
     $company = $invoice->company;
     $lateFee = $invoice->currentLateFee();
     $final = ! $invoice->isUnpaid();
-    // Biaya layanan yang ditanggung pembayar (aturan biaya per customer). Sudah lunas: selisih yang dibayar.
-    $serviceFee = $invoice->isPaid() ? max(0, $invoice->paid_amount - $invoice->amount - $invoice->late_fee) : (int) ($payerFee ?? 0);
-    $total = $invoice->isPaid() ? $invoice->paid_amount : $invoice->totalDue() + $serviceFee;
+    $total = $invoice->isPaid() ? $invoice->paid_amount : $invoice->totalDue();
     $returnBack = array_filter(['token' => $invoice->token, 'returned' => 1, 'popup' => $origin ? 1 : null, 'origin' => $origin]);
 @endphp
 <!DOCTYPE html>
@@ -236,9 +234,6 @@
             <div class="row desc"><span>{{ $invoice->description }}</span><span>{{ $rp($invoice->amount) }}</span></div>
             @if ($lateFee > 0)
                 <div class="row"><span>Denda keterlambatan</span><span>{{ $rp($lateFee) }}</span></div>
-            @endif
-            @if ($serviceFee > 0)
-                <div class="row"><span>Biaya layanan</span><span>{{ $rp($serviceFee) }}</span></div>
             @endif
             <div class="row total"><span>Total</span><span>{{ $rp($total) }}</span></div>
         </div>
