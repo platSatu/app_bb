@@ -102,7 +102,8 @@ class WalletService
     public function creditPayment(User $user, int $amount, int $paidAmount, string $type, string $idempotencyKey, ?Model $reference = null, ?string $description = null, ?string $paymentMethod = null, ?CarbonInterface $availableAt = null): ?WalletTransaction
     {
         // Satu setting Payment Gateway untuk semua aplikasi: biaya pelanggan, kalau tidak ada: potongan QRIS default.
-        $fee = min($amount, PaymentGatewaySetting::duitku()->paymentFeeFor($user->getKey(), $paymentMethod, $paidAmount));
+        $gateway = PaymentGatewaySetting::duitku();
+        $fee = min($amount, $gateway->paymentFeeFor($user->getKey(), $paymentMethod, $paidAmount));
 
         if ($fee > 0) {
             $description = trim(($description ?? '').' · potongan payment gateway Rp '.number_format($fee, 0, ',', '.'), ' ·');
@@ -112,7 +113,8 @@ class WalletService
             return null;
         }
 
-        return $this->mutate($user, WalletTransaction::CREDIT, $amount - $fee, $type, $idempotencyKey, $reference, $description, null, $paymentMethod, $availableAt, $fee, $paidAmount);
+        // Fee yang dipotong Duitku dari uang masuk ini (ditanggung bizbos, mis. QRIS) ikut dicatat untuk Mutasi.
+        return $this->mutate($user, WalletTransaction::CREDIT, $amount - $fee, $type, $idempotencyKey, $reference, $description, null, $paymentMethod, $availableAt, $fee, $paidAmount, $gateway->qrisFeeFor($paymentMethod, $paidAmount));
     }
 
     /** @throws InsufficientBalanceException */
@@ -127,7 +129,7 @@ class WalletService
             ->where('available_at', '>', now())->sum('amount');
     }
 
-    private function mutate(User $user, string $direction, int $amount, string $type, string $idempotencyKey, ?Model $reference, ?string $description, ?User $actor, ?string $paymentMethod = null, ?CarbonInterface $availableAt = null, int $methodFee = 0, ?int $paidAmount = null): WalletTransaction
+    private function mutate(User $user, string $direction, int $amount, string $type, string $idempotencyKey, ?Model $reference, ?string $description, ?User $actor, ?string $paymentMethod = null, ?CarbonInterface $availableAt = null, int $methodFee = 0, ?int $paidAmount = null, ?int $duitkuFee = null): WalletTransaction
     {
         if ($amount <= 0) {
             throw new InvalidArgumentException('Nominal harus lebih dari 0.');
@@ -135,7 +137,7 @@ class WalletService
 
         $this->walletFor($user);
 
-        return DB::transaction(function () use ($user, $direction, $amount, $type, $idempotencyKey, $reference, $description, $actor, $paymentMethod, $availableAt, $methodFee, $paidAmount) {
+        return DB::transaction(function () use ($user, $direction, $amount, $type, $idempotencyKey, $reference, $description, $actor, $paymentMethod, $availableAt, $methodFee, $paidAmount, $duitkuFee) {
             $wallet = Wallet::where('user_id', $user->getKey())->lockForUpdate()->firstOrFail();
 
             if ($existing = WalletTransaction::where('idempotency_key', $idempotencyKey)->first()) {
@@ -173,6 +175,7 @@ class WalletService
                 // Uang dari Duitku: yang dibayar pembeli (bruto) & potongan payment gateway. Bruto - amount = pendapatan bizbos.
                 'paid_amount' => $paidAmount,
                 'method_fee' => $methodFee,
+                'duitku_fee' => $duitkuFee,
             ]);
 
             $transaction->save();

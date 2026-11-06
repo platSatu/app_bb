@@ -55,14 +55,14 @@
                     <div class="small text-muted" data-live-effective>Mengambil saldo dari Duitku…</div>
                 </div>
                 <div class="col-sm-6 col-xl-3 mutasi-stat">
-                    <div class="label">Saldo tercatat bizbos</div>
-                    <div class="value" data-live-recorded>{{ $rp($summary['balance_now']) }}</div>
-                    <div class="small text-muted">Kredit − debit semua sumber, saat ini</div>
+                    <div class="label">Tercatat sudah cair</div>
+                    <div class="value" data-live-settled>{{ $rp($summary['balance_now'] - $summary['pending']) }}</div>
+                    <div class="small text-muted">Total tercatat <span data-live-recorded>{{ $rp($summary['balance_now']) }}</span> · menunggu cair <span data-live-pending>{{ $rp($summary['pending']) }}</span></div>
                 </div>
                 <div class="col-sm-6 col-xl-3 mutasi-stat">
-                    <div class="label">Selisih (Duitku − tercatat)</div>
+                    <div class="label">Selisih (Duitku − sudah cair)</div>
                     <div class="value" data-live-diff>…</div>
-                    <div class="small text-muted" data-live-diff-note>Selisih = potongan Duitku pada uang masuk (MDR) + uang yang belum cair + top up/tarik manual di Duitku.</div>
+                    <div class="small text-muted" data-live-diff-note>Seharusnya mendekati 0. Sisa selisih = transaksi lama sebelum fee QRIS dicatat, perkiraan tanggal cair, atau top up/tarik manual di Duitku.</div>
                 </div>
                 <div class="col-sm-6 col-xl-3 mutasi-stat">
                     <div class="label">Total saldo semua user</div>
@@ -203,6 +203,9 @@
                                 <td class="num">
                                     @if ($row->direction === 'credit')
                                         <span class="credit">+{{ $rp($row->amount) }}</span>
+                                        @if ($row->duitku_fee > 0)
+                                            <span class="sub">dibayar {{ $rp($row->amount + $row->duitku_fee) }} · fee Duitku {{ $rp($row->duitku_fee) }}</span>
+                                        @endif
                                     @else
                                         <span class="nil">—</span>
                                     @endif
@@ -231,7 +234,7 @@
                 @if ($narrowed)
                     Saldo per baris disembunyikan saat memakai filter sumber/arah/cari.
                 @endif
-                Debit = nominal transfer + biaya Duitku per transfer (lihat pengaturan Disbursement). Uang masuk belum dikurangi potongan Duitku (MDR).
+                Kredit = yang masuk ke Duitku (sudah dikurangi fee QRIS yang ditanggung bizbos; transaksi sebelum 6 Nov 2026 tanpa catatan fee). Debit = nominal transfer + biaya Duitku per transfer.
             </div>
         </div>
     </div>
@@ -254,12 +257,14 @@
                 $('[data-live-balance]').textContent = rp(data.balance);
                 $('[data-live-effective]').textContent = 'Efektif (bisa dipakai transfer): ' + rp(data.effective);
                 $('[data-live-recorded]').textContent = rp(data.recorded);
+                $('[data-live-pending]').textContent = rp(data.pending);
+                $('[data-live-settled]').textContent = rp(data.settled);
                 var diff = $('[data-live-diff]');
                 diff.textContent = rp(data.difference);
                 diff.className = 'value ' + (data.difference < 0 ? 'text-danger' : '');
                 // Saldo Duitku lebih kecil dari yang seharusnya: tanda ada yang perlu dicek.
                 if (data.difference < 0) {
-                    $('[data-live-diff-note]').textContent = 'Saldo Duitku LEBIH KECIL dari catatan bizbos. Cek transfer "Sedang Dicek", refund, atau uang yang belum cair.';
+                    $('[data-live-diff-note]').textContent = 'Saldo Duitku LEBIH KECIL dari catatan yang sudah cair. Cek transfer "Sedang Dicek", refund, atau metode QRIS yang belum terdaftar.';
                 }
                 $('[data-live-time]').textContent = 'Diperbarui otomatis tiap 30 detik · terakhir ' + new Date(data.checked_at).toLocaleTimeString('id-ID');
             }

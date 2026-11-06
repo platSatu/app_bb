@@ -111,7 +111,12 @@
                 <div class="card border mt-4 mb-0">
                     <div class="card-body">
                         <h6 class="mb-1">Biaya Pembayaran Default · Potongan QRIS</h6>
-                        <p class="small text-muted mb-3">Berlaku untuk <b>semua aplikasi</b> yang menerima pembayaran Duitku (invoice, API, Google Form, tiket/pendaftaran, toko online, top up) dan semua pelanggan yang tidak punya biaya khusus di bawah. Dipotong dari nominal yang dibayar saat uangnya masuk ke saldo pelanggan. Metode lain tidak dipotong. Berlaku untuk pembayaran berikutnya.</p>
+                        <p class="small text-muted mb-3">Berlaku untuk <b>semua aplikasi</b> yang menerima pembayaran Duitku (invoice, API, Google Form, tiket/pendaftaran, toko online, top up) dan semua pelanggan yang tidak punya biaya khusus di bawah. Dipotong dari nominal yang dibayar saat uangnya masuk ke saldo pelanggan. Metode lain tidak dipotong (fee-nya dibayar pembeli di Duitku). Berlaku untuk pembayaran berikutnya.</p>
+                        <ul class="small text-muted mb-3 ps-3">
+                            <li>Isi sama persis dengan tarif QRIS Duitku Anda: potongan ini juga dicatat sebagai fee Duitku di Mutasi.</li>
+                            <li>Biaya per pelanggan tidak pernah lebih kecil dari potongan QRIS ini, supaya bizbos tidak menanggung selisih.</li>
+                            <li>Kode metode yang bukan kode resmi Duitku (kode baru) ikut dipotong seperti QRIS sampai ditambahkan ke daftar metode di atas.</li>
+                        </ul>
                         <div class="row g-3">
                             <div class="col-md-3">
                                 <label for="qris_fee_percent" class="form-label">Potongan (%)</label>

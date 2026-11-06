@@ -57,6 +57,8 @@ class MutationController extends Controller
         }
 
         $recorded = $ledger->balanceUntil();
+        // Saldo Duitku hanya berisi uang yang sudah cair; yang masih menunggu pencairan dipisah.
+        $pending = $ledger->pending();
 
         return response()->json([
             'ok' => true,
@@ -64,7 +66,9 @@ class MutationController extends Controller
             'balance' => $duitku['balance'],
             'effective' => $duitku['effective'],
             'recorded' => $recorded,
-            'difference' => $duitku['balance'] - $recorded,
+            'pending' => $pending,
+            'settled' => $recorded - $pending,
+            'difference' => $duitku['balance'] - ($recorded - $pending),
             'checked_at' => $duitku['checked_at'],
         ])->header('Cache-Control', 'no-store');
     }

@@ -54,7 +54,7 @@ class WalletTransaction extends Model
 
     protected function casts(): array
     {
-        return ['amount' => 'integer', 'method_fee' => 'integer', 'paid_amount' => 'integer', 'balance_before' => 'integer', 'balance_after' => 'integer', 'available_at' => 'datetime'];
+        return ['amount' => 'integer', 'method_fee' => 'integer', 'duitku_fee' => 'integer', 'paid_amount' => 'integer', 'balance_before' => 'integer', 'balance_after' => 'integer', 'available_at' => 'datetime'];
     }
 
     protected static function booted(): void

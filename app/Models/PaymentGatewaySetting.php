@@ -43,6 +43,23 @@ class PaymentGatewaySetting extends Model
         'FT' => ['name' => 'Retail (Alfamart/Pos)', 'days' => 4],
         'IR' => ['name' => 'Indomaret', 'days' => 4],
         'VC' => ['name' => 'Kartu Kredit', 'days' => null],
+        // 6 Nov 2026: dilengkapi sesuai daftar resmi Duitku (docs.duitku.com/api/en, Payment Method).
+        'VA' => ['name' => 'Maybank Virtual Account', 'days' => null],
+        'AG' => ['name' => 'Bank Artha Graha', 'days' => null],
+        'NC' => ['name' => 'Bank Neo Commerce (BNC)', 'days' => null],
+        'S1' => ['name' => 'Bank Sahabat Sampoerna', 'days' => null],
+        'DM' => ['name' => 'Danamon Virtual Account', 'days' => null],
+        'BV' => ['name' => 'BSI Virtual Account', 'days' => null],
+        'LF' => ['name' => 'LinkAja (fixed fee)', 'days' => null],
+        'LA' => ['name' => 'LinkAja (persentase)', 'days' => null],
+        'SL' => ['name' => 'ShopeePay Account Link', 'days' => null],
+        'OL' => ['name' => 'OVO Account Link', 'days' => null],
+        'DN' => ['name' => 'Indodana Paylater', 'days' => null],
+        'AT' => ['name' => 'ATOME', 'days' => null],
+        'JP' => ['name' => 'Jenius Pay', 'days' => null],
+        'T1' => ['name' => 'Tokopedia Card Payment', 'days' => null],
+        'T2' => ['name' => 'Tokopedia E-Wallet', 'days' => null],
+        'T3' => ['name' => 'Tokopedia Others', 'days' => null],
     ];
 
     // API key terenkripsi di database dan tidak pernah ikut tampil/serialisasi.
@@ -133,12 +150,18 @@ class PaymentGatewaySetting extends Model
     }
 
     /**
-     * Potongan QRIS (rupiah, dibulatkan ke atas) dari nominal yang dibayar customer.
-     * Metode selain QRIS = 0, karena biayanya sudah ditanggung customer di Duitku.
+     * Fee Duitku yang ditanggung bizbos (rupiah, dibulatkan ke atas) dari nominal yang dibayar customer.
+     * Metode yang fee-nya dibayar customer di Duitku (VA, e-wallet, dll.) = 0. QRIS, dan juga metode yang
+     * BELUM dikenal (bukan kode resmi Duitku di daftar ini; kode baru / kosong), dianggap ditanggung bizbos:
+     * lebih aman memotong daripada bizbos menanggung diam-diam. Tambahkan kodenya di daftar metode kalau
+     * ternyata fee-nya dibayar customer.
      */
     public function qrisFeeFor(?string $method, int $paidAmount): int
     {
-        if ($paidAmount <= 0 || ! $this->isQris($method)) {
+        // Dikenal = ada di daftar metode yang disimpan superadmin ATAU di daftar resmi Duitku di atas.
+        $known = isset(($this->settlementMethods() + self::DEFAULT_SETTLEMENT_METHODS)[strtoupper((string) $method)]);
+
+        if ($paidAmount <= 0 || (! $this->isQris($method) && $known)) {
             return 0;
         }
 
@@ -149,6 +172,8 @@ class PaymentGatewaySetting extends Model
      * Potongan payment gateway untuk SEMUA aplikasi (invoice, API, Google Form, tiket, toko online, top up),
      * dipanggil hanya dari WalletService::creditPayment. Urutan: biaya pelanggan untuk metode ini ->
      * biaya pelanggan "semua metode" -> default (potongan QRIS).
+     * Biaya pelanggan tidak pernah lebih kecil dari fee Duitku yang ditanggung bizbos (QRIS), supaya
+     * aturan khusus (mis. flat Rp 5.000) tidak membuat bizbos rugi pada pembayaran QRIS bernominal besar.
      */
     public function paymentFeeFor(string $userId, ?string $method, int $paidAmount): int
     {
@@ -156,7 +181,7 @@ class PaymentGatewaySetting extends Model
         $method = $method ? strtoupper($method) : null;
         $rule = ($method ? $rules->firstWhere('payment_method', $method) : null) ?? $rules->firstWhere('payment_method', null);
 
-        return $rule ? $rule->feeFor($paidAmount) : $this->qrisFeeFor($method, $paidAmount);
+        return max((int) $rule?->feeFor($paidAmount), $this->qrisFeeFor($method, $paidAmount));
     }
 
     public function isReady(): bool

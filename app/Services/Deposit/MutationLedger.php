@@ -55,39 +55,44 @@ class MutationLedger
     {
         $credit = "CAST('credit' AS CHAR(6))";
         $debit = "CAST('debit' AS CHAR(6))";
+        // Uang masuk = yang benar-benar masuk Duitku: bruto - fee yang dipotong Duitku (QRIS, ditanggung bizbos),
+        // dari catatan saldonya (kunci idempotency sama persis dengan saat dikreditkan). Transaksi lama: fee kosong = bruto.
+        $wallet = fn (Builder $q, string $key) => $q->leftJoin('wallet_transactions as wt', 'wt.idempotency_key', '=', DB::raw($key));
+        $net = fn (string $gross) => "{$gross} - COALESCE(wt.duitku_fee, 0) AS amount, 0 AS transfer, COALESCE(wt.duitku_fee, 0) AS duitku_fee, wt.available_at AS settles_at";
+        $noSettle = 'CAST(NULL AS DATETIME) AS settles_at';
 
-        $topUp = DB::table('deposits as d')->join('users as u', 'u.id', '=', 'd.user_id')
+        $topUp = $wallet(DB::table('deposits as d')->join('users as u', 'u.id', '=', 'd.user_id'), "CONCAT('deposit:', d.id)")
             ->where('d.status', Deposit::STATUS_SUCCESS)->whereNotNull('d.paid_at')
             ->selectRaw("d.paid_at AS at, {$credit} AS direction, CAST('topup' AS CHAR(20)) AS source, d.reference_number AS reference,
-                u.name AS party, u.email AS party_note, d.payment_method AS method, d.amount AS amount, 0 AS transfer, 0 AS duitku_fee, CAST(NULL AS CHAR(20)) AS flag");
+                u.name AS party, u.email AS party_note, d.payment_method AS method, {$net('d.amount')}, CAST(NULL AS CHAR(20)) AS flag");
 
-        $invoices = DB::table('invoice_payments as p')->join('invoices as i', 'i.id', '=', 'p.invoice_id')
-            ->leftJoin('user_companies as c', 'c.id', '=', 'i.company_id')
+        $invoices = $wallet(DB::table('invoice_payments as p')->join('invoices as i', 'i.id', '=', 'p.invoice_id')
+            ->leftJoin('user_companies as c', 'c.id', '=', 'i.company_id'), "CONCAT('invoice-payment:', p.id)")
             ->whereIn('p.status', [InvoicePayment::STATUS_PAID, InvoicePayment::STATUS_REFUND_NEEDED])->whereNotNull('p.paid_at')
             ->selectRaw("p.paid_at AS at, {$credit} AS direction,
                 CAST(CASE i.source WHEN 'api' THEN 'invoice_api' WHEN 'form' THEN 'invoice_form' ELSE 'invoice_dashboard' END AS CHAR(20)) AS source,
-                i.number AS reference, c.name AS party, i.customer_name AS party_note, p.payment_method AS method, p.amount AS amount, 0 AS transfer, 0 AS duitku_fee,
+                i.number AS reference, c.name AS party, i.customer_name AS party_note, p.payment_method AS method, {$net('p.amount')},
                 CASE WHEN p.status = ? THEN 'refund' END AS flag", [InvoicePayment::STATUS_REFUND_NEEDED]);
 
-        $bulk = DB::table('invoice_checkouts as k')->join('user_branches as b', 'b.id', '=', 'k.branch_id')
-            ->leftJoin('user_companies as c', 'c.id', '=', 'b.company_id')->leftJoin('users as u', 'u.id', '=', 'k.user_id')
+        $bulk = $wallet(DB::table('invoice_checkouts as k')->join('user_branches as b', 'b.id', '=', 'k.branch_id')
+            ->leftJoin('user_companies as c', 'c.id', '=', 'b.company_id')->leftJoin('users as u', 'u.id', '=', 'k.user_id'), "CONCAT('invoice-checkout:', k.id)")
             ->whereIn('k.status', [InvoiceCheckout::STATUS_PAID, InvoiceCheckout::STATUS_REFUND_NEEDED])->whereNotNull('k.paid_at')
             ->selectRaw("k.paid_at AS at, {$credit} AS direction, CAST('invoice_bulk' AS CHAR(20)) AS source, k.merchant_order_id AS reference,
-                c.name AS party, u.name AS party_note, k.payment_method AS method, k.amount AS amount, 0 AS transfer, 0 AS duitku_fee,
+                c.name AS party, u.name AS party_note, k.payment_method AS method, {$net('k.amount')},
                 CASE WHEN k.status = ? THEN 'refund' END AS flag", [InvoiceCheckout::STATUS_REFUND_NEEDED]);
 
         // Tiket gratis (total 0) tidak lewat Duitku.
-        $tickets = DB::table('ticket_orders as t')->leftJoin('user_companies as c', 'c.id', '=', 't.company_id')
+        $tickets = $wallet(DB::table('ticket_orders as t')->leftJoin('user_companies as c', 'c.id', '=', 't.company_id'), "CONCAT('ticket:', t.id)")
             ->whereIn('t.status', [TicketOrder::STATUS_PAID, TicketOrder::STATUS_REFUND_NEEDED])->whereNotNull('t.paid_at')->where('t.total', '>', 0)
             ->selectRaw("t.paid_at AS at, {$credit} AS direction, CAST('ticket' AS CHAR(20)) AS source, t.reference AS reference,
-                c.name AS party, t.name AS party_note, t.payment_method AS method, t.total AS amount, 0 AS transfer, 0 AS duitku_fee,
+                c.name AS party, t.name AS party_note, t.payment_method AS method, {$net('t.total')},
                 CASE WHEN t.status = ? THEN 'refund' END AS flag", [TicketOrder::STATUS_REFUND_NEEDED]);
 
         // Transfer manual ke rekening toko tidak lewat Duitku, jadi tidak dihitung.
-        $catalog = DB::table('catalog_orders as o')->leftJoin('user_companies as c', 'c.id', '=', 'o.company_id')
+        $catalog = $wallet(DB::table('catalog_orders as o')->leftJoin('user_companies as c', 'c.id', '=', 'o.company_id'), "CONCAT('catalog:', o.id)")
             ->where('o.payment_type', CatalogOrder::PAYMENT_ONLINE)->whereNotNull('o.paid_at')
             ->selectRaw("o.paid_at AS at, {$credit} AS direction, CAST('catalog' AS CHAR(20)) AS source, o.reference AS reference,
-                c.name AS party, o.name AS party_note, o.payment_method AS method, o.total AS amount, 0 AS transfer, 0 AS duitku_fee,
+                c.name AS party, o.name AS party_note, o.payment_method AS method, {$net('o.total')},
                 CASE WHEN o.payment_note IS NOT NULL THEN 'check' END AS flag");
 
         // Debit = yang ditransfer ke rekening (net) + biaya Duitku per transfer.
@@ -95,14 +100,14 @@ class MutationLedger
             ->where('w.status', WalletWithdrawal::STATUS_SUCCESS)
             ->selectRaw("COALESCE(w.processed_at, w.updated_at) AS at, {$debit} AS direction, CAST('withdrawal' AS CHAR(20)) AS source, w.reference AS reference,
                 u.name AS party, CONCAT(w.bank_name, ' •••', w.account_last4, ' a.n. ', w.account_name) AS party_note, CAST(NULL AS CHAR(20)) AS method,
-                w.net_amount + COALESCE(w.duitku_fee, 0) AS amount, w.net_amount AS transfer, COALESCE(w.duitku_fee, 0) AS duitku_fee, CAST(NULL AS CHAR(20)) AS flag");
+                w.net_amount + COALESCE(w.duitku_fee, 0) AS amount, w.net_amount AS transfer, COALESCE(w.duitku_fee, 0) AS duitku_fee, {$noSettle}, CAST(NULL AS CHAR(20)) AS flag");
 
         $disbursements = DB::table('disbursements as s')->join('user_branches as b', 'b.id', '=', 's.branch_id')
             ->leftJoin('user_companies as c', 'c.id', '=', 'b.company_id')
             ->where('s.status', Disbursement::STATUS_SUCCESS)
             ->selectRaw("COALESCE(s.processed_at, s.updated_at) AS at, {$debit} AS direction, CAST('disbursement' AS CHAR(20)) AS source, s.reference AS reference,
                 c.name AS party, CONCAT(s.bank_name, ' •••', s.account_last4, ' a.n. ', s.account_name) AS party_note, CAST(UPPER(s.source) AS CHAR(20)) AS method,
-                s.net_amount + COALESCE(s.duitku_fee, 0) AS amount, s.net_amount AS transfer, COALESCE(s.duitku_fee, 0) AS duitku_fee, CAST(NULL AS CHAR(20)) AS flag");
+                s.net_amount + COALESCE(s.duitku_fee, 0) AS amount, s.net_amount AS transfer, COALESCE(s.duitku_fee, 0) AS duitku_fee, {$noSettle}, CAST(NULL AS CHAR(20)) AS flag");
 
         return DB::query()->fromSub(
             $topUp->unionAll($invoices)->unionAll($bulk)->unionAll($tickets)->unionAll($catalog)->unionAll($withdrawals)->unionAll($disbursements),
@@ -178,7 +183,15 @@ class MutationLedger
                 'disbursement' => Disbursement::where('status', Disbursement::STATUS_NEEDS_REVIEW)->count(),
             ],
             'user_balance' => (int) DB::table('wallets')->sum('balance'),
+            // Uang masuk yang belum cair di Duitku (perkiraan tanggal cair per metode, Payment Gateway › settlement).
+            'pending' => $this->pending(),
         ];
+    }
+
+    /** Uang masuk yang belum cair saat ini. Saldo Duitku yang sebanding = saldo tercatat - ini. */
+    public function pending(): int
+    {
+        return (int) $this->rows()->where('m.direction', 'credit')->where('m.settles_at', '>', now())->sum('m.amount');
     }
 
     /** Aplikasi di tab Laba & Neraca (urutan tampil). */
@@ -238,7 +251,7 @@ class MutationLedger
                         WHEN i.source = 'api' THEN 'invoice_api' WHEN i.source = 'form' THEN 'invoice_form' ELSE 'invoice_dashboard' END END AS CHAR(160)) AS app,
                 w.user_id, 1 AS trx, {$num('w.paid_amount')} AS gross,
                 {$num('w.paid_amount')} - {$num('w.amount')} - {$num('w.method_fee')} AS service, {$num('w.method_fee')} AS gateway,
-                CASE WHEN w.payment_method IN ({$qris}) THEN CEIL(w.paid_amount * {$pct} / 100) ELSE 0 END AS duitku, 0 AS extra", [InvoiceCheckout::class]);
+                COALESCE(w.duitku_fee, CASE WHEN w.payment_method IN ({$qris}) THEN CEIL(w.paid_amount * {$pct} / 100) ELSE 0 END) AS duitku, 0 AS extra", [InvoiceCheckout::class]);
 
         $withdrawals = $period(DB::table('wallet_withdrawals as x')->where('x.status', WalletWithdrawal::STATUS_SUCCESS), 'x.processed_at')
             ->selectRaw("CAST('withdrawal' AS CHAR(160)) AS app, x.user_id, 1 AS trx, {$num('x.amount')} AS gross, {$num('x.fee')} AS service, 0 AS gateway,
