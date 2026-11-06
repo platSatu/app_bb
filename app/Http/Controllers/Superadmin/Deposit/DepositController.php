@@ -22,7 +22,7 @@ class DepositController extends Controller
             ->with('user:id,name,email')
             ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
             ->latest()
-            ->paginate(20)
+            ->paginate(15)
             ->withQueryString();
 
         return view('superadmin.deposit.index', ['deposits' => $deposits, 'summary' => $this->summary($request, $filtered)]);
@@ -35,7 +35,7 @@ class DepositController extends Controller
             ->when($request->query('type'), fn ($q, $type) => $q->where('type', $type))
             ->tap(fn ($q) => $this->applyCommonFilters($q, $request, 'description'))
             ->latest()
-            ->paginate(20)
+            ->paginate(15)
             ->withQueryString();
 
         return view('superadmin.deposit.history', compact('transactions'));

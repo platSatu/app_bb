@@ -130,7 +130,7 @@ class MutationLedger
      * Halaman tabel, terbaru di atas. Saldo Awal/Akhir dihitung dari SEMUA mutasi (bukan hanya yang terfilter),
      * seperti rekening koran: saldo akhir baris = total kredit - debit sampai baris itu.
      */
-    public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator
+    public function paginate(array $filters, int $perPage = 15): LengthAwarePaginator
     {
         $page = $this->filtered($filters)->orderByDesc('m.at')->orderByDesc('m.reference')->paginate($perPage)->withQueryString();
 
