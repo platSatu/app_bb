@@ -14,6 +14,11 @@
         default => 'Semua waktu',
     };
     $total = fn (string $field) => (int) $apps->sum($field);
+    // Ringkasan laba rugi (ikut filter): pendapatan - beban = laba bersih.
+    $rental = (int) $apps->filter(fn ($row, $key) => str_starts_with($key, 'sewa:'))->sum('profit');
+    $referral = -(int) ($apps->get('referral')->profit ?? 0);
+    $income = $total('service') + $total('gateway') + $rental;
+    $expense = $total('duitku') + $referral;
     $liabilities = $userBalance + $refund;
     $equity = isset($duitku['balance']) ? $duitku['balance'] - $liabilities : null;
 @endphp
@@ -100,6 +105,23 @@
                     @endif
                 </div>
             </form>
+
+            {{-- Laporan laba rugi singkat, mengikuti filter pelanggan / aplikasi / tanggal. --}}
+            <div class="row g-3 mb-4">
+                @foreach ([
+                    ['Pendapatan', $income, 'Fee layanan '.$rp($total('service')).' · fee payment gateway '.$rp($total('gateway')).' · sewa paket '.$rp($rental), ''],
+                    ['Beban', -$expense, 'Biaya Duitku '.$rp($total('duitku')).' · bonus referral '.$rp($referral), 'text-danger'],
+                    ['Laba bersih', $income - $expense, number_format($total('trx'), 0, ',', '.').' transaksi · '.$period, $income - $expense < 0 ? 'text-danger' : 'text-success'],
+                ] as [$label, $value, $note, $tone])
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100">
+                            <div class="small text-muted">{{ $label }}</div>
+                            <div class="fs-5 fw-bold {{ $tone }}" style="font-variant-numeric: tabular-nums">{{ $rp($value) }}</div>
+                            <div class="small text-muted">{{ $note }}</div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
 
             <h6 class="mb-2">Laba per aplikasi <span class="small text-muted fw-normal">· {{ $period }}</span></h6>
             <div class="table-responsive mb-4">
