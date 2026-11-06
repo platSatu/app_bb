@@ -9,8 +9,8 @@ use Illuminate\Support\Collection;
  * Biaya transaksi Invoice per customer (branch) & per metode bayar — 5 Nov 2026.
  *
  * Tanpa aturan untuk branch itu: semua method mengembalikan null = pakai perilaku lama
- * (Biaya Invoice global + potongan QRIS di WalletService). Dengan aturan: biaya dari aturan
- * menjadi SATU-SATUNYA potongan (all-in), potongan QRIS tidak ditambahkan lagi.
+ * (Biaya Invoice global). Dengan aturan: biaya dari aturan menggantikan Biaya Invoice global.
+ * Potongan QRIS selalu berlaku terpisah, dari setting Payment Gateway (WalletService::creditPayment).
  */
 class InvoiceFees
 {

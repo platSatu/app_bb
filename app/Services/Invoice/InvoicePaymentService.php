@@ -318,8 +318,6 @@ class InvoicePaymentService
                 $fee = $this->fees->merchantFee($invoice->branch_id, $method, $lockedPayment->amount);
             }
 
-            // Aturan biaya = potongan all-in: potongan QRIS terpisah tidak ditambahkan lagi.
-            $ruleBased = $fee !== null;
             $fee = min($lockedPayment->amount, $fee ?? InvoiceSetting::current()->feeFor($lockedPayment->amount));
             $net = $lockedPayment->amount - $fee;
 
@@ -343,7 +341,7 @@ class InvoicePaymentService
             }
 
             if ($net > 0) {
-                // Potongan QRIS (kalau dibayar QRIS) ditangani creditPayment().
+                // Potongan QRIS (kalau dibayar QRIS) ditangani creditPayment(), sama untuk semua modul.
                 $this->wallets->creditPayment(
                     $invoice->branch->user,
                     $net,
@@ -355,7 +353,6 @@ class InvoicePaymentService
                         .' (biaya layanan Rp '.number_format($fee, 0, ',', '.').')'.($accepted ? '' : ' · PEMBAYARAN GANDA, mohon refund ke customer'),
                     paymentMethod: $method,
                     availableAt: SettlementCalendar::availableAt($method),
-                    chargeMethodFee: ! $ruleBased,
                 );
             }
 

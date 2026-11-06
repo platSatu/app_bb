@@ -14,8 +14,8 @@
         <div class="card-body">
             <h5 class="mb-1">Biaya Transaksi per Customer &amp; Metode</h5>
             <p class="text-muted small mb-3">
-                Customer <b>tanpa aturan</b> memakai <a href="{{ route('superadmin.invoices.settings') }}">Biaya Invoice</a> global + potongan QRIS.
-                Customer <b>dengan aturan</b>: biaya di sini menjadi satu-satunya potongan (sudah termasuk QRIS). Berlaku untuk pembayaran berikutnya.
+                Customer <b>tanpa aturan</b> memakai <a href="{{ route('superadmin.invoices.settings') }}">Biaya Invoice</a> global; <b>dengan aturan</b>: biaya di sini menggantikannya.
+                Potongan QRIS selalu berlaku untuk semua modul, sesuai setting Payment Gateway. Berlaku untuk pembayaran berikutnya.
             </p>
             <div class="row g-2 mb-4 small">
                 <div class="col-md-6">
