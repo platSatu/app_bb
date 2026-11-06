@@ -154,7 +154,11 @@
     @if ($timeUp)
         <div class="alert warn" role="status">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-            <div>Batas waktu pembayaran sudah lewat, jadi tidak bisa membuat pembayaran baru. Kalau Anda sudah membayar sebelum batas waktu, status akan diperbarui otomatis setelah konfirmasi bank masuk.</div>
+            <div>
+                <b>Batas waktu pembayaran sudah habis.</b>
+                {{ $invoice->return_url ? 'Silakan buat pembayaran baru di '.parse_url($invoice->return_url, PHP_URL_HOST).'.' : 'Silakan minta tagihan baru ke penagih.' }}
+                Kalau Anda sudah membayar sebelum batas waktu, status berubah otomatis setelah konfirmasi bank masuk.
+            </div>
         </div>
     @elseif ($returned && $invoice->isUnpaid())
         <div class="alert warn" role="status" aria-live="polite" data-wait>
@@ -240,7 +244,12 @@
 
         <div class="actions">
             @if ($invoice->isUnpaid() && $timeUp)
-                <a href="{{ route('invoice.pay', $returnBack) }}" class="btn ghost">Cek status pembayaran</a>
+                {{-- Tagihan ini tidak bisa dibayar lagi (batas waktu dari penagih): arahkan ke website penagih untuk membuat yang baru. --}}
+                @if ($invoice->return_url)
+                    <a href="{{ $invoice->return_url }}" class="btn" data-restart>Buat pembayaran baru</a>
+                @endif
+                <a href="{{ route('invoice.pay', $returnBack) }}" class="btn ghost" data-check>Cek status pembayaran</a>
+                <div class="note hidden" data-check-note aria-live="polite"></div>
             @elseif ($invoice->isUnpaid())
                 @if ($openPayment && $returned)
                     {{-- Order Duitku masih berlaku: lanjutkan order yang sama (nomor VA / QR yang sama), tidak membuat tagihan baru. --}}
@@ -375,6 +384,47 @@
                         .then(function (data) { if (data && data.status && data.status !== 'unpaid') location.reload(); })
                         .catch(function () {});
                 }, 6000);
+            }
+        })();
+    </script>
+@endif
+@if ($timeUp)
+    <script>
+        (function () {
+            var check = document.querySelector('[data-check]'), note = document.querySelector('[data-check-note]'), restart = document.querySelector('[data-restart]');
+            var origin = @json($origin);
+            try { origin = origin || sessionStorage.getItem('bizbos-pay-origin:' + @json($invoice->id)); } catch (e) {}
+
+            // "Cek status": tanya server (server mengecek ke Duitku), tampilkan hasilnya di sini; berubah = muat ulang.
+            if (check) check.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (check.getAttribute('aria-busy')) return;
+                check.setAttribute('aria-busy', 'true');
+                check.textContent = 'Mengecek...';
+                fetch({{ \Illuminate\Support\Js::from(route('invoice.pay.status', $invoice->token)) }}, { headers: { Accept: 'application/json' }, cache: 'no-store' })
+                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (data) {
+                        if (data && data.status && data.status !== 'unpaid') { location.reload(); return; }
+                        note.textContent = data ? 'Belum ada pembayaran yang masuk untuk tagihan ini (dicek ' + new Date().toLocaleTimeString('id-ID') + ').' : 'Belum bisa mengecek sekarang, coba lagi sebentar.';
+                        note.classList.remove('hidden');
+                    })
+                    .catch(function () { note.textContent = 'Koneksi terputus, coba lagi.'; note.classList.remove('hidden'); })
+                    .then(function () { check.removeAttribute('aria-busy'); check.textContent = 'Cek status pembayaran'; });
+            });
+
+            if (!restart) return;
+
+            // Dibuka sebagai popup: jangan buka website penagih di dalam popup, cukup tutup.
+            if (origin) {
+                restart.textContent = 'Tutup jendela ini';
+                restart.addEventListener('click', function (e) { e.preventDefault(); window.close(); });
+                return;
+            }
+
+            // Tombol Kembali browser: jangan kembali ke halaman Duitku yang sudah kedaluwarsa, tapi ke website penagih.
+            if (window.history && history.pushState) {
+                history.pushState({ bizbos: 'expired' }, '', location.href);
+                window.addEventListener('popstate', function () { location.replace(restart.href); });
             }
         })();
     </script>
