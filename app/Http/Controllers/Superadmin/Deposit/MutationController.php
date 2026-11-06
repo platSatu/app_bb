@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Superadmin\Deposit;
 
 use App\Http\Controllers\Controller;
+use App\Models\PaymentCallback;
 use App\Services\Deposit\MutationLedger;
 use App\Services\Payment\DuitkuDisbursementClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Throwable;
 
@@ -82,6 +84,48 @@ class MutationController extends Controller
             'userBalance' => $now['user_balance'],
             'refund' => $now['refund'],
         ]);
+    }
+
+    /**
+     * Tab Log (hanya baca): callback Duitku dari semua aplikasi & webhook bizbos ke aplikasi pelanggan.
+     * Isi mentah (payload, tanda tangan, balasan server pelanggan) sengaja tidak ditampilkan.
+     */
+    public function logs(Request $request): View
+    {
+        $data = $request->validate([
+            'type' => ['nullable', 'in:callback,webhook'],
+            'search' => ['nullable', 'string', 'max:60'],
+            'result' => ['nullable', 'in:ok,problem'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+        ]);
+        $type = $data['type'] ?? 'callback';
+        $search = trim((string) ($data['search'] ?? ''));
+        $from = $request->date('date_from')?->startOfDay();
+        $until = $request->date('date_to')?->endOfDay();
+        $okResults = ['paid', 'already_processed'];
+
+        $logs = $type === 'callback'
+            ? PaymentCallback::query()
+                ->when($search !== '', fn ($q) => $q->where('merchant_order_id', 'like', "%{$search}%"))
+                ->when(($data['result'] ?? null) === 'ok', fn ($q) => $q->whereIn('result', $okResults))
+                ->when(($data['result'] ?? null) === 'problem', fn ($q) => $q->where(fn ($w) => $w->whereNotIn('result', $okResults)->orWhereNull('result')))
+                ->when($from, fn ($q) => $q->where('created_at', '>=', $from))->when($until, fn ($q) => $q->where('created_at', '<=', $until))
+                ->latest()->paginate(15)->withQueryString()
+            : DB::table('invoice_webhook_logs as l')
+                ->join('invoice_api_clients as a', 'a.id', '=', 'l.api_client_id')
+                ->join('user_branches as b', 'b.id', '=', 'a.branch_id')->leftJoin('user_companies as c', 'c.id', '=', 'b.company_id')
+                ->leftJoin('invoices as i', 'i.id', '=', 'l.invoice_id')->leftJoin('disbursements as d', 'd.id', '=', 'l.disbursement_id')
+                ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w->where('i.number', 'like', "%{$search}%")
+                    ->orWhere('i.external_id', 'like', "%{$search}%")->orWhere('d.reference', 'like', "%{$search}%")->orWhere('c.name', 'like', "%{$search}%")))
+                ->when(($data['result'] ?? null) === 'ok', fn ($q) => $q->whereBetween('l.http_status', [200, 299]))
+                ->when(($data['result'] ?? null) === 'problem', fn ($q) => $q->where(fn ($w) => $w->whereNull('l.http_status')->orWhereNotBetween('l.http_status', [200, 299])))
+                ->when($from, fn ($q) => $q->where('l.created_at', '>=', $from))->when($until, fn ($q) => $q->where('l.created_at', '<=', $until))
+                ->select('l.created_at', 'l.event', 'l.attempt', 'l.http_status', 'l.error', 'c.name as company', 'a.webhook_url',
+                    'i.number as invoice_number', 'i.external_id', 'd.reference as payout_reference')
+                ->orderByDesc('l.created_at')->paginate(15)->withQueryString();
+
+        return view('superadmin.deposit.logs', ['logs' => $logs, 'type' => $type]);
     }
 
     /** Saldo asli Duitku Disbursement (disimpan 30 detik). @return array{balance?: int, effective?: int, checked_at?: string, sandbox: bool, error?: string} */
