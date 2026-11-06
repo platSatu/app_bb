@@ -17,7 +17,10 @@ class GooglePlacesController extends Controller
             'keyword' => ['nullable', 'string', 'max:100'],
             'location' => ['nullable', 'string', 'max:100'],
             'page_token' => ['nullable', 'string', 'max:1000'],
+            'provider' => ['nullable', 'in:'.implode(',', array_keys(GooglePlacesClient::PROVIDERS))],
         ]);
+        // Default: Google kalau key-nya ada, kalau tidak Open Places.
+        $provider = $data['provider'] ?? ($places->isConfigured('google') ? 'google' : 'open');
 
         $keyword = trim((string) ($data['keyword'] ?? ''));
         $location = trim((string) ($data['location'] ?? ''));
@@ -28,7 +31,7 @@ class GooglePlacesController extends Controller
             $query = $location !== '' ? "{$keyword} di {$location}" : $keyword;
 
             try {
-                $result = $places->search($query, $data['page_token'] ?? null);
+                $result = $places->search($query, $data['page_token'] ?? null, $provider, $location);
             } catch (RuntimeException $e) {
                 $error = $e->getMessage();
             }
@@ -39,9 +42,10 @@ class GooglePlacesController extends Controller
             'location' => $location,
             'result' => $result,
             'error' => $error,
-            'configured' => $places->isConfigured(),
-            'usedToday' => $places->usedToday(),
-            'dailyLimit' => $places->dailyLimit(),
+            'provider' => $provider,
+            'configured' => $places->isConfigured($provider),
+            'usedToday' => $places->usedToday($provider),
+            'dailyLimit' => $places->dailyLimit($provider),
         ]);
     }
 }

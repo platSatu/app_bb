@@ -74,6 +74,12 @@ return [
         'daily_limit' => (int) env('GOOGLE_PLACES_DAILY_LIMIT', 100),
     ],
 
+    // Tools › Google Places, sumber kedua (gratis 10.000 pencarian/bulan). openplacesapi.com, data Overture.
+    'open_places' => [
+        'key' => env('OPEN_PLACES_API_KEY'),
+        'daily_limit' => (int) env('OPEN_PLACES_DAILY_LIMIT', 300),
+    ],
+
     // Lokasi mysqldump untuk Backup Database (XAMPP Windows: C:\xampp\mysql\bin\mysqldump.exe).
     'backup' => [
         'mysqldump' => env('BACKUP_MYSQLDUMP', 'mysqldump'),

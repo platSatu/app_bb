@@ -8,15 +8,22 @@ use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
- * Tools › Google Places: cari tempat usaha (mis. tempat kursus) lewat Google Places API (New) Text Search.
+ * Tools › Google Places: cari tempat usaha (mis. tempat kursus). Dua sumber, hasilnya berbentuk sama:
+ *  - google: Google Places API (New) Text Search (GOOGLE_PLACES_API_KEY), berbayar setelah kuota gratis.
+ *  - open:   Open Places API (OPEN_PLACES_API_KEY), gratis 10.000/bulan, data Overture. Wajib koordinat,
+ *            jadi lokasi diubah ke koordinat lewat OpenStreetMap Nominatim (disimpan 30 hari).
  *
- * - API key di .env (GOOGLE_PLACES_API_KEY), tidak pernah dikirim ke browser.
- * - Batas pencarian per hari (GOOGLE_PLACES_DAILY_LIMIT) supaya tagihan Google tidak membengkak.
- * - Hasil tidak disimpan ke database (sesuai ketentuan Google); yang boleh disimpan permanen hanya place_id.
+ * - API key di .env, tidak pernah dikirim ke browser.
+ * - Batas pencarian per hari per sumber (..._DAILY_LIMIT) supaya kuota / tagihan tidak jebol.
+ * - Hasil tidak disimpan ke database.
  */
 class GooglePlacesClient
 {
+    public const PROVIDERS = ['google' => 'Google Maps', 'open' => 'Open Places (gratis)'];
+
     private const ENDPOINT = 'https://places.googleapis.com/v1/places:searchText';
+
+    private const OPEN_ENDPOINT = 'https://api.openplacesapi.com/v1/places';
 
     private const FIELDS = [
         'places.id',
@@ -32,32 +39,36 @@ class GooglePlacesClient
         'nextPageToken',
     ];
 
-    public function isConfigured(): bool
+    public function isConfigured(string $provider = 'google'): bool
     {
-        return filled(config('services.google_places.key'));
+        return filled(config($this->config($provider).'.key'));
     }
 
-    public function dailyLimit(): int
+    public function dailyLimit(string $provider = 'google'): int
     {
-        return max(1, (int) config('services.google_places.daily_limit', 100));
+        return max(1, (int) config($this->config($provider).'.daily_limit', 100));
     }
 
-    public function usedToday(): int
+    public function usedToday(string $provider = 'google'): int
     {
-        return (int) Cache::get($this->counterKey(), 0);
+        return (int) Cache::get($this->counterKey($provider), 0);
     }
 
     /**
      * @return array{places: array<int, array<string, mixed>>, next_page_token: ?string}
      */
-    public function search(string $query, ?string $pageToken = null): array
+    public function search(string $query, ?string $pageToken = null, string $provider = 'google', string $location = ''): array
     {
-        if (! $this->isConfigured()) {
-            throw new RuntimeException('API key Google Places belum diisi. Tambahkan GOOGLE_PLACES_API_KEY di file .env.');
+        if (! $this->isConfigured($provider)) {
+            throw new RuntimeException('API key '.self::PROVIDERS[$provider].' belum diisi. Tambahkan '.($provider === 'open' ? 'OPEN_PLACES_API_KEY' : 'GOOGLE_PLACES_API_KEY').' di file .env.');
         }
 
-        if ($this->usedToday() >= $this->dailyLimit()) {
-            throw new RuntimeException("Batas pencarian hari ini ({$this->dailyLimit()}x) sudah tercapai. Coba lagi besok.");
+        if ($this->usedToday($provider) >= $this->dailyLimit($provider)) {
+            throw new RuntimeException("Batas pencarian hari ini ({$this->dailyLimit($provider)}x) sudah tercapai. Coba lagi besok.");
+        }
+
+        if ($provider === 'open') {
+            return $this->searchOpen($query, $location);
         }
 
         $body = array_filter([
@@ -76,7 +87,7 @@ class GooglePlacesClient
             ->post(self::ENDPOINT, $body);
 
         // Dihitung setelah request terkirim (Google tetap menagih walau hasilnya kosong).
-        $this->incrementCounter();
+        $this->incrementCounter('google');
 
         if ($response->failed()) {
             Log::warning('Google Places gagal', ['status' => $response->status(), 'error' => $response->json('error.message')]);
@@ -95,16 +106,78 @@ class GooglePlacesClient
         ];
     }
 
+    /** Open Places: kata kunci $query, area dari $location (diubah ke koordinat). Tanpa halaman berikutnya. */
+    private function searchOpen(string $query, string $location): array
+    {
+        if ($location === '') {
+            throw new RuntimeException('Open Places butuh lokasi (mis. Tebet, Jakarta Selatan).');
+        }
+
+        [$lat, $lon] = $this->coordinates($location);
+
+        $response = Http::timeout(15)->withToken((string) config('services.open_places.key'))->acceptJson()
+            ->get(self::OPEN_ENDPOINT, ['q' => $query, 'lat' => $lat, 'lon' => $lon, 'radius_mi' => 10, 'limit' => 20]);
+
+        $this->incrementCounter('open');
+
+        if ($response->failed()) {
+            Log::warning('Open Places gagal', ['status' => $response->status(), 'error' => $response->json('error.code')]);
+
+            throw new RuntimeException(match ($response->json('error.code')) {
+                'invalid_api_key', 'unauthenticated' => 'API key Open Places ditolak. Cek OPEN_PLACES_API_KEY.',
+                'quota_exhausted', 'payment_required' => 'Kuota gratis Open Places bulan ini habis.',
+                'rate_limited' => 'Terlalu banyak pencarian ke Open Places. Tunggu sebentar.',
+                'coverage_not_ready' => 'Open Places belum punya data untuk area ini. Coba Google Maps.',
+                default => 'Open Places sedang bermasalah. Coba lagi beberapa saat lagi.',
+            });
+        }
+
+        return [
+            'places' => collect($response->json('results', []))->map(fn (array $p) => $this->mapPlace([
+                'id' => $p['place_id'] ?? null,
+                'displayName' => ['text' => $p['name'] ?? '-'],
+                'formattedAddress' => $p['address']['formatted'] ?? null,
+                'nationalPhoneNumber' => $p['phone'] ?? null,
+                'websiteUri' => $p['website'] ?? null,
+                'googleMapsUri' => isset($p['lat'], $p['lon']) ? "https://www.google.com/maps/search/?api=1&query={$p['lat']},{$p['lon']}" : null,
+                'businessStatus' => ($p['operating_status'] ?? null) === 'closed' ? 'CLOSED_PERMANENTLY' : null,
+            ]))->all(),
+            'next_page_token' => null,
+        ];
+    }
+
+    /** Nama lokasi -> [lat, lon] lewat OpenStreetMap Nominatim (gratis, maks 1 permintaan/detik), disimpan 30 hari. */
+    private function coordinates(string $location): array
+    {
+        $point = Cache::remember('tools:places:geo:'.md5(mb_strtolower($location)), now()->addDays(30), function () use ($location) {
+            $result = Http::timeout(10)->withHeaders(['User-Agent' => 'bizbos-places-tool/1.0 ('.config('app.url').')'])
+                ->get('https://nominatim.openstreetmap.org/search', ['q' => $location, 'format' => 'json', 'limit' => 1, 'countrycodes' => 'id'])
+                ->json('0');
+
+            return isset($result['lat'], $result['lon']) ? [(float) $result['lat'], (float) $result['lon']] : null;
+        });
+
+        if (! $point) {
+            Cache::forget('tools:places:geo:'.md5(mb_strtolower($location)));
+
+            throw new RuntimeException('Lokasi "'.$location.'" tidak ditemukan. Tulis lebih lengkap, mis. "Tebet, Jakarta Selatan".');
+        }
+
+        return $point;
+    }
+
     private function mapPlace(array $p): array
     {
         $international = $p['internationalPhoneNumber'] ?? null;
-        $digits = $international ? preg_replace('/\D+/', '', $international) : null;
+        $phone = $p['nationalPhoneNumber'] ?? $international;
+        // 0812… / +62 812… -> 62812…
+        $digits = $phone ? preg_replace('/^0/', '62', preg_replace('/\D+/', '', $phone)) : null;
 
         return [
             'id' => $p['id'] ?? null,
             'name' => $p['displayName']['text'] ?? '-',
             'address' => $p['formattedAddress'] ?? null,
-            'phone' => $p['nationalPhoneNumber'] ?? $international,
+            'phone' => $phone,
             // Nomor HP Indonesia (62 8xx) kemungkinan besar bisa WhatsApp; nomor kantor (021, dll) tidak.
             'whatsapp' => $digits && str_starts_with($digits, '628') ? $digits : null,
             'website' => $this->safeUrl($p['websiteUri'] ?? null),
@@ -121,14 +194,20 @@ class GooglePlacesClient
         return $url && preg_match('#^https?://#i', $url) ? $url : null;
     }
 
-    private function counterKey(): string
+    private function config(string $provider): string
     {
-        return 'tools:google-places:count:'.now()->toDateString();
+        return $provider === 'open' ? 'services.open_places' : 'services.google_places';
     }
 
-    private function incrementCounter(): void
+    private function counterKey(string $provider): string
     {
-        $key = $this->counterKey();
+        // Kunci Google tetap sama seperti sebelumnya (hitungan hari ini tidak ter-reset saat deploy).
+        return 'tools:'.($provider === 'open' ? 'open-places' : 'google-places').':count:'.now()->toDateString();
+    }
+
+    private function incrementCounter(string $provider): void
+    {
+        $key = $this->counterKey($provider);
         Cache::add($key, 0, now()->endOfDay());
         Cache::increment($key);
     }

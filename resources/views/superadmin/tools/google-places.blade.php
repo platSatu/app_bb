@@ -6,7 +6,7 @@
 @section('content')
     @unless ($configured)
         <div class="alert alert-warning">
-            <i class="ri-key-2-line me-1"></i>API key Google Places belum diisi. Tambahkan <code>GOOGLE_PLACES_API_KEY</code> di file <code>.env</code>, lalu muat ulang halaman ini.
+            <i class="ri-key-2-line me-1"></i>API key {{ \App\Services\Marketing\GooglePlacesClient::PROVIDERS[$provider] }} belum diisi. Tambahkan <code>{{ $provider === 'open' ? 'OPEN_PLACES_API_KEY' : 'GOOGLE_PLACES_API_KEY' }}</code> di file <code>.env</code>, lalu muat ulang halaman ini.
         </div>
     @endunless
 
@@ -17,6 +17,14 @@
     <div class="card">
         <div class="card-body">
             <form method="GET" class="d-flex flex-wrap align-items-end gap-2 mb-2" onsubmit="this.querySelector('button[type=submit]').disabled = true;">
+                <div style="min-width: 180px">
+                    <label class="form-label small text-muted mb-1">Sumber data</label>
+                    <select name="provider" class="form-select" onchange="this.form.querySelector('button[type=submit]').disabled = false;">
+                        @foreach (\App\Services\Marketing\GooglePlacesClient::PROVIDERS as $key => $label)
+                            <option value="{{ $key }}" @selected($provider === $key)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
                 <div class="flex-grow-1" style="min-width: 220px">
                     <label class="form-label small text-muted mb-1">Jenis usaha</label>
                     <input type="text" name="keyword" class="form-control" maxlength="100" required
@@ -27,11 +35,13 @@
                     <input type="text" name="location" class="form-control" maxlength="100"
                            placeholder="mis. Tebet, Jakarta Selatan" value="{{ $location }}">
                 </div>
-                <button type="submit" class="btn btn-primary text-nowrap" @disabled(! $configured)><i class="ri-search-line"></i> Cari</button>
+                <button type="submit" class="btn btn-primary text-nowrap"><i class="ri-search-line"></i> Cari</button>
             </form>
             <p class="text-muted small mb-0">
-                Pencarian hari ini: <strong>{{ $usedToday }}</strong> / {{ $dailyLimit }}.
-                Setiap klik "Cari" atau "Halaman berikutnya" dihitung 1 pencarian dan ditagih Google.
+                Pencarian hari ini ({{ \App\Services\Marketing\GooglePlacesClient::PROVIDERS[$provider] }}): <strong>{{ $usedToday }}</strong> / {{ $dailyLimit }}.
+                {{ $provider === 'open'
+                    ? 'Open Places: gratis 10.000 pencarian/bulan, maks. 20 hasil dalam radius ±16 km dari lokasi, tanpa rating. Lokasi wajib diisi.'
+                    : 'Setiap klik "Cari" atau "Halaman berikutnya" dihitung 1 pencarian dan ditagih Google.' }}
                 Hasil tidak disimpan; nomor telepon kantor (021, dll.) tidak bisa dihubungi lewat WhatsApp.
             </p>
         </div>
@@ -43,7 +53,7 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h6 class="mb-0">{{ count($result['places']) }} tempat ditemukan</h6>
                     @if ($result['next_page_token'])
-                        <a href="{{ route('superadmin.tools.google-places.index', ['keyword' => $keyword, 'location' => $location, 'page_token' => $result['next_page_token']]) }}"
+                        <a href="{{ route('superadmin.tools.google-places.index', ['provider' => $provider, 'keyword' => $keyword, 'location' => $location, 'page_token' => $result['next_page_token']]) }}"
                            class="btn btn-sm btn-outline-primary">Halaman berikutnya <i class="ri-arrow-right-line"></i></a>
                     @endif
                 </div>
@@ -89,7 +99,7 @@
                         </tbody>
                     </table>
                 </div>
-                <p class="text-muted small mt-3 mb-0">Data dari Google Maps.</p>
+                <p class="text-muted small mt-3 mb-0">{{ $provider === 'open' ? 'Data dari Open Places API (Overture Maps). Tombol peta membuka lokasi di Google Maps.' : 'Data dari Google Maps.' }}</p>
             </div>
         </div>
     @endif
