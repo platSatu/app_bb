@@ -218,6 +218,11 @@ Route::middleware(['auth', 'superadmin'])
         Route::get('tools/google-places', [GooglePlacesController::class, 'index'])
             ->middleware(['permission:superadmin.tools.google-places,view', 'throttle:20,1'])
             ->name('tools.google-places.index');
+        // Tools › Open Places: halaman & controller yang sama, sumber data Open Places (gratis).
+        Route::get('tools/open-places', [GooglePlacesController::class, 'index'])
+            ->defaults('provider', 'open')
+            ->middleware(['permission:superadmin.tools.open-places,view', 'throttle:20,1'])
+            ->name('tools.open-places.index');
 
         Route::resource('roles', RoleController::class)
             ->except('show')

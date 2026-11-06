@@ -334,6 +334,13 @@ return [
                         'route' => 'superadmin.tools.google-places.index',
                         'active' => 'superadmin.tools.google-places.*',
                     ],
+                    // Sumber gratis (10.000/bulan), halaman & kode sama dengan Google Places.
+                    'superadmin.tools.open-places' => [
+                        'label' => 'Open Places',
+                        'route' => 'superadmin.tools.open-places.index',
+                        'active' => 'superadmin.tools.open-places.*',
+                        'superadmin_only' => true,
+                    ],
                 ],
             ],
             'settings' => [

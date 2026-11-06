@@ -17,10 +17,9 @@ class GooglePlacesController extends Controller
             'keyword' => ['nullable', 'string', 'max:100'],
             'location' => ['nullable', 'string', 'max:100'],
             'page_token' => ['nullable', 'string', 'max:1000'],
-            'provider' => ['nullable', 'in:'.implode(',', array_keys(GooglePlacesClient::PROVIDERS))],
         ]);
-        // Default: Google kalau key-nya ada, kalau tidak Open Places.
-        $provider = $data['provider'] ?? ($places->isConfigured('google') ? 'google' : 'open');
+        // Sumber data ditentukan menunya: Tools › Google Places atau Tools › Open Places.
+        $provider = $request->route('provider') === 'open' ? 'open' : 'google';
 
         $keyword = trim((string) ($data['keyword'] ?? ''));
         $location = trim((string) ($data['location'] ?? ''));

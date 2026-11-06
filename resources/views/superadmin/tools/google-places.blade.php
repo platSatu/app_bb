@@ -1,6 +1,6 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Google Places')
+@section('title', $provider === 'open' ? 'Open Places' : 'Google Places')
 @section('page-section', 'Tools')
 
 @section('content')
@@ -17,14 +17,6 @@
     <div class="card">
         <div class="card-body">
             <form method="GET" class="d-flex flex-wrap align-items-end gap-2 mb-2" onsubmit="this.querySelector('button[type=submit]').disabled = true;">
-                <div style="min-width: 180px">
-                    <label class="form-label small text-muted mb-1">Sumber data</label>
-                    <select name="provider" class="form-select" onchange="this.form.querySelector('button[type=submit]').disabled = false;">
-                        @foreach (\App\Services\Marketing\GooglePlacesClient::PROVIDERS as $key => $label)
-                            <option value="{{ $key }}" @selected($provider === $key)>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
                 <div class="flex-grow-1" style="min-width: 220px">
                     <label class="form-label small text-muted mb-1">Jenis usaha</label>
                     <input type="text" name="keyword" class="form-control" maxlength="100" required
@@ -35,7 +27,7 @@
                     <input type="text" name="location" class="form-control" maxlength="100"
                            placeholder="mis. Tebet, Jakarta Selatan" value="{{ $location }}">
                 </div>
-                <button type="submit" class="btn btn-primary text-nowrap"><i class="ri-search-line"></i> Cari</button>
+                <button type="submit" class="btn btn-primary text-nowrap" @disabled(! $configured)><i class="ri-search-line"></i> Cari</button>
             </form>
             <p class="text-muted small mb-0">
                 Pencarian hari ini ({{ \App\Services\Marketing\GooglePlacesClient::PROVIDERS[$provider] }}): <strong>{{ $usedToday }}</strong> / {{ $dailyLimit }}.
@@ -53,7 +45,7 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h6 class="mb-0">{{ count($result['places']) }} tempat ditemukan</h6>
                     @if ($result['next_page_token'])
-                        <a href="{{ route('superadmin.tools.google-places.index', ['provider' => $provider, 'keyword' => $keyword, 'location' => $location, 'page_token' => $result['next_page_token']]) }}"
+                        <a href="{{ route('superadmin.tools.google-places.index', ['keyword' => $keyword, 'location' => $location, 'page_token' => $result['next_page_token']]) }}"
                            class="btn btn-sm btn-outline-primary">Halaman berikutnya <i class="ri-arrow-right-line"></i></a>
                     @endif
                 </div>
