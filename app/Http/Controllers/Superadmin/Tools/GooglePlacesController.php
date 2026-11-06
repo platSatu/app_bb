@@ -31,7 +31,7 @@ class GooglePlacesController extends Controller
             $query = $location !== '' ? "{$keyword} di {$location}" : $keyword;
 
             try {
-                $result = $places->search($query, $data['page_token'] ?? null, $provider, $location);
+                $result = $places->search($query, $data['page_token'] ?? null, $provider, $location, ! $request->boolean('all'));
             } catch (RuntimeException $e) {
                 $error = $e->getMessage();
             }

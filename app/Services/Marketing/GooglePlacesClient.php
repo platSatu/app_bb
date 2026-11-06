@@ -57,7 +57,7 @@ class GooglePlacesClient
     /**
      * @return array{places: array<int, array<string, mixed>>, next_page_token: ?string}
      */
-    public function search(string $query, ?string $pageToken = null, string $provider = 'google', string $location = ''): array
+    public function search(string $query, ?string $pageToken = null, string $provider = 'google', string $location = '', bool $strict = true): array
     {
         if (! $this->isConfigured($provider)) {
             throw new RuntimeException('API key '.self::PROVIDERS[$provider].' belum diisi. Tambahkan '.($provider === 'open' ? 'OPEN_PLACES_API_KEY' : 'GOOGLE_PLACES_API_KEY').' di file .env.');
@@ -68,7 +68,7 @@ class GooglePlacesClient
         }
 
         if ($provider === 'open') {
-            return $this->searchOpen($query, $location);
+            return $this->searchOpen($query, $location, $strict);
         }
 
         $body = array_filter([
@@ -107,7 +107,7 @@ class GooglePlacesClient
     }
 
     /** Open Places: kata kunci $query, area dari $location (diubah ke koordinat). Tanpa halaman berikutnya. */
-    private function searchOpen(string $query, string $location): array
+    private function searchOpen(string $query, string $location, bool $strict = true): array
     {
         if ($location === '') {
             throw new RuntimeException('Open Places butuh lokasi (mis. Tebet, Jakarta Selatan).');
@@ -132,8 +132,8 @@ class GooglePlacesClient
             });
         }
 
-        // Open Places mencocokkan potongan kata ("les" ikut menangkap "Sales", "Styles"): hanya ambil yang setiap
-        // kata kuncinya muncul utuh di nama atau kategori.
+        // Open Places mencocokkan potongan kata ("les" ikut menangkap "Sales", "Styles"): kalau $strict, hanya ambil
+        // yang setiap kata kuncinya muncul utuh di nama atau kategori. Jumlah yang disembunyikan ikut dikembalikan.
         $words = array_filter(preg_split('/\s+/u', mb_strtolower($query)));
         $matches = function (array $p) use ($words) {
             $text = mb_strtolower(($p['name'] ?? '').' '.str_replace('_', ' ', implode(' ', [$p['category'] ?? '', ...($p['categories'] ?? [])])));
@@ -141,8 +141,12 @@ class GooglePlacesClient
             return collect($words)->every(fn ($word) => preg_match('/(?<![\p{L}\p{N}])'.preg_quote($word, '/').'(?![\p{L}\p{N}])/u', $text));
         };
 
+        $all = collect($response->json('results', []));
+        $shown = $strict ? $all->filter($matches) : $all;
+
         return [
-            'places' => collect($response->json('results', []))->filter($matches)->map(fn (array $p) => $this->mapPlace([
+            'hidden' => $all->count() - $shown->count(),
+            'places' => $shown->map(fn (array $p) => $this->mapPlace([
                 'id' => $p['place_id'] ?? null,
                 'displayName' => ['text' => $p['name'] ?? '-'],
                 'formattedAddress' => $p['address']['formatted'] ?? null,

@@ -43,7 +43,17 @@
         <div class="card">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="mb-0">{{ count($result['places']) }} tempat ditemukan</h6>
+                    <div>
+                        <h6 class="mb-0">{{ count($result['places']) }} tempat ditemukan</h6>
+                        @if (! empty($result['hidden']))
+                            <div class="small text-muted mt-1">
+                                {{ $result['hidden'] }} hasil lain disembunyikan karena nama/kategorinya tidak memuat "{{ $keyword }}" sebagai kata utuh.
+                                <a href="{{ route('superadmin.tools.open-places.index', ['keyword' => $keyword, 'location' => $location, 'all' => 1]) }}">Tampilkan semua</a>
+                            </div>
+                        @elseif (request()->boolean('all') && $provider === 'open')
+                            <div class="small text-muted mt-1">Menampilkan semua hasil, termasuk yang namanya hanya mirip. Centang yang relevan saja.</div>
+                        @endif
+                    </div>
                     @if ($result['next_page_token'])
                         <a href="{{ route('superadmin.tools.google-places.index', ['keyword' => $keyword, 'location' => $location, 'page_token' => $result['next_page_token']]) }}"
                            class="btn btn-sm btn-outline-primary">Halaman berikutnya <i class="ri-arrow-right-line"></i></a>
@@ -113,7 +123,7 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="{{ $open ? 7 : 6 }}" class="text-center text-muted py-4">Tidak ada hasil. Coba kata kunci lain (mis. kursus, bimbel, LPK) atau lokasi lain.</td></tr>
+                                <tr><td colspan="{{ $open ? 7 : 6 }}" class="text-center text-muted py-4">Tidak ada hasil yang cocok. Coba kata yang biasa ada di nama tempat (kursus, bimbel, LPK, school, english, education) atau lokasi lain.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
