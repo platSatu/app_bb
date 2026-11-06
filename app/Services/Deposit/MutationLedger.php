@@ -195,6 +195,15 @@ class MutationLedger
         'referral' => 'Bonus Referral (biaya)',
     ];
 
+    /** Pilihan filter aplikasi: aplikasi transaksi + sewa per kategori aplikasi yang ada. @return array<string, string> */
+    public static function appOptions(): array
+    {
+        $rentals = DB::table('category_applications')->orderBy('name')->pluck('name')
+            ->mapWithKeys(fn ($name) => ['sewa:'.$name => 'Sewa '.$name])->all();
+
+        return array_diff_key(self::APPS, ['referral' => 1]) + $rentals + ['referral' => self::APPS['referral']];
+    }
+
     /** Nama tampilan aplikasi; sewa paket = "Sewa <aplikasi>". */
     public static function appLabel(string $app): string
     {
@@ -211,7 +220,7 @@ class MutationLedger
      *
      * @return array{apps: \Illuminate\Support\Collection, customers: \Illuminate\Support\Collection, adjustment: array{in: int, out: int}}
      */
-    public function profit(?CarbonInterface $from, ?CarbonInterface $until, ?string $customer = null): array
+    public function profit(?CarbonInterface $from, ?CarbonInterface $until, ?string $userId = null, ?string $app = null): array
     {
         $gateway = \App\Models\PaymentGatewaySetting::duitku();
         $qris = "'".implode("','", array_map(fn ($m) => preg_replace('/[^A-Z0-9]/', '', $m), $gateway->qrisMethods()))."'";
@@ -249,15 +258,16 @@ class MutationLedger
                 {$num('w.amount')} AS gross, 0 AS service, 0 AS gateway, 0 AS duitku,
                 CASE w.type WHEN 'purchase' THEN {$num('w.amount')} ELSE -{$num('w.amount')} END AS extra");
 
-        $all = DB::query()->fromSub($payments->unionAll($withdrawals)->unionAll($disbursements)->unionAll($wallet), 'p');
+        // Filter pelanggan & aplikasi berlaku untuk kedua tabel (per aplikasi & per pelanggan).
+        $all = DB::query()->fromSub($payments->unionAll($withdrawals)->unionAll($disbursements)->unionAll($wallet), 'p')
+            ->when($userId, fn ($q) => $q->where('p.user_id', $userId))
+            ->when($app, fn ($q) => $q->where('p.app', $app));
         $sum = 'COUNT(*) AS trx, SUM(gross) AS gross, SUM(service) AS service, SUM(gateway) AS gateway, SUM(duitku) AS duitku,
             SUM(service + gateway - duitku + extra) AS profit';
 
         $apps = (clone $all)->groupBy('app')->selectRaw("app, {$sum}")->get()->keyBy('app');
 
         $customers = (clone $all)->leftJoin('users as u', 'u.id', '=', 'p.user_id')->leftJoin('user_companies as c', 'c.user_id', '=', 'p.user_id')
-            ->when(filled($customer), fn ($q) => $q->where(fn ($w) => $w->where('u.name', 'like', "%{$customer}%")
-                ->orWhere('u.email', 'like', "%{$customer}%")->orWhere('c.name', 'like', "%{$customer}%")))
             ->groupBy('p.user_id', 'u.name', 'u.email', 'c.name')
             ->selectRaw("p.user_id, u.name, u.email, c.name AS company, {$sum}")
             ->orderByDesc('profit')->limit(50)->get();

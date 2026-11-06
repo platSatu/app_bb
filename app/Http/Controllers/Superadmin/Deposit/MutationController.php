@@ -72,12 +72,20 @@ class MutationController extends Controller
     /** Tab Laba & Neraca: laba per aplikasi & per pelanggan untuk satu periode, neraca posisi saat ini. */
     public function profit(Request $request, MutationLedger $ledger): View
     {
-        $request->validate(['date_from' => ['nullable', 'date'], 'date_to' => ['nullable', 'date'], 'customer' => ['nullable', 'string', 'max:100']]);
+        $apps = MutationLedger::appOptions();
+        $data = $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+            'customer' => ['nullable', 'uuid', 'exists:user_companies,user_id'],
+            'app' => ['nullable', 'string', \Illuminate\Validation\Rule::in(array_keys($apps))],
+        ]);
         $from = $request->date('date_from')?->startOfDay();
         $until = $request->date('date_to')?->endOfDay();
         $now = $ledger->summary(['search' => null, 'source' => null, 'direction' => null, 'from' => null, 'until' => null]);
 
-        return view('superadmin.deposit.profit', $ledger->profit($from, $until, trim((string) $request->query('customer'))) + [
+        return view('superadmin.deposit.profit', $ledger->profit($from, $until, $data['customer'] ?? null, $data['app'] ?? null) + [
+            'appOptions' => $apps,
+            'customerOptions' => \App\Models\User::has('company')->with('company:id,user_id,name')->orderBy('name')->get(['id', 'name', 'email']),
             'from' => $from,
             'until' => $until,
             'duitku' => $this->duitku(),
