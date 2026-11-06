@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Invoice\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Disbursement;
 use App\Models\DisbursementRecipient;
+use App\Models\DisbursementSetting;
 use App\Models\InvoiceApiClient;
 use App\Services\Payment\DuitkuDisbursementClient;
 use App\Services\Withdrawal\DisbursementService;
@@ -35,6 +36,25 @@ class DisbursementApiController extends Controller
         }
 
         return response()->json(['success' => true, 'data' => collect($banks)->map(fn ($b) => ['bank_code' => $b['bankCode'], 'bank_name' => $b['bankName']])->values()]);
+    }
+
+    /** Rekening penerima milik branch + aturan kirim dana yang berlaku (biaya, minimal, batas). */
+    public function accounts(Request $request): JsonResponse
+    {
+        $client = $this->client($request);
+        $setting = DisbursementSetting::current();
+
+        return response()->json([
+            'success' => true,
+            'data' => DisbursementRecipient::where('branch_id', $client->branch_id)->latest()->limit(100)->get()->map->toApi()->values(),
+            'rules' => [
+                'available' => $setting->is_active && $setting->isConfigured(),
+                'fee' => $setting->withdrawal_fee,
+                'min_amount' => $setting->min_amount,
+                'max_amount' => min(Disbursement::MAX_AMOUNT, $client->payout_max_amount ?: Disbursement::MAX_AMOUNT),
+                'daily_limit' => $client->payout_daily_limit,
+            ],
+        ]);
     }
 
     public function storeAccount(Request $request): JsonResponse

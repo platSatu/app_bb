@@ -35,9 +35,11 @@ Route::prefix('v1')->middleware('invoice.api')->group(function () {
     Route::get('invoices/{invoice}', [InvoiceApiController::class, 'show']);
     Route::post('invoices/{invoice}/cancel', [InvoiceApiController::class, 'cancel']);
     Route::get('balance', [InvoiceApiController::class, 'balance']);
+    Route::get('mutations', [InvoiceApiController::class, 'mutations']);
 
     // Disbursement: kirim dana dari saldo ke rekening penerima (wajib diaktifkan pemilik akun).
     Route::get('banks', [DisbursementApiController::class, 'banks']);
+    Route::get('payout-accounts', [DisbursementApiController::class, 'accounts']);
     Route::post('payout-accounts', [DisbursementApiController::class, 'storeAccount'])->middleware('throttle:30,1');
     Route::get('payout-accounts/{account}', [DisbursementApiController::class, 'showAccount']);
     Route::post('payouts', [DisbursementApiController::class, 'store'])->middleware('throttle:30,1');

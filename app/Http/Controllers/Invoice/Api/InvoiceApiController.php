@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Invoice\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Disbursement;
 use App\Models\Invoice;
 use App\Models\InvoiceApiClient;
 use App\Models\InvoiceSetting;
+use App\Models\WalletTransaction;
 use App\Services\Invoice\InvoicePaymentService;
 use App\Services\Invoice\InvoiceService;
 use App\Services\Wallet\WalletService;
@@ -94,6 +96,51 @@ class InvoiceApiController extends Controller
             'pending_balance' => $summary['pending'],
             'currency' => 'IDR',
         ]]);
+    }
+
+    /**
+     * Mutasi saldo pemilik akun (sama dengan menu Riwayat Saldo), terbaru di atas. Hanya baca.
+     * Query string (filter) tidak ikut ditandatangani, tapi hanya mempersempit data milik pemilik API key sendiri.
+     */
+    public function mutations(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d'],
+            'direction' => ['nullable', 'in:credit,debit'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'page' => ['nullable', 'integer', 'min:1', 'max:10000'],
+        ]);
+
+        $page = WalletTransaction::where('user_id', $this->client($request)->branch->user_id)
+            ->when($data['direction'] ?? null, fn ($q, $direction) => $q->where('direction', $direction))
+            ->when($data['date_from'] ?? null, fn ($q, $from) => $q->where('created_at', '>=', $from.' 00:00:00'))
+            ->when($data['date_to'] ?? null, fn ($q, $to) => $q->where('created_at', '<=', $to.' 23:59:59'))
+            ->orderByDesc('created_at')->orderBy('balance_after')
+            ->paginate((int) ($data['per_page'] ?? 15), ['id', 'type', 'direction', 'amount', 'balance_after', 'description', 'reference_type', 'reference_id', 'available_at', 'created_at']);
+
+        // Referensi yang berguna untuk website pemanggil: external_id invoice & status kiriman dana.
+        $ids = fn (string $model) => $page->getCollection()->where('reference_type', (new $model())->getMorphClass())->pluck('reference_id')->filter()->unique();
+        $invoices = Invoice::whereIn('id', $ids(Invoice::class))->get(['id', 'number', 'external_id'])->keyBy('id');
+        $payouts = Disbursement::whereIn('id', $ids(Disbursement::class))->get(['id', 'reference', 'external_id', 'status'])->keyBy('id');
+
+        return response()->json([
+            'success' => true,
+            'data' => $page->getCollection()->map(fn (WalletTransaction $t) => [
+                'id' => $t->id,
+                'created_at' => $t->created_at?->toIso8601String(),
+                'type' => $t->type,
+                'type_label' => $t->typeLabel(),
+                'direction' => $t->direction,
+                'amount' => $t->amount,
+                'balance_after' => $t->balance_after,
+                'description' => $t->description,
+                'pending_until' => $t->isPendingSettlement() ? $t->available_at->toIso8601String() : null,
+                'invoice' => ($invoice = $invoices->get($t->reference_id)) ? ['number' => $invoice->number, 'external_id' => $invoice->external_id] : null,
+                'payout' => ($payout = $payouts->get($t->reference_id)) ? ['reference' => $payout->reference, 'external_id' => $payout->external_id, 'status' => $payout->status] : null,
+            ])->values(),
+            'meta' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'per_page' => $page->perPage(), 'total' => $page->total()],
+        ]);
     }
 
     /** {invoice} boleh id bizbos atau external_id milik Anda. */

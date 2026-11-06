@@ -52,6 +52,7 @@
                     <h6 class="mb-2">Endpoint API</h6>
                     <div class="small font-monospace">
                         <div>GET&nbsp; {{ url('/api/v1/banks') }}</div>
+                        <div>GET&nbsp; {{ url('/api/v1/payout-accounts') }}</div>
                         <div>POST {{ url('/api/v1/payout-accounts') }}</div>
                         <div>POST {{ url('/api/v1/payouts') }}</div>
                         <div>GET&nbsp; {{ url('/api/v1/payouts/{id}') }}</div>

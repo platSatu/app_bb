@@ -241,6 +241,32 @@ Invoice yang sudah `paid` mengembalikan `409`.
 - `available_balance`: yang **bisa ditarik / dikirim saat ini** (pembayaran sudah settlement Duitku). Payout lebih besar dari ini ditolak `422`.
 - `pending_balance`: pembayaran yang masih dalam proses pencairan (tergantung metode bayar, mis. QRIS / e-wallet / retail).
 
+### 4.5 Mutasi saldo — `GET /api/v1/mutations`
+
+Semua uang masuk & keluar saldo pemilik akun (sama dengan menu **Riwayat Saldo**), terbaru di atas.
+Filter opsional lewat query string: `date_from`, `date_to` (format `YYYY-MM-DD`), `direction` (`credit` / `debit`),
+`per_page` (maks. 50, default 15), `page`. Query string tidak ikut ditandatangani: path yang ditandatangani tetap `/api/v1/mutations`.
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "9d1c...", "created_at": "2026-11-06T10:15:00+07:00",
+      "type": "invoice_payment", "type_label": "Pembayaran Invoice", "direction": "credit",
+      "amount": 49650, "balance_after": 1250000, "description": "Pembayaran invoice INV-... · potongan payment gateway Rp 350",
+      "pending_until": "2026-11-07T10:15:00+07:00",
+      "invoice": { "number": "INV-...", "external_id": "ORDER-123" },
+      "payout": null
+    }
+  ],
+  "meta": { "current_page": 1, "last_page": 4, "per_page": 15, "total": 52 }
+}
+```
+
+- `pending_until`: terisi kalau uang masuk ini belum bisa ditarik (menunggu settlement), `null` kalau sudah.
+- `invoice` / `payout`: referensi transaksi terkait (kalau ada). `payout.status` mengikuti tabel di bagian 13.5.
+
 ## 5. Status invoice
 
 | Status | Arti |
@@ -485,6 +511,18 @@ Biaya **dipotong dari jumlah yang dikirim**: `net_amount = amount - fee`.
 ```json
 { "success": true, "data": [ { "bank_code": "014", "bank_name": "BANK CENTRAL ASIA" } ] }
 ```
+
+### 13.2a Rekening terdaftar & aturan — `GET /api/v1/payout-accounts`
+
+```json
+{
+  "success": true,
+  "data": [ { "id": "...", "external_id": "USER-123", "bank_name": "...", "account_last4": "7890", "account_name": "ANDI SAPUTRA", "status": "active" } ],
+  "rules": { "available": true, "fee": 6500, "min_amount": 50000, "max_amount": 1000000000, "daily_limit": 5000000 }
+}
+```
+
+`rules` berisi biaya per kiriman, minimal kirim, batas per transaksi, dan batas harian (`null` = tanpa batas) yang berlaku untuk API key ini.
 
 ### 13.3 Daftarkan rekening — `POST /api/v1/payout-accounts`
 
