@@ -13,6 +13,9 @@ class BranchSubscription extends Model
 {
     use HasUuids;
 
+    /** Tanggal berakhir untuk paket tanpa masa aktif (Package::LIFETIME). */
+    public const FOREVER = '9999-12-31 23:59:59';
+
     protected $fillable = [];
 
     protected function casts(): array
@@ -33,6 +36,17 @@ class BranchSubscription extends Model
     public function isActive(): bool
     {
         return $this->ends_at->isFuture();
+    }
+
+    public function isForever(): bool
+    {
+        return self::foreverDate($this->ends_at);
+    }
+
+    /** Dipakai juga untuk riwayat (new_ends_at). */
+    public static function foreverDate(?\DateTimeInterface $at): bool
+    {
+        return $at !== null && (int) $at->format('Y') >= 9999;
     }
 
     public function appLabel(): string

@@ -46,7 +46,7 @@
                                 <div class="d-flex align-items-center gap-2 py-2 {{ $loop->last ? '' : 'border-bottom' }}">
                                     <div class="flex-grow-1">
                                         <code class="fs-6">{{ $voucher->code }}</code>
-                                        <div class="small text-muted">{{ $voucher->package?->name }} · {{ $voucher->package?->duration }} hari · berlaku s/d {{ $voucher->valid_until->translatedFormat('d M Y') }}</div>
+                                        <div class="small text-muted">{{ $voucher->package?->name }} · {{ $voucher->package?->durationLabel() }} · berlaku s/d {{ $voucher->valid_until->translatedFormat('d M Y') }}</div>
                                     </div>
                                     <button type="button" class="btn btn-sm btn-light" data-copy="{{ $voucher->code }}" title="Salin kode"><i class="ri-file-copy-line"></i></button>
                                     <button type="button" class="btn btn-sm btn-outline-primary" data-use="{{ $voucher->code }}">Pakai</button>

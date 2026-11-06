@@ -26,6 +26,8 @@ class PackageController extends Controller
                 'name' => $package->name,
                 'description' => $package->description,
                 'duration' => $package->duration,
+                // true = tanpa masa aktif (duration 0); tampilkan "Selamanya".
+                'lifetime' => $package->isLifetime(),
                 'price' => $package->price,
                 'is_featured' => $package->is_featured,
                 'is_trial' => $package->is_trial,

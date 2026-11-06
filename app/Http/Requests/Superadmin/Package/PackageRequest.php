@@ -18,7 +18,8 @@ class PackageRequest extends FormRequest
             'category_application_id' => ['required', Rule::exists(CategoryApplication::class, 'id')],
             'name' => ['required', 'string', 'max:150'],
             'price' => ['required', 'integer', 'min:0', 'max:1000000000'],
-            'duration' => ['required', 'integer', 'min:1', 'max:3650'],
+            // 0 = selamanya (Package::LIFETIME).
+            'duration' => ['required', 'integer', 'min:0', 'max:3650'],
             'description' => ['nullable', 'string', 'max:3000'],
             'status' => ['required', Rule::in(array_keys(Package::STATUS_LABELS))],
             'apps' => ['required', 'array', 'min:1'],
@@ -62,6 +63,10 @@ class PackageRequest extends FormRequest
         $validator->after(function ($validator) {
             if ($this->boolean('is_trial') && (int) $this->input('price') !== 0) {
                 $validator->errors()->add('price', 'Paket trial harus Rp 0.');
+            }
+
+            if ($this->boolean('is_trial') && (int) $this->input('duration') === Package::LIFETIME) {
+                $validator->errors()->add('duration', 'Paket trial harus punya durasi.');
             }
         });
     }

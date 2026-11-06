@@ -27,9 +27,10 @@
     <div class="col-md-4">
         <label for="duration" class="form-label">Durasi</label>
         <div class="input-group">
-            <input type="number" id="duration" name="duration" min="1" class="form-control @error('duration') is-invalid @enderror" value="{{ old('duration', $package->duration) }}" required>
+            <input type="number" id="duration" name="duration" min="0" class="form-control @error('duration') is-invalid @enderror" value="{{ old('duration', $package->duration) }}" required>
             <span class="input-group-text">hari</span>
         </div>
+        <div class="form-text">Isi 0 untuk paket tanpa masa aktif (selamanya).</div>
         @error('duration') <div class="text-danger fs-13 mt-1">{{ $message }}</div> @enderror
     </div>
 

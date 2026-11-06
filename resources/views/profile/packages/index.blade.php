@@ -43,7 +43,12 @@
                                         @foreach (Apps::LIST as $key => $app)
                                             @php($sub = $own->get($key))
                                             <td class="text-center">
-                                                @if ($sub && $sub->isActive())
+                                                @if ($sub && $sub->isForever())
+                                                    <span class="badge bg-success-subtle text-success">Aktif · selamanya</span>
+                                                    @foreach ($usage[$branch->id][$key] ?? [] as $line)
+                                                        <div class="small text-body mt-1"><i class="ri-bar-chart-line text-primary"></i> {{ $line }}</div>
+                                                    @endforeach
+                                                @elseif ($sub && $sub->isActive())
                                                     <span class="badge {{ $sub->daysLeft() <= 7 ? 'bg-warning-subtle text-warning' : 'bg-success-subtle text-success' }}">Aktif · {{ $sub->daysLeft() }} hari lagi</span>
                                                     <div class="small text-muted mt-1">s/d {{ $sub->ends_at->translatedFormat('d M Y') }}</div>
                                                     @foreach ($usage[$branch->id][$key] ?? [] as $line)
@@ -76,8 +81,8 @@
                             @forelse ($histories as $history)
                                 <div class="d-flex align-items-center gap-3 py-2 {{ $loop->last ? '' : 'border-bottom' }}">
                                     <div class="flex-grow-1">
-                                        <div><strong>{{ $history->appLabel() }}</strong> di {{ $history->branch?->name }} {{ $history->days >= 0 ? '+'.$history->days : $history->days }} hari</div>
-                                        <div class="small text-muted">{{ $history->sourceLabel() }}{{ $history->package ? ' · '.$history->package->name : '' }} · aktif s/d {{ $history->new_ends_at->translatedFormat('d M Y') }}</div>
+                                        <div><strong>{{ $history->appLabel() }}</strong> di {{ $history->branch?->name }} {{ \App\Models\BranchSubscription::foreverDate($history->new_ends_at) ? 'selamanya' : ($history->days >= 0 ? '+'.$history->days : $history->days).' hari' }}</div>
+                                        <div class="small text-muted">{{ $history->sourceLabel() }}{{ $history->package ? ' · '.$history->package->name : '' }} · {{ \App\Models\BranchSubscription::foreverDate($history->new_ends_at) ? 'tanpa masa aktif' : 'aktif s/d '.$history->new_ends_at->translatedFormat('d M Y') }}</div>
                                     </div>
                                     <span class="small text-muted text-nowrap">{{ $history->created_at->translatedFormat('d M Y') }}</span>
                                 </div>

@@ -9,6 +9,9 @@ use Illuminate\Database\Seeder;
 /**
  * Paket bizbos: 7 kategori (tab di halaman Beli Paket) x (Trial 7 hari, 6 bulan, 12 bulan). 12 bulan ditandai Populer.
  * 29 Okt 2026: harga Komplit dihitung ulang, Pages gratis, tambah WhatsApp & Event (Ticket).
+ * 6 Nov 2026: Pages & Event (Ticket) berdiri sendiri dan masing-masing hanya SATU paket "Gratis Selamanya"
+ * (harga 0, tanpa masa aktif, Package::LIFETIME). Paket lama Pages / Event (Trial, 6 & 12 bulan) dihapus,
+ * atau dinonaktifkan kalau sudah pernah dibeli.
  * Jalankan: php artisan db:seed --class=PackageSeeder
  * Aman dijalankan ulang: harga, fitur, kuota, dll. yang sudah diedit di superadmin TIDAK ditimpa.
  * Fitur = ringkasan per layanan (5 baris pertama, tampil di kartu) + rincian sesuai menu yang ada.
@@ -27,11 +30,12 @@ class PackageSeeder extends Seeder
             'prices' => [180 => 2694000, 365 => 4788000],
             'limits' => ['invoices' => 2000, 'whatsapp' => 20000],
         ],
-        // 29 Okt 2026: Pages digratiskan.
+        // 6 Nov 2026: Pages saja (Event terpisah), gratis selamanya.
         'Pages' => [
-            'apps' => ['events', 'pages'],
-            'prices' => [180 => 0, 365 => 0],
+            'apps' => ['pages'],
+            'lifetime' => true,
             'limits' => [],
+            'notes' => ['Gratis selamanya, tanpa masa aktif'],
         ],
         'Invoice' => [
             'apps' => ['invoices'],
@@ -56,11 +60,13 @@ class PackageSeeder extends Seeder
         ],
         // 29 Okt 2026: paket promosi Event (Ticket), bukan langganan berbayar. Biaya tiketnya diatur
         // superadmin di Biaya Layanan Tiket (event gratis maks. 1.000 tiket, event berbayar 1%/tiket).
+        // 6 Nov 2026: gratis selamanya, tanpa masa aktif.
         'Event (Ticket)' => [
             'apps' => ['events'],
-            'prices' => [180 => 0, 365 => 0],
+            'lifetime' => true,
             'limits' => [],
             'notes' => [
+                'Gratis selamanya, tanpa masa aktif',
                 'Gratis 1.000 tiket untuk event gratis',
                 'Event berbayar: biaya layanan hanya 1% per tiket terjual',
                 'Tanpa biaya langganan',
@@ -71,6 +77,8 @@ class PackageSeeder extends Seeder
     private const TRIAL_LIMITS = ['invoices' => 20, 'whatsapp' => 200];
 
     private const DURATIONS = [7 => 'Trial 7 Hari', 180 => '6 Bulan', 365 => '12 Bulan'];
+
+    private const LIFETIME_LABEL = 'Gratis Selamanya';
 
     private const FEATURES = [
         'events' => 'Event: tiket event, e-ticket QR, registrasi ulang & ID card',
@@ -136,6 +144,12 @@ class PackageSeeder extends Seeder
             Package::where('name', "{$plan} - 1 Bulan")->doesntHave('vouchers')->delete();
             Package::where('name', "{$plan} - 1 Bulan")->update(['status' => Package::STATUS_INACTIVE]);
 
+            if ($config['lifetime'] ?? false) {
+                $this->lifetime($plan, $config, $category);
+
+                continue;
+            }
+
             foreach (self::DURATIONS as $days => $label) {
                 $trial = $days === 7;
                 $limits = $trial ? array_intersect_key(self::TRIAL_LIMITS, $config['limits']) : $config['limits'];
@@ -163,6 +177,27 @@ class PackageSeeder extends Seeder
                 }
             }
         }
+    }
+
+    /** Satu paket gratis tanpa masa aktif; paket berdurasi lama kategori ini tidak dijual lagi. */
+    private function lifetime(string $plan, array $config, CategoryApplication $category): void
+    {
+        // Hanya paket buatan seeder (nama baku); paket yang dibuat manual di superadmin tidak disentuh.
+        $old = Package::whereIn('name', array_map(fn ($label) => "{$plan} - {$label}", ['1 Bulan', ...array_values(self::DURATIONS)]));
+        (clone $old)->doesntHave('vouchers')->delete();
+        $old->update(['status' => Package::STATUS_INACTIVE]);
+
+        Package::firstOrCreate(['name' => "{$plan} - ".self::LIFETIME_LABEL], [
+            'category_application_id' => $category->id,
+            'price' => 0,
+            'duration' => Package::LIFETIME,
+            'apps' => $config['apps'],
+            'limits' => [],
+            'description' => $this->features($config['apps'], [], $config['notes'] ?? []),
+            'is_trial' => false,
+            'is_featured' => false,
+            'status' => 'active',
+        ]);
     }
 
     /** Ringkasan (5 baris pertama kartu katalog) lalu rincian fitur setiap layanan. */

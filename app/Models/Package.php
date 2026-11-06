@@ -12,6 +12,9 @@ class Package extends Model
 {
     use HasActiveStatus, HasUuids;
 
+    /** Durasi 0 = selamanya (tanpa masa aktif), mis. Pages & Event gratis. */
+    public const LIFETIME = 0;
+
     protected $fillable = ['category_application_id', 'name', 'price', 'description', 'duration', 'apps', 'limits', 'is_trial', 'is_featured', 'status'];
 
     protected function casts(): array
@@ -27,6 +30,17 @@ class Package extends Model
     public function vouchers(): HasMany
     {
         return $this->hasMany(Voucher::class);
+    }
+
+    public function isLifetime(): bool
+    {
+        return (int) $this->duration === self::LIFETIME;
+    }
+
+    /** "Selamanya" atau "N hari". */
+    public function durationLabel(): string
+    {
+        return $this->isLifetime() ? 'Selamanya' : $this->duration.' hari';
     }
 
     /** Deskripsi ditulis satu fitur per baris, ditampilkan sebagai list. */

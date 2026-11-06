@@ -34,7 +34,7 @@
                             @if ($discount) <del class="fs-6 text-muted fw-normal">{{ $rupiah($package->price) }}</del> @endif
                         </div>
                         @if ($discount) <span class="badge bg-success-subtle text-success mb-1">Potongan referral {{ $sharePercent }}%</span> @endif
-                        <div class="small text-muted">untuk {{ $package->duration }} hari</div>
+                        <div class="small text-muted">{{ $package->isLifetime() ? 'tanpa masa aktif (selamanya)' : 'untuk '.$package->duration.' hari' }}</div>
                     </div>
                     <div class="card-body">
                         <h6 class="mb-3">Layanan yang dibuka</h6>
@@ -126,7 +126,7 @@
             var form = document.getElementById('checkout');
             var ends = @json($ends);
             var apps = @json(collect($package->apps)->mapWithKeys(fn ($k) => [$k => Apps::label($k)]));
-            var days = {{ (int) $package->duration }};
+            var days = {{ (int) $package->duration }}; // 0 = selamanya
             var fmt = function (d) { return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); };
 
             // Pratinjau masa aktif: bertumpuk dari tanggal berakhir lama kalau masih aktif.
@@ -136,6 +136,7 @@
                 var current = ends[form.branch_id.value] || {};
                 document.getElementById('ends-preview').innerHTML = Object.keys(apps).map(function (key) {
                     var base = current[key] && new Date(current[key]) > new Date() ? new Date(current[key]) : new Date();
+                    if (!days) return '<div><i class="ri-calendar-check-line"></i> ' + apps[key] + ' aktif <strong>selamanya</strong></div>';
                     var next = new Date(base.getTime() + days * 86400000);
                     return '<div><i class="ri-calendar-check-line"></i> ' + apps[key] + ' aktif s/d <strong>' + fmt(next) + '</strong>' + (current[key] && new Date(current[key]) > new Date() ? ' (diperpanjang)' : '') + '</div>';
                 }).join('');

@@ -111,13 +111,14 @@ class SubscriptionService
             $locked->forceFill(['redeemed_by' => $actor->getKey(), 'redeemed_at' => now()])->save();
 
             foreach ($package->apps as $appKey) {
-                $this->extend($branch, $appKey, $package->duration, $source, $actor, $package->getKey(), $locked->getKey());
+                // Paket tanpa masa aktif (Package::LIFETIME) = selamanya.
+                $this->extend($branch, $appKey, $package->isLifetime() ? null : $package->duration, $source, $actor, $package->getKey(), $locked->getKey());
             }
         });
     }
 
-    /** Tambah (atau kurangi, $days negatif) masa aktif satu layanan di satu branch. */
-    public function extend(UserBranch $branch, string $appKey, int $days, string $source, ?User $actor, ?string $packageId = null, ?string $voucherId = null, ?string $note = null): BranchSubscription
+    /** Tambah (atau kurangi, $days negatif) masa aktif satu layanan di satu branch. $days null = selamanya. */
+    public function extend(UserBranch $branch, string $appKey, ?int $days, string $source, ?User $actor, ?string $packageId = null, ?string $voucherId = null, ?string $note = null): BranchSubscription
     {
         if (! array_key_exists($appKey, Apps::LIST)) {
             throw new RuntimeException('Layanan tidak dikenal.');
@@ -130,7 +131,10 @@ class SubscriptionService
             $subscription = BranchSubscription::where('branch_id', $branch->getKey())->where('app_key', $appKey)->lockForUpdate()->first();
             $previous = $subscription?->ends_at;
             $base = $previous && $previous->isFuture() ? $previous->copy() : now();
-            $ends = $base->addDays($days);
+            // Selamanya tetap selamanya: paket berdurasi yang ditambahkan tidak boleh melewati tanggal maksimal.
+            $ends = $days === null || (BranchSubscription::foreverDate($previous) && $days >= 0)
+                ? \Illuminate\Support\Carbon::parse(BranchSubscription::FOREVER)
+                : $base->addDays($days);
 
             if (! $subscription) {
                 $subscription = new BranchSubscription();
@@ -161,7 +165,7 @@ class SubscriptionService
                 'package_id' => $packageId,
                 'voucher_id' => $voucherId,
                 'source' => $source,
-                'days' => $days,
+                'days' => $days ?? 0,
                 'previous_ends_at' => $previous,
                 'new_ends_at' => $ends,
                 'actor_id' => $actor?->getKey(),

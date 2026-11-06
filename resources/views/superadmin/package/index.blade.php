@@ -54,7 +54,7 @@
                                     @endforelse
                                 </td>
                                 <td class="text-end text-nowrap">Rp {{ number_format($package->price, 0, ',', '.') }}</td>
-                                <td class="text-center text-nowrap">{{ $package->duration }} hari</td>
+                                <td class="text-center text-nowrap">{{ $package->durationLabel() }}</td>
                                 <td>
                                     @if ($features = $package->features())
                                         <ul class="mb-0 ps-3 small">

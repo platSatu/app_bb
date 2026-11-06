@@ -79,7 +79,7 @@ class SiteAssistant
                 $this->section('Fitur', WebFeature::where('status', 'active')->orderBy('sort_order')->get(['name', 'description'])
                     ->map(fn ($f) => "- {$f->name}: ".$this->plain($f->description))),
                 $this->section('Paket & harga', Package::active()->orderBy('price')->get(['name', 'description', 'duration', 'price', 'is_trial'])
-                    ->map(fn ($p) => "- {$p->name}: ".($p->price > 0 ? 'Rp '.number_format($p->price, 0, ',', '.') : 'gratis')." untuk {$p->duration} hari".($p->is_trial ? ' (trial)' : '').'. '.$this->plain($p->description))),
+                    ->map(fn ($p) => "- {$p->name}: ".($p->price > 0 ? 'Rp '.number_format($p->price, 0, ',', '.') : 'gratis').' untuk '.($p->isLifetime() ? 'selamanya (tanpa masa aktif)' : "{$p->duration} hari").($p->is_trial ? ' (trial)' : '').'. '.$this->plain($p->description))),
                 $this->section('Pertanyaan yang sering ditanyakan', WebFaq::where('status', 'active')->orderBy('sort_order')->get(['name', 'descriptions'])
                     ->map(fn ($f) => "T: {$f->name}\nJ: ".$this->plain($f->descriptions))),
                 $extra !== '' ? "# Info & arahan tambahan dari tim bizbos\n".Str::limit($extra, 6000) : null,

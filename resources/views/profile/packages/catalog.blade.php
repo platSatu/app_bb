@@ -88,7 +88,7 @@
                                     $bln = $bulan($package);
                                     $perBulan = $package->price > 0 && ! $package->is_trial ? $package->price / $bln : 0;
                                     $hemat = $termahalPerBulan > 0 && $perBulan > 0 ? (int) round((1 - $perBulan / $termahalPerBulan) * 100) : 0;
-                                    $label = $package->is_trial ? 'Trial '.$package->duration.' Hari' : ($package->duration >= 28 ? $bln.' Bulan' : $package->duration.' Hari');
+                                    $label = $package->isLifetime() ? 'Selamanya' : ($package->is_trial ? 'Trial '.$package->duration.' Hari' : ($package->duration >= 28 ? $bln.' Bulan' : $package->duration.' Hari'));
                                     $fitur = $package->features();
                                 @endphp
                                 <div class="col-sm-6 col-xl-4 d-flex">
@@ -115,7 +115,7 @@
                                             @endif
                                         </div>
                                         <p class="pkgx-muted small mb-4">
-                                            Masa aktif {{ $package->duration }} hari
+                                            {{ $package->isLifetime() ? 'Tanpa masa aktif' : 'Masa aktif '.$package->duration.' hari' }}
                                             @if ($perBulan > 0 && $bln > 1)
                                                 &middot; setara {{ $rupiah(round($perBulan)) }}/bulan
                                             @endif
