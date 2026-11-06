@@ -76,35 +76,25 @@
 
     {{-- Ringkasan untuk filter yang sama dengan tabel. --}}
     <div class="row g-3 mb-3">
-        <div class="col-sm-6 col-xl-3">
+        <div class="col-sm-6 col-xl-4">
             <div class="card h-100 mb-0 mutasi-stat"><div class="card-body">
                 <div class="label">Kredit · uang masuk</div>
                 <div class="value text-success">{{ $rp($summary['credit']) }}</div>
                 <div class="small text-muted">{{ $summary['credit_count'] }} pembayaran · {{ $period }}</div>
             </div></div>
         </div>
-        <div class="col-sm-6 col-xl-3">
+        <div class="col-sm-6 col-xl-4">
             <div class="card h-100 mb-0 mutasi-stat"><div class="card-body">
                 <div class="label">Debit · uang keluar</div>
                 <div class="value text-danger">{{ $rp($summary['debit']) }}</div>
                 <div class="small text-muted">{{ $summary['debit_count'] }} transfer, termasuk biaya Duitku · {{ $period }}</div>
             </div></div>
         </div>
-        <div class="col-sm-6 col-xl-3">
+        <div class="col-sm-6 col-xl-4">
             <div class="card h-100 mb-0 mutasi-stat"><div class="card-body">
                 <div class="label">Saldo tercatat</div>
                 <div class="value">{{ $rp($summary['balance']) }}</div>
                 <div class="small text-muted">{{ $until ? 'Per '.$until : 'Saat ini' }} · kredit − debit semua sumber</div>
-            </div></div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card h-100 mb-0 mutasi-stat"><div class="card-body">
-                <div class="label">Keuntungan bizbos</div>
-                <div class="value {{ $summary['profit'] < 0 ? 'text-danger' : '' }}">{{ $summary['profit'] < 0 ? '−' : '' }}{{ $rp(abs($summary['profit'])) }}</div>
-                <div class="small text-muted">
-                    Fee pembayaran {{ $rp($summary['fee_in']) }} + fee transfer {{ $rp($summary['fee_out']) }}
-                    − biaya Duitku transfer {{ $rp($summary['duitku_fee']) }} · {{ $period }}
-                </div>
             </div></div>
         </div>
     </div>
@@ -213,7 +203,6 @@
                                 <td class="num">
                                     @if ($row->direction === 'credit')
                                         <span class="credit">+{{ $rp($row->amount) }}</span>
-                                        @if ($row->fee > 0) <span class="sub">fee {{ $rp($row->fee) }}</span> @endif
                                     @else
                                         <span class="nil">—</span>
                                     @endif
@@ -221,11 +210,7 @@
                                 <td class="num">
                                     @if ($row->direction === 'debit')
                                         <span class="debit">−{{ $rp($row->amount) }}</span>
-                                        {{-- Rincian khusus admin: transfer + biaya Duitku; fee ditagih ke user & untungnya. --}}
                                         <span class="sub">transfer {{ $rp($row->transfer) }} · Duitku {{ $rp($row->duitku_fee) }}</span>
-                                        @if ($row->fee > 0)
-                                            <span class="sub">fee user {{ $rp($row->fee) }} · untung {{ $row->fee < $row->duitku_fee ? '−' : '' }}{{ $rp(abs($row->fee - $row->duitku_fee)) }}</span>
-                                        @endif
                                     @else
                                         <span class="nil">—</span>
                                     @endif

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -40,6 +41,26 @@ return new class extends Migration
         Schema::table('wallet_transactions', function (Blueprint $table) {
             $table->unsignedBigInteger('paid_amount')->nullable()->after('amount');
         });
+
+        // Isi sekali untuk uang masuk lama, dari tabel asalnya (laporan Laba & Neraca membaca dari satu tempat).
+        $sources = [
+            'App\\Models\\Deposit' => ['deposits', 'amount'],
+            'App\\Models\\Invoice' => ['invoices', 'paid_amount'],
+            'App\\Models\\InvoiceCheckout' => ['invoice_checkouts', 'amount'],
+            'App\\Models\\TicketOrder' => ['ticket_orders', 'total'],
+            'App\\Models\\CatalogOrder' => ['catalog_orders', 'total'],
+        ];
+
+        foreach ($sources as $class => [$table, $column]) {
+            DB::table('wallet_transactions as w')->join("{$table} as s", 's.id', '=', 'w.reference_id')
+                ->where('w.reference_type', $class)->where('w.direction', 'credit')->whereNull('w.paid_amount')
+                ->update(['w.paid_amount' => DB::raw("GREATEST(COALESCE(s.{$column}, 0), w.amount + w.method_fee)")]);
+        }
+
+        // Sisanya (sumber tidak ditemukan): bruto = masuk saldo + potongan.
+        DB::table('wallet_transactions')->where('direction', 'credit')->whereNull('paid_amount')
+            ->whereIn('type', ['deposit', 'invoice_payment', 'ticket_sale', 'catalog_sale'])
+            ->update(['paid_amount' => DB::raw('amount + method_fee')]);
     }
 
     public function down(): void

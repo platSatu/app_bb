@@ -116,6 +116,9 @@ Route::middleware(['auth', 'superadmin'])
         Route::get('mutations/duitku-balance', [MutationController::class, 'duitkuBalance'])
             ->middleware(['permission:superadmin.mutations,view', 'throttle:30,1'])
             ->name('mutations.duitku-balance');
+        Route::get('mutations/profit', [MutationController::class, 'profit'])
+            ->middleware(['permission:superadmin.mutations,view', 'throttle:60,1'])
+            ->name('mutations.profit');
 
         // Tarik saldo: khusus superadmin (uang keluar dari Duitku).
         Route::middleware('permission:superadmin.withdrawals,manage')->group(function () {

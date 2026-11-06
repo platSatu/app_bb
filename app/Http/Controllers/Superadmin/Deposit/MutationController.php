@@ -48,42 +48,71 @@ class MutationController extends Controller
      */
     public function duitkuBalance(MutationLedger $ledger): JsonResponse
     {
-        $client = DuitkuDisbursementClient::make();
-        $key = 'mutasi:duitku-balance:'.($client->isSandbox() ? 'sandbox' : 'production');
+        $duitku = $this->duitku();
 
-        $duitku = Cache::get($key);
-
-        if (! $duitku) {
-            try {
-                $result = $client->checkBalance();
-            } catch (Throwable $e) {
-                report($e);
-
-                return response()->json(['ok' => false, 'message' => 'Saldo Duitku belum bisa dicek. Coba lagi sebentar.'], 502);
-            }
-
-            if (($result['responseCode'] ?? null) !== '00') {
-                return response()->json(['ok' => false, 'message' => 'Duitku menjawab: '.($result['responseDesc'] ?? '-')], 502);
-            }
-
-            $duitku = [
-                'balance' => (int) round((float) ($result['balance'] ?? 0)),
-                'effective' => (int) round((float) ($result['effectiveBalance'] ?? 0)),
-                'checked_at' => now()->toIso8601String(),
-            ];
-            Cache::put($key, $duitku, self::BALANCE_CACHE_SECONDS);
+        if (isset($duitku['error'])) {
+            return response()->json(['ok' => false, 'message' => $duitku['error']], 502);
         }
 
         $recorded = $ledger->balanceUntil();
 
         return response()->json([
             'ok' => true,
-            'sandbox' => $client->isSandbox(),
+            'sandbox' => $duitku['sandbox'],
             'balance' => $duitku['balance'],
             'effective' => $duitku['effective'],
             'recorded' => $recorded,
             'difference' => $duitku['balance'] - $recorded,
             'checked_at' => $duitku['checked_at'],
         ])->header('Cache-Control', 'no-store');
+    }
+
+    /** Tab Laba & Neraca: laba per aplikasi & per pelanggan untuk satu periode, neraca posisi saat ini. */
+    public function profit(Request $request, MutationLedger $ledger): View
+    {
+        $request->validate(['date_from' => ['nullable', 'date'], 'date_to' => ['nullable', 'date']]);
+        $from = $request->date('date_from')?->startOfDay();
+        $until = $request->date('date_to')?->endOfDay();
+        $now = $ledger->summary(['search' => null, 'source' => null, 'direction' => null, 'from' => null, 'until' => null]);
+
+        return view('superadmin.deposit.profit', $ledger->profit($from, $until) + [
+            'from' => $from,
+            'until' => $until,
+            'duitku' => $this->duitku(),
+            'userBalance' => $now['user_balance'],
+            'refund' => $now['refund'],
+        ]);
+    }
+
+    /** Saldo asli Duitku Disbursement (disimpan 30 detik). @return array{balance?: int, effective?: int, checked_at?: string, sandbox: bool, error?: string} */
+    private function duitku(): array
+    {
+        $client = DuitkuDisbursementClient::make();
+        $key = 'mutasi:duitku-balance:'.($client->isSandbox() ? 'sandbox' : 'production');
+
+        if ($cached = Cache::get($key)) {
+            return $cached + ['sandbox' => $client->isSandbox()];
+        }
+
+        try {
+            $result = $client->checkBalance();
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['sandbox' => $client->isSandbox(), 'error' => 'Saldo Duitku belum bisa dicek. Coba lagi sebentar.'];
+        }
+
+        if (($result['responseCode'] ?? null) !== '00') {
+            return ['sandbox' => $client->isSandbox(), 'error' => 'Duitku menjawab: '.($result['responseDesc'] ?? '-')];
+        }
+
+        $data = [
+            'balance' => (int) round((float) ($result['balance'] ?? 0)),
+            'effective' => (int) round((float) ($result['effectiveBalance'] ?? 0)),
+            'checked_at' => now()->toIso8601String(),
+        ];
+        Cache::put($key, $data, self::BALANCE_CACHE_SECONDS);
+
+        return $data + ['sandbox' => $client->isSandbox()];
     }
 }
