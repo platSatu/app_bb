@@ -31,7 +31,7 @@ class GooglePlacesController extends Controller
             $query = $location !== '' ? "{$keyword} di {$location}" : $keyword;
 
             try {
-                $result = $places->search($query, $data['page_token'] ?? null, $provider, $location, ! $request->boolean('all'));
+                $result = $places->search($query, $data['page_token'] ?? null, $provider, $location);
             } catch (RuntimeException $e) {
                 $error = $e->getMessage();
             }
@@ -105,7 +105,7 @@ class GooglePlacesController extends Controller
      */
     private function selected(Request $request): \Illuminate\Support\Collection
     {
-        $data = $request->validate(['rows' => ['required', 'array', 'max:100'], 'rows.*' => ['string', 'max:3000']]);
+        $data = $request->validate(['rows' => ['required', 'array', 'max:200'], 'rows.*' => ['string', 'max:3000']]);
         $text = fn ($value, int $max) => is_scalar($value) ? trim(mb_substr((string) $value, 0, $max)) : '';
         $url = fn ($value) => is_string($value) && preg_match('#^https?://#i', $value) ? mb_substr($value, 0, 300) : '';
 

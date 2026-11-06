@@ -25,6 +25,11 @@ class GooglePlacesClient
 
     private const OPEN_ENDPOINT = 'https://api.openplacesapi.com/v1/places';
 
+    /** Sisir area Open Places: 9 titik (tengah + 8 di sekeliling, ±6 km), radius 5 mil (±8 km) per titik. */
+    private const OPEN_GRID_STEP = 0.055;
+
+    private const OPEN_GRID_RADIUS_MI = 5;
+
     private const FIELDS = [
         'places.id',
         'places.displayName',
@@ -57,7 +62,7 @@ class GooglePlacesClient
     /**
      * @return array{places: array<int, array<string, mixed>>, next_page_token: ?string}
      */
-    public function search(string $query, ?string $pageToken = null, string $provider = 'google', string $location = '', bool $strict = true): array
+    public function search(string $query, ?string $pageToken = null, string $provider = 'google', string $location = ''): array
     {
         if (! $this->isConfigured($provider)) {
             throw new RuntimeException('API key '.self::PROVIDERS[$provider].' belum diisi. Tambahkan '.($provider === 'open' ? 'OPEN_PLACES_API_KEY' : 'GOOGLE_PLACES_API_KEY').' di file .env.');
@@ -68,7 +73,7 @@ class GooglePlacesClient
         }
 
         if ($provider === 'open') {
-            return $this->searchOpen($query, $location, $strict);
+            return $this->searchOpen($query, $location);
         }
 
         $body = array_filter([
@@ -106,64 +111,86 @@ class GooglePlacesClient
         ];
     }
 
-    /** Open Places: kata kunci $query, area dari $location (diubah ke koordinat). Tanpa halaman berikutnya. */
-    private function searchOpen(string $query, string $location, bool $strict = true): array
+    /**
+     * Open Places: kata kunci $query di sekitar $location. Satu pencarian Open Places hanya memberi 20 hasil, jadi area
+     * disisir 9 titik lalu digabung (tanpa duplikat). Semua hasil ditampilkan; yang nama/kategorinya memuat setiap kata
+     * kunci secara utuh ditandai 'match' dan diurutkan paling atas (Open Places juga mencocokkan potongan kata,
+     * mis. "les" ikut menangkap "Sales"), supaya tinggal diseleksi.
+     */
+    private function searchOpen(string $query, string $location): array
     {
         if ($location === '') {
             throw new RuntimeException('Open Places butuh lokasi (mis. Tebet, Jakarta Selatan).');
         }
 
-        [$lat, $lon] = $this->coordinates($location);
-
-        $response = Http::timeout(15)->withToken((string) config('services.open_places.key'))->acceptJson()
-            ->get(self::OPEN_ENDPOINT, ['q' => $query, 'lat' => $lat, 'lon' => $lon, 'radius_mi' => 10, 'limit' => 20]);
-
-        $this->incrementCounter('open');
-
-        if ($response->failed()) {
-            Log::warning('Open Places gagal', ['status' => $response->status(), 'error' => $response->json('error.code')]);
-
-            throw new RuntimeException(match ($response->json('error.code')) {
-                'invalid_api_key', 'unauthenticated' => 'API key Open Places ditolak. Cek OPEN_PLACES_API_KEY.',
-                'quota_exhausted', 'payment_required' => 'Kuota gratis Open Places bulan ini habis.',
-                'rate_limited' => 'Terlalu banyak pencarian ke Open Places. Tunggu sebentar.',
-                'coverage_not_ready' => 'Open Places belum punya data untuk area ini. Coba Google Maps.',
-                default => 'Open Places sedang bermasalah. Coba lagi beberapa saat lagi.',
-            });
+        $points = [];
+        foreach ([0, -1, 1] as $dy) {
+            foreach ([0, -1, 1] as $dx) {
+                $points[] = [$dy, $dx];
+            }
         }
 
-        // Open Places mencocokkan potongan kata ("les" ikut menangkap "Sales", "Styles"): kalau $strict, hanya ambil
-        // yang setiap kata kuncinya muncul utuh di nama atau kategori. Jumlah yang disembunyikan ikut dikembalikan.
+        if ($this->usedToday('open') + count($points) > $this->dailyLimit('open')) {
+            throw new RuntimeException('Sisa batas pencarian hari ini tidak cukup untuk menyisir area ('.count($points).' pencarian). Coba lagi besok.');
+        }
+
+        [$lat, $lon] = $this->coordinates($location);
+        $results = collect();
+
+        foreach ($points as [$dy, $dx]) {
+            $response = Http::timeout(10)->withToken((string) config('services.open_places.key'))->acceptJson()->get(self::OPEN_ENDPOINT, [
+                'q' => $query, 'limit' => 20, 'radius_mi' => self::OPEN_GRID_RADIUS_MI,
+                'lat' => round($lat + $dy * self::OPEN_GRID_STEP, 6), 'lon' => round($lon + $dx * self::OPEN_GRID_STEP, 6),
+            ]);
+            $this->incrementCounter('open');
+
+            if ($response->failed()) {
+                Log::warning('Open Places gagal', ['status' => $response->status(), 'error' => $response->json('error.code')]);
+
+                // Titik pertama gagal = tidak ada hasil sama sekali; titik berikutnya gagal = pakai yang sudah didapat.
+                if ($results->isEmpty()) {
+                    throw new RuntimeException(match ($response->json('error.code')) {
+                        'invalid_api_key', 'unauthenticated' => 'API key Open Places ditolak. Cek OPEN_PLACES_API_KEY.',
+                        'quota_exhausted', 'payment_required' => 'Kuota gratis Open Places bulan ini habis.',
+                        'rate_limited' => 'Terlalu banyak pencarian ke Open Places. Tunggu sebentar.',
+                        'coverage_not_ready' => 'Open Places belum punya data untuk area ini. Coba Google Maps.',
+                        default => 'Open Places sedang bermasalah. Coba lagi beberapa saat lagi.',
+                    });
+                }
+
+                break;
+            }
+
+            $results = $results->merge($response->json('results', []));
+        }
+
         $words = array_filter(preg_split('/\s+/u', mb_strtolower($query)));
-        $matches = function (array $p) use ($words) {
-            $text = mb_strtolower(($p['name'] ?? '').' '.str_replace('_', ' ', implode(' ', [$p['category'] ?? '', ...($p['categories'] ?? [])])));
-
-            return collect($words)->every(fn ($word) => preg_match('/(?<![\p{L}\p{N}])'.preg_quote($word, '/').'(?![\p{L}\p{N}])/u', $text));
-        };
-
-        $all = collect($response->json('results', []));
-        $shown = $strict ? $all->filter($matches) : $all;
 
         return [
-            'hidden' => $all->count() - $shown->count(),
-            'places' => $shown->map(fn (array $p) => $this->mapPlace([
-                'id' => $p['place_id'] ?? null,
-                'displayName' => ['text' => $p['name'] ?? '-'],
-                'formattedAddress' => $p['address']['formatted'] ?? null,
-                'nationalPhoneNumber' => $p['phone'] ?? null,
-                'websiteUri' => $p['website'] ?? null,
-                'googleMapsUri' => isset($p['lat'], $p['lon']) ? "https://www.google.com/maps/search/?api=1&query={$p['lat']},{$p['lon']}" : null,
-                'businessStatus' => ($p['operating_status'] ?? null) === 'closed' ? 'CLOSED_PERMANENTLY' : null,
-            ]) + [
-                // Kolom tambahan Open Places (untuk tabel & Excel).
-                'category' => ucfirst(str_replace('_', ' ', (string) ($p['category'] ?? ''))) ?: null,
-                'city' => $p['address']['locality'] ?? null,
-                'province' => $p['address']['region'] ?? null,
-                'postal_code' => $p['address']['postal_code'] ?? null,
-                'lat' => $p['lat'] ?? null,
-                'lon' => $p['lon'] ?? null,
-                'distance_km' => isset($p['distance_mi']) ? round($p['distance_mi'] * 1.609, 1) : null,
-            ])->values()->all(),
+            'places' => $results->unique('place_id')->map(function (array $p) use ($words, $lat, $lon) {
+                $text = mb_strtolower(($p['name'] ?? '').' '.str_replace('_', ' ', implode(' ', [$p['category'] ?? '', ...($p['categories'] ?? [])])));
+
+                return $this->mapPlace([
+                    'id' => $p['place_id'] ?? null,
+                    'displayName' => ['text' => $p['name'] ?? '-'],
+                    'formattedAddress' => $p['address']['formatted'] ?? null,
+                    'nationalPhoneNumber' => $p['phone'] ?? null,
+                    'websiteUri' => $p['website'] ?? null,
+                    'googleMapsUri' => isset($p['lat'], $p['lon']) ? "https://www.google.com/maps/search/?api=1&query={$p['lat']},{$p['lon']}" : null,
+                    'businessStatus' => ($p['operating_status'] ?? null) === 'closed' ? 'CLOSED_PERMANENTLY' : null,
+                ]) + [
+                    'match' => collect($words)->every(fn ($word) => preg_match('/(?<![\p{L}\p{N}])'.preg_quote($word, '/').'(?![\p{L}\p{N}])/u', $text)),
+                    'category' => ucfirst(str_replace('_', ' ', (string) ($p['category'] ?? ''))) ?: null,
+                    'city' => $p['address']['locality'] ?? null,
+                    'province' => $p['address']['region'] ?? null,
+                    'postal_code' => $p['address']['postal_code'] ?? null,
+                    'lat' => $p['lat'] ?? null,
+                    'lon' => $p['lon'] ?? null,
+                    // Jarak dari lokasi yang diketik (bukan dari titik sisir), perkiraan garis lurus.
+                    'distance_km' => isset($p['lat'], $p['lon'])
+                        ? round(111.32 * sqrt(($p['lat'] - $lat) ** 2 + (($p['lon'] - $lon) * cos(deg2rad($lat))) ** 2), 1) : null,
+                ];
+            })->sortBy([['match', 'desc'], ['distance_km', 'asc']])->values()->all(),
             'next_page_token' => null,
         ];
     }

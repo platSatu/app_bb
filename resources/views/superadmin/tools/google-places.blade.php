@@ -32,7 +32,7 @@
             <p class="text-muted small mb-0">
                 Pencarian hari ini ({{ \App\Services\Marketing\GooglePlacesClient::PROVIDERS[$provider] }}): <strong>{{ $usedToday }}</strong> / {{ $dailyLimit }}.
                 {{ $provider === 'open'
-                    ? 'Open Places: gratis 10.000 pencarian/bulan, maks. 20 hasil dalam radius ±16 km dari lokasi, tanpa rating. Lokasi wajib diisi.'
+                    ? 'Open Places: gratis 10.000 pencarian/bulan. Satu kali Cari = 9 pencarian (sisir area), hasil bisa sampai ±180 tempat, tanpa rating. Lokasi wajib diisi.'
                     : 'Setiap klik "Cari" atau "Halaman berikutnya" dihitung 1 pencarian dan ditagih Google.' }}
                 Hasil tidak disimpan; nomor telepon kantor (021, dll.) tidak bisa dihubungi lewat WhatsApp.
             </p>
@@ -45,13 +45,11 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
                         <h6 class="mb-0">{{ count($result['places']) }} tempat ditemukan</h6>
-                        @if (! empty($result['hidden']))
+                        @if ($provider === 'open')
+                            @php($matched = collect($result['places'])->where('match', true)->count())
                             <div class="small text-muted mt-1">
-                                {{ $result['hidden'] }} hasil lain disembunyikan karena nama/kategorinya tidak memuat "{{ $keyword }}" sebagai kata utuh.
-                                <a href="{{ route('superadmin.tools.open-places.index', ['keyword' => $keyword, 'location' => $location, 'all' => 1]) }}">Tampilkan semua</a>
+                                <strong>{{ $matched }}</strong> cocok dengan "{{ $keyword }}" (paling atas, sudah dicentang). Sisanya hanya mirip: centang kalau relevan.
                             </div>
-                        @elseif (request()->boolean('all') && $provider === 'open')
-                            <div class="small text-muted mt-1">Menampilkan semua hasil, termasuk yang namanya hanya mirip. Centang yang relevan saja.</div>
                         @endif
                     </div>
                     @if ($result['next_page_token'])
@@ -83,14 +81,15 @@
                         </thead>
                         <tbody class="small">
                             @forelse ($result['places'] as $i => $place)
-                                <tr @class(['opacity-50' => $place['closed']])>
+                                <tr @class(['opacity-50' => $place['closed'] || ($open && ! $place['match'])])>
                                     @if ($open)
-                                        <td><input type="checkbox" class="form-check-input" name="rows[]" form="places-export" value="{{ json_encode($place) }}" checked></td>
+                                        <td><input type="checkbox" class="form-check-input" name="rows[]" form="places-export" value="{{ json_encode($place) }}" @checked($place['match'])></td>
                                     @endif
                                     <td class="text-muted">{{ $i + 1 }}</td>
                                     <td class="fw-semibold" style="min-width: 180px">
                                         {{ $place['name'] }}
                                         @if ($place['closed']) <span class="badge bg-secondary ms-1">Tutup</span> @endif
+                                        @if (! empty($place['match'])) <span class="badge bg-success-subtle text-success ms-1">✓ cocok</span> @endif
                                         @if (! empty($place['category'])) <div class="text-muted fw-normal">{{ $place['category'] }}</div> @endif
                                     </td>
                                     <td style="min-width: 240px">
@@ -129,7 +128,7 @@
                     </table>
                 </div>
                 <p class="text-muted small mt-3 mb-0">{{ $open
-                    ? 'Data dari Open Places API (Overture Maps). Hanya tempat yang namanya / kategorinya memuat kata kunci secara utuh. Excel berisi kolom lengkap: kategori, alamat, kota, provinsi, kode pos, telepon, WhatsApp, website, koordinat, jarak, link peta.'
+                    ? 'Data dari Open Places API (Overture Maps). Satu kali Cari menyisir 9 titik di sekitar lokasi (±20 km), digabung tanpa duplikat; jarak dihitung dari lokasi yang diketik. Excel berisi kolom lengkap.'
                     : 'Data dari Google Maps. Ketentuan Google tidak mengizinkan data Places diunduh / disimpan.' }}</p>
             </div>
         </div>
