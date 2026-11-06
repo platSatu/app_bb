@@ -128,11 +128,11 @@
     <div class="card">
         <div class="card-body">
             <form method="GET" class="row g-2 align-items-end mb-3">
-                <div class="col-12 col-md-4 col-xl-3">
+                <div class="col-12 col-md-6">
                     <label class="form-label small text-muted mb-1">Cari</label>
                     <input type="text" name="search" class="form-control" maxlength="100" placeholder="No. referensi / nama / customer" value="{{ request('search') }}">
                 </div>
-                <div class="col-6 col-md-4 col-xl-2">
+                <div class="col-6 col-md-3">
                     <label class="form-label small text-muted mb-1">Sumber</label>
                     <select name="source" class="form-select">
                         <option value="">Semua</option>
@@ -141,7 +141,7 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-6 col-md-4 col-xl-2">
+                <div class="col-6 col-md-3">
                     <label class="form-label small text-muted mb-1">Arah</label>
                     <select name="direction" class="form-select">
                         <option value="">Kredit & Debit</option>
@@ -149,15 +149,15 @@
                         <option value="debit" @selected($filters['direction'] === 'debit')>Debit (keluar)</option>
                     </select>
                 </div>
-                <div class="col-6 col-md-3 col-xl-2">
+                <div class="col-6 col-md-4">
                     <label class="form-label small text-muted mb-1">Dari tanggal</label>
                     <input type="date" name="date_from" class="form-control" value="{{ request('date_from') }}">
                 </div>
-                <div class="col-6 col-md-3 col-xl-2">
+                <div class="col-6 col-md-4">
                     <label class="form-label small text-muted mb-1">Sampai tanggal</label>
                     <input type="date" name="date_to" class="form-control" value="{{ request('date_to') }}">
                 </div>
-                <div class="col-12 col-md-6 col-xl-1 d-flex gap-2">
+                <div class="col-12 col-md-4 d-flex gap-2">
                     <button type="submit" class="btn btn-primary flex-grow-1" title="Filter"><i class="ri-search-line"></i></button>
                     @if (request()->hasAny(['search', 'source', 'direction', 'date_from', 'date_to']))
                         <a href="{{ route('superadmin.mutations.index') }}" class="btn btn-outline-danger" title="Hapus filter"><i class="ri-close-line"></i></a>

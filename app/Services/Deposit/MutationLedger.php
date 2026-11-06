@@ -252,6 +252,11 @@ class MutationLedger
             ->selectRaw("p.user_id, u.name, u.email, c.name AS company, {$sum}")
             ->orderByDesc('profit')->limit(50)->get();
 
+        // Rincian per aplikasi untuk pelanggan di atas (satu pelanggan bisa punya banyak aplikasi, labanya diakumulasi).
+        $perApp = (clone $all)->whereIn('p.user_id', $customers->pluck('user_id'))->groupBy('p.user_id', 'app')
+            ->selectRaw('p.user_id, app, SUM(service + gateway - duitku + extra) AS profit')->get()->groupBy('user_id');
+        $customers->each(fn ($c) => $c->apps = $perApp->get($c->user_id, collect())->sortByDesc('profit')->values());
+
         $adjustment = $period(DB::table('wallet_transactions')->where('type', 'adjustment'), 'created_at')
             ->selectRaw("COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount END), 0) AS `in`, COALESCE(SUM(CASE WHEN direction = 'debit' THEN amount END), 0) AS `out`")->first();
 
