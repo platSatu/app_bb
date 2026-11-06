@@ -6,18 +6,29 @@
 @section('content')
     @include('superadmin.withdrawal._tabs', ['active' => 'accounts'])
 
+    @php($disbursement = $type === 'disbursement')
+
     <div class="card">
         <div class="card-body">
+            <ul class="nav nav-pills mb-3">
+                @foreach (['withdrawal' => 'Rekening Tarik Saldo', 'disbursement' => 'Rekening Penerima Disbursement'] as $key => $label)
+                    <li class="nav-item">
+                        <a class="nav-link {{ $type === $key ? 'active' : '' }}" href="{{ route('superadmin.bank-accounts.index', $key === 'disbursement' ? ['type' => $key] : []) }}">{{ $label }}</a>
+                    </li>
+                @endforeach
+            </ul>
+
             <form method="GET" class="row g-2 align-items-end mb-3">
+                @if ($disbursement) <input type="hidden" name="type" value="disbursement"> @endif
                 <div class="col-12 col-md-5 col-xl-4">
                     <label class="form-label small text-muted mb-1">Cari</label>
-                    <input type="text" name="search" class="form-control" maxlength="100" placeholder="Nama user / email / nama rekening" value="{{ request('search') }}">
+                    <input type="text" name="search" class="form-control" maxlength="100"  placeholder="{{ $disbursement ? 'Nama / email pemilik, nama rekening, label, ID API' : 'Nama user / email / nama rekening' }}" value="{{ request('search') }}">
                 </div>
                 <div class="col-6 col-md-3 col-xl-2">
                     <label class="form-label small text-muted mb-1">Status</label>
                     <select name="status" class="form-select">
                         <option value="">Semua</option>
-                        @foreach (\App\Models\BankAccount::STATUS_LABELS as $value => $label)
+                        @foreach ($disbursement ? ['active' => 'Aktif', 'inactive' => 'Nonaktif'] : \App\Models\BankAccount::STATUS_LABELS as $value => $label)
                             <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
                         @endforeach
                     </select>
@@ -27,8 +38,36 @@
                 </div>
             </form>
 
-            <p class="small text-muted">Nama rekening diambil langsung dari bank lewat Duitku. Setujui hanya jika sesuai dengan nama pemilik akun.</p>
+            <p class="small text-muted">
+                {{ $disbursement
+                    ? 'Rekening tujuan kirim dana yang didaftarkan pelanggan, dari dashboard atau lewat API. Hanya lihat; nama dicek ke bank lewat Duitku.'
+                    : 'Nama rekening diambil langsung dari bank lewat Duitku. Setujui hanya jika sesuai dengan nama pemilik akun.' }}
+            </p>
 
+            @if ($disbursement)
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 text-nowrap">
+                        <thead class="table-light">
+                            <tr><th>Pelanggan</th><th>Rekening</th><th>Nama di Bank</th><th>Label / ID API</th><th>Dari</th><th>Status</th><th>Didaftarkan</th></tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($accounts as $account)
+                                <tr>
+                                    <td>{{ $account->branch?->user?->name ?? '-' }}<div class="text-muted small">{{ $account->branch?->user?->email }} · {{ $account->branch?->name }}</div></td>
+                                    <td>{{ $account->masked() }}</td>
+                                    <td class="fw-semibold">{{ $account->account_name }}</td>
+                                    <td>{{ $account->label ?: '-' }}<div class="text-muted small">{{ $account->external_id }}</div></td>
+                                    <td><span class="badge bg-light text-dark">{{ $account->source === 'api' ? 'API' : 'Dashboard' }}</span></td>
+                                    <td><span class="badge {{ $account->isActive() ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }}">{{ $account->isActive() ? 'Aktif' : 'Nonaktif' }}</span></td>
+                                    <td class="text-muted">{{ $account->created_at->translatedFormat('d M Y H:i') }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="7" class="text-center text-muted py-4">Belum ada rekening penerima.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            @else
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0 text-nowrap">
                     <thead class="table-light">
@@ -74,6 +113,7 @@
                     </tbody>
                 </table>
             </div>
+            @endif
 
             <div class="mt-3">{{ $accounts->links() }}</div>
         </div>

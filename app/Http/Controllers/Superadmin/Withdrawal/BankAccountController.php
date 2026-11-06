@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Superadmin\Withdrawal;
 
 use App\Http\Controllers\Controller;
 use App\Models\BankAccount;
+use App\Models\DisbursementRecipient;
 use App\Services\Withdrawal\BankAccountService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,21 @@ class BankAccountController extends Controller
     {
         $search = trim((string) $request->query('search'));
 
+        // Rekening penerima Disbursement semua pelanggan (dashboard & API), hanya lihat: untuk menelusuri komplain.
+        if ($request->query('type') === 'disbursement') {
+            $accounts = DisbursementRecipient::query()
+                ->with('branch:id,name,user_id', 'branch.user:id,name,email')
+                ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
+                ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w
+                    ->where('account_name', 'like', "%{$search}%")->orWhere('label', 'like', "%{$search}%")->orWhere('external_id', 'like', "%{$search}%")
+                    ->orWhereHas('branch.user', fn ($u) => $u->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"))))
+                ->latest()
+                ->paginate(20)
+                ->withQueryString();
+
+            return view('superadmin.withdrawal.bank-accounts', ['accounts' => $accounts, 'type' => 'disbursement']);
+        }
+
         $accounts = BankAccount::query()
             ->with('user:id,name,email')
             ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
@@ -27,7 +43,7 @@ class BankAccountController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('superadmin.withdrawal.bank-accounts', compact('accounts'));
+        return view('superadmin.withdrawal.bank-accounts', ['accounts' => $accounts, 'type' => 'withdrawal']);
     }
 
     public function review(Request $request, BankAccount $account, BankAccountService $service): RedirectResponse
