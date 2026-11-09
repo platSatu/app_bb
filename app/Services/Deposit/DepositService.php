@@ -124,7 +124,7 @@ class DepositService
                     $paid = $client && $client->unpaidReason($deposit->reference_number, $deposit->amount) === null;
 
                     $result = $paid
-                        ? $this->markPaid($deposit, null, null)
+                        ? $this->markPaid($deposit, PaymentCallback::methodFor($deposit->reference_number), null)
                         : $this->markExpired($deposit);
 
                     $summary[match ($result) {

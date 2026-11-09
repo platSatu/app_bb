@@ -38,6 +38,16 @@ class PaymentCallback extends Model
         };
     }
 
+    /**
+     * Metode bayar dari callback Duitku yang SAH (tanda tangan valid) untuk order ini; null kalau callback belum datang.
+     * Cek status Duitku tidak menyebut metode, padahal metode menentukan siapa yang menanggung fee (WalletService::creditPayment).
+     */
+    public static function methodFor(string $merchantOrderId): ?string
+    {
+        return self::where('merchant_order_id', $merchantOrderId)->where('signature_valid', true)->latest()
+            ->get(['payload'])->map(fn (self $log) => $log->payload['paymentCode'] ?? null)->filter()->first();
+    }
+
     public function amount(): int
     {
         return (int) round((float) ($this->payload['amount'] ?? 0));

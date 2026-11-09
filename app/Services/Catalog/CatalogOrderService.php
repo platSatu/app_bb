@@ -222,7 +222,7 @@ class CatalogOrderService
                     $paid = $client && $client->unpaidReason($order->reference, $order->total) === null;
 
                     $result = $paid
-                        ? $this->markPaid($order, null, null)
+                        ? $this->markPaid($order, PaymentCallback::methodFor($order->reference), null)
                         : ($this->closeUnpaid($order, 'Melewati batas waktu pembayaran') ? 'expired' : 'skipped');
 
                     $summary[in_array($result, ['paid', 'expired'], true) ? $result : 'skipped']++;

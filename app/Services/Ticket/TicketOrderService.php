@@ -172,7 +172,7 @@ class TicketOrderService
                     $paid = $client && $client->unpaidReason($order->reference, $order->total) === null;
 
                     $result = $paid
-                        ? $this->markPaid($order, null, null)
+                        ? $this->markPaid($order, PaymentCallback::methodFor($order->reference), null)
                         : ($this->close($order, TicketOrder::STATUS_EXPIRED, 'Melewati batas waktu pembayaran') ? 'expired' : 'skipped');
 
                     $summary[in_array($result, ['paid', 'expired'], true) ? $result : 'skipped']++;

@@ -212,8 +212,12 @@ class InvoicePaymentService
         }
 
         foreach ($invoice->payments()->whereIn('status', [InvoicePayment::STATUS_PENDING, InvoicePayment::STATUS_EXPIRED])->where('created_at', '>', now()->subDays(2))->get() as $payment) {
-            if ($client->unpaidReason($payment->merchant_order_id, $payment->amount) === null) {
-                $this->markPaid($payment, null, null);
+            // Metode bayar hanya diketahui dari callback Duitku. Selama callback belum datang (biasanya hitungan detik),
+            // tunggu callback: tanpa metode, fee Duitku bisa terpotong padahal sudah dibayar pembeli.
+            $method = PaymentCallback::methodFor($payment->merchant_order_id);
+
+            if ($method && $client->unpaidReason($payment->merchant_order_id, $payment->amount) === null) {
+                $this->markPaid($payment, $method, null);
             }
         }
 
@@ -236,7 +240,8 @@ class InvoicePaymentService
             ->chunkById(100, function ($payments) use ($client, &$summary) {
                 foreach ($payments as $payment) {
                     if ($client && $client->unpaidReason($payment->merchant_order_id, $payment->amount) === null) {
-                        $this->markPaid($payment, null, null) === 'paid' && $summary['paid']++;
+                        // Jaring pengaman kalau callback tidak datang: metode dari callback yang tercatat (kalau ada).
+                        $this->markPaid($payment, PaymentCallback::methodFor($payment->merchant_order_id), null) === 'paid' && $summary['paid']++;
                     } elseif (InvoicePayment::whereKey($payment->getKey())->where('status', InvoicePayment::STATUS_PENDING)->update(['status' => InvoicePayment::STATUS_EXPIRED])) {
                         $summary['expired_payments']++;
                     }

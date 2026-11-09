@@ -153,8 +153,11 @@ class InvoiceCheckoutService
         return [200, 'OK'];
     }
 
-    /** Cek langsung ke Duitku (saat pembayar kembali dari Duitku). */
-    public function refresh(InvoiceCheckout $checkout): bool
+    /**
+     * Cek langsung ke Duitku (saat pembayar kembali dari Duitku). Selama callback Duitku belum datang, metode bayar belum
+     * diketahui (fee bisa salah), jadi ditunggu; scheduler ($waitForCallback = false) tetap memproses sebagai jaring pengaman.
+     */
+    public function refresh(InvoiceCheckout $checkout, bool $waitForCallback = true): bool
     {
         try {
             $client = DuitkuClient::make(forCallback: true);
@@ -162,8 +165,10 @@ class InvoiceCheckoutService
             return false;
         }
 
-        if ($this->open($checkout) && $client->unpaidReason($checkout->merchant_order_id, $checkout->amount) === null) {
-            $this->markPaid($checkout, null, null);
+        $method = PaymentCallback::methodFor($checkout->merchant_order_id);
+
+        if ($this->open($checkout) && ($method || ! $waitForCallback) && $client->unpaidReason($checkout->merchant_order_id, $checkout->amount) === null) {
+            $this->markPaid($checkout, $method, null);
         }
 
         return in_array($checkout->refresh()->status, [InvoiceCheckout::STATUS_PAID, InvoiceCheckout::STATUS_REFUND_NEEDED], true);
@@ -178,7 +183,7 @@ class InvoiceCheckoutService
             ->where('expires_at', '<', now()->subMinutes(self::EXPIRY_GRACE_MINUTES))
             ->chunkById(100, function ($checkouts) use (&$summary) {
                 foreach ($checkouts as $checkout) {
-                    if ($this->refresh($checkout)) {
+                    if ($this->refresh($checkout, waitForCallback: false)) {
                         $summary['paid']++;
                     } elseif (InvoiceCheckout::whereKey($checkout->getKey())->where('status', InvoiceCheckout::STATUS_PENDING)->update(['status' => InvoiceCheckout::STATUS_EXPIRED])) {
                         $summary['expired']++;

@@ -105,6 +105,12 @@ class WalletService
         // baru), sebesar fee asli dari cek status (DuitkuClient::confirmedFee) atau perkiraan QRIS. Metode lain: fee-nya
         // dibayar pembeli di atas tagihan, uang masuk Duitku utuh, jadi 0.
         $gateway = PaymentGatewaySetting::duitku();
+
+        if ($paymentMethod === null) {
+            // Hanya terjadi kalau callback Duitku tidak pernah datang (lunas lewat scheduler): fee diperlakukan ditanggung bizbos.
+            \Illuminate\Support\Facades\Log::warning('[PAYMENT] Lunas tanpa metode bayar, fee Duitku dianggap ditanggung bizbos. Cek di Sett & Lap › Log.', ['key' => $idempotencyKey]);
+        }
+
         $duitkuFee = $gateway->bearsFee($paymentMethod) ? ($duitkuFee ?? $gateway->qrisFeeFor($paymentMethod, $paidAmount)) : 0;
         // Satu setting Payment Gateway untuk semua aplikasi: biaya pelanggan, minimal sebesar fee Duitku.
         $fee = min($amount, $gateway->paymentFeeFor($user->getKey(), $paymentMethod, $paidAmount, $duitkuFee));
