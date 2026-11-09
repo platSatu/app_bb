@@ -143,7 +143,13 @@ class MutationController extends Controller
     /** Saldo asli Duitku Disbursement (disimpan 30 detik). @return array{balance?: int, effective?: int, checked_at?: string, sandbox: bool, error?: string} */
     private function duitku(): array
     {
-        $client = DuitkuDisbursementClient::make();
+        try {
+            $client = DuitkuDisbursementClient::make();
+        } catch (Throwable) {
+            // Disbursement belum diisi (mis. database baru): halaman tetap tampil, saldo Duitku saja yang kosong.
+            return ['sandbox' => true, 'error' => 'Saldo Duitku belum bisa dicek: isi dulu Superadmin › Disbursement.'];
+        }
+
         $key = 'mutasi:duitku-balance:'.($client->isSandbox() ? 'sandbox' : 'production');
 
         if ($cached = Cache::get($key)) {
