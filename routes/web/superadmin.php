@@ -18,6 +18,7 @@ use App\Http\Controllers\Superadmin\Page\TicketFeeController;
 use App\Http\Controllers\Superadmin\PaymentGateway\PaymentGatewayController;
 use App\Http\Controllers\Superadmin\Referral\ReferralController;
 use App\Http\Controllers\Superadmin\Role\RoleController;
+use App\Http\Controllers\Superadmin\Tools\EmailBlastController;
 use App\Http\Controllers\Superadmin\Tools\GooglePlacesController;
 use App\Http\Controllers\Superadmin\Tools\ProspectController;
 use App\Http\Controllers\Superadmin\User\UserController;
@@ -238,6 +239,17 @@ Route::middleware(['auth', 'superadmin'])
             Route::put('{prospect}', 'update')->middleware('permission:superadmin.tools.prospects,manage')->name('update');
             Route::delete('{prospect}', 'destroy')->middleware('permission:superadmin.tools.prospects,manage')->name('destroy');
         });
+
+        // Tools › Email Blast: kirim email penawaran & baca inbox dari akun email hosting tersendiri.
+        Route::controller(EmailBlastController::class)->prefix('tools/email-blast')->name('tools.email-blast.')
+            ->middleware('permission:superadmin.tools.email-blast,manage')->group(function () {
+                Route::get('/', 'index')->middleware('throttle:30,1')->name('index');
+                Route::get('inbox/{uid}', 'message')->whereNumber('uid')->middleware('throttle:30,1')->name('message');
+                Route::get('sent/{blast}', 'show')->name('show');
+                Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
+                Route::post('sent/{blast}/resume', 'resume')->middleware('throttle:10,1')->name('resume');
+                Route::put('settings', 'updateSettings')->middleware('throttle:10,1')->name('settings');
+            });
 
         Route::resource('roles', RoleController::class)
             ->except('show')

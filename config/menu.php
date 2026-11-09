@@ -348,6 +348,13 @@ return [
                         'active' => 'superadmin.tools.prospects.*',
                         'superadmin_only' => true,
                     ],
+                    // Kirim email penawaran (blast) & baca inbox dari akun email hosting tersendiri.
+                    'superadmin.tools.email-blast' => [
+                        'label' => 'Email Blast',
+                        'route' => 'superadmin.tools.email-blast.index',
+                        'active' => 'superadmin.tools.email-blast.*',
+                        'superadmin_only' => true,
+                    ],
                 ],
             ],
             'settings' => [
