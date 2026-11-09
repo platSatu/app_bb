@@ -81,7 +81,7 @@
                         </thead>
                         <tbody class="small">
                             @forelse ($result['places'] as $i => $place)
-                                <tr @class(['opacity-50' => $place['closed'] || ($open && ! $place['match'])])>
+                                <tr @class(['opacity-50' => $place['closed']])>
                                     @if ($open)
                                         <td><input type="checkbox" class="form-check-input" name="rows[]" form="places-export" value="{{ json_encode($place) }}" @checked($place['match'])></td>
                                     @endif

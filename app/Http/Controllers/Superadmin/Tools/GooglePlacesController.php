@@ -28,7 +28,9 @@ class GooglePlacesController extends Controller
         $error = null;
 
         if ($keyword !== '') {
-            $query = $location !== '' ? "{$keyword} di {$location}" : $keyword;
+            // Open Places mencari di sekitar koordinat lokasi, jadi kata kuncinya cukup jenis usaha
+            // (kalau "di <lokasi>" ikut, kata "di" & nama kota membuat hampir tidak ada hasil yang dianggap cocok).
+            $query = $provider === 'google' && $location !== '' ? "{$keyword} di {$location}" : $keyword;
 
             try {
                 $result = $places->search($query, $data['page_token'] ?? null, $provider, $location);
