@@ -113,9 +113,10 @@
                         <h6 class="mb-1">Biaya Pembayaran Default · Potongan QRIS</h6>
                         <p class="small text-muted mb-3">Berlaku untuk <b>semua aplikasi</b> yang menerima pembayaran Duitku (invoice, API, Google Form, tiket/pendaftaran, toko online, top up) dan semua pelanggan yang tidak punya biaya khusus di bawah. Berlaku untuk pembayaran berikutnya.</p>
                         <ul class="small text-muted mb-3 ps-3">
-                            <li><b>Fee asli Duitku</b> setiap transaksi (mis. BCA VA Rp 5.000, BSI VA Rp 3.000, QRIS 0,7%) diambil otomatis dari Duitku saat pembayaran dikonfirmasi, lalu dipotong dari uang yang masuk ke saldo pelanggan dan dicatat di Mutasi. bizbos tidak menanggung fee Duitku.</li>
-                            <li>Potongan QRIS di bawah hanya <b>cadangan</b> kalau Duitku tidak bisa ditanya. Isi sama dengan tarif QRIS Duitku Anda.</li>
-                            <li>Biaya per pelanggan tidak pernah lebih kecil dari fee asli Duitku. Isi lebih besar kalau bizbos ingin mengambil untung.</li>
+                            <li><b>Metode yang fee-nya ditanggung bizbos</b> (di bawah, harus <b>sama dengan pengaturan di dashboard Duitku</b>; saat ini QRIS): Duitku memotong fee dari uang masuk, jadi <b>fee asli Duitku</b> transaksi itu (diambil otomatis saat pembayaran dikonfirmasi) dipotong dari saldo pelanggan.</li>
+                            <li><b>Metode lain</b> (VA, e-wallet, dll.): fee Duitku dibayar pembeli di atas tagihan, uang masuk utuh. Yang dipotong hanya biaya per pelanggan di bawah (kalau ada).</li>
+                            <li>Potongan (%) hanya <b>cadangan</b> kalau Duitku tidak bisa ditanya. Biaya per pelanggan tidak pernah lebih kecil dari fee yang ditanggung bizbos.</li>
+                            <li>Kode metode baru yang belum dikenal ikut dianggap ditanggung bizbos (aman).</li>
                         </ul>
                         <div class="row g-3">
                             <div class="col-md-3">
@@ -126,10 +127,10 @@
                                 @error('qris_fee_percent') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                             <div class="col-md-5">
-                                <label for="qris_fee_methods" class="form-label">Kode metode QRIS</label>
+                                <label for="qris_fee_methods" class="form-label">Metode yang fee-nya ditanggung bizbos</label>
                                 <input type="text" id="qris_fee_methods" name="qris_fee_methods" placeholder="SP, NQ, SQ"
                                     class="form-control font-monospace @error('qris_fee_methods') is-invalid @enderror" value="{{ old('qris_fee_methods', implode(', ', $setting->qrisMethods())) }}">
-                                <div class="form-text">Pisahkan dengan koma. Sesuai dokumentasi Duitku: <code>SP</code> ShopeePay, <code>NQ</code> Nobu, <code>SQ</code> Nusapay.</div>
+                                <div class="form-text">Kode metode, pisahkan dengan koma, sama dengan dashboard Duitku. QRIS: <code>SP</code> ShopeePay, <code>NQ</code> Nobu, <code>SQ</code> Nusapay. Kalau nanti fee VA BCA ditanggung bizbos lagi, tambahkan <code>BC</code>.</div>
                                 @error('qris_fee_methods') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                         </div>

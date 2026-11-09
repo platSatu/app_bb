@@ -51,13 +51,20 @@ class DuitkuCallbackService
 
             $orderId = (string) $payload['merchantOrderId'];
 
-            return match (true) {
+            $result = match (true) {
                 str_starts_with($orderId, TicketOrderService::PREFIX) => $this->tickets->handleCallback($payload, $log, $client),
                 str_starts_with($orderId, CatalogOrderService::PREFIX) => $this->catalog->handleCallback($payload, $log, $client),
                 str_starts_with($orderId, InvoicePaymentService::PREFIX) => $this->invoices->handleCallback($payload, $log, $client),
                 str_starts_with($orderId, InvoiceCheckoutService::PREFIX) => $this->checkouts->handleCallback($payload, $log, $client),
                 default => $this->deposits->handleCallback($payload, $log, $client),
             };
+
+            // Jawaban asli Duitku saat dicek ulang (amount, fee, status) disimpan bersama callback-nya.
+            if ($status = DuitkuClient::pullStatus($orderId)) {
+                $log->update(['status_response' => $status]);
+            }
+
+            return $result;
         } catch (Throwable $e) {
             // Tetap tercatat di riwayat; 500 membuat Duitku mengirim ulang, dan pengiriman ulang aman (idempoten).
             report($e);

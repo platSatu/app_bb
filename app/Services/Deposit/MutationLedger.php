@@ -58,7 +58,8 @@ class MutationLedger
         // Uang masuk = yang benar-benar masuk Duitku: bruto - fee yang dipotong Duitku (QRIS, ditanggung bizbos),
         // dari catatan saldonya (kunci idempotency sama persis dengan saat dikreditkan). Transaksi lama: fee kosong = bruto.
         $wallet = fn (Builder $q, string $key) => $q->leftJoin('wallet_transactions as wt', 'wt.idempotency_key', '=', DB::raw($key));
-        $net = fn (string $gross) => "{$gross} - COALESCE(wt.duitku_fee, 0) AS amount, 0 AS transfer, COALESCE(wt.duitku_fee, 0) AS duitku_fee, wt.available_at AS settles_at";
+        // duitku_fee: NULL = transaksi lama tanpa catatan, 0 = fee Duitku dibayar pembeli, > 0 = dipotong dari uang masuk.
+        $net = fn (string $gross) => "{$gross} - COALESCE(wt.duitku_fee, 0) AS amount, 0 AS transfer, wt.duitku_fee AS duitku_fee, wt.available_at AS settles_at";
         $noSettle = 'CAST(NULL AS DATETIME) AS settles_at';
 
         $topUp = $wallet(DB::table('deposits as d')->join('users as u', 'u.id', '=', 'd.user_id'), "CONCAT('deposit:', d.id)")

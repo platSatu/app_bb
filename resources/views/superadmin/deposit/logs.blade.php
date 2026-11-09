@@ -23,6 +23,7 @@
         .log-table td { vertical-align: middle; }
         .log-table .sub { display: block; font-size: .78rem; color: var(--bs-secondary-color, #6c757d); margin-top: 2px; }
         .log-table .clip { display: block; max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .log-json pre { font-size: .78rem; max-height: 320px; overflow: auto; background: var(--bs-tertiary-bg, #f8f9fa); padding: .75rem; border-radius: .375rem; margin: 0; }
     </style>
 @endpush
 
@@ -74,7 +75,7 @@
                 <table class="table table-hover mb-0 log-table">
                     <thead class="table-light">
                         @if ($type === 'callback')
-                            <tr><th>Waktu</th><th>Nomor Order</th><th>Metode</th><th class="text-end">Nominal</th><th>Hasil</th><th>Keterangan</th></tr>
+                            <tr><th>Waktu</th><th>Nomor Order</th><th>Metode</th><th class="text-end">Nominal</th><th class="text-end">Fee Duitku</th><th>Hasil</th><th>Keterangan</th><th></th></tr>
                         @else
                             <tr><th>Waktu</th><th>Pelanggan</th><th>Kabar</th><th>Untuk</th><th>Percobaan</th><th>Hasil</th></tr>
                         @endif
@@ -91,11 +92,21 @@
                                     </td>
                                     <td class="text-nowrap">{{ $gateway->methodName($log->payload['paymentCode'] ?? null) ?? '-' }}</td>
                                     <td class="text-end text-nowrap">{{ $rp($log->amount()) }}</td>
+                                    <td class="text-end text-nowrap">
+                                        {{-- Dari jawaban cek status Duitku; siapa yang menanggung mengikuti Payment Gateway › metode yang fee-nya ditanggung bizbos. --}}
+                                        @if (isset($log->status_response['fee']))
+                                            {{ $rp((float) $log->status_response['fee']) }}
+                                            <span class="sub">{{ $gateway->bearsFee($log->payload['paymentCode'] ?? null) ? 'ditanggung bizbos' : 'dibayar pembeli' }}</span>
+                                        @else
+                                            <span class="text-muted">-</span>
+                                        @endif
+                                    </td>
                                     <td>
                                         <span class="badge {{ $log->resultBadge() }}">{{ $log->resultLabel() }}</span>
                                         @unless ($log->signature_valid) <span class="sub text-danger">Tanda tangan tidak valid</span> @endunless
                                     </td>
                                     <td><span class="clip text-muted" title="{{ $log->message }}">{{ $log->message ?: '-' }}</span><span class="sub">IP {{ $log->ip_address ?: '-' }}</span></td>
+                                    <td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#json-{{ $log->id }}" title="Lihat data asli dari Duitku">JSON</button></td>
                                 @else
                                     <td>{{ $log->company ?: '-' }}<span class="sub">{{ parse_url((string) $log->webhook_url, PHP_URL_HOST) ?: '-' }}</span></td>
                                     <td class="text-nowrap"><code>{{ $log->event }}</code></td>
@@ -111,8 +122,25 @@
                                     </td>
                                 @endif
                             </tr>
+                            @if ($type === 'callback')
+                                {{-- Data asli dari Duitku (tanda tangan tidak disimpan). Untuk mencocokkan angka bizbos dengan Duitku. --}}
+                                <tr class="collapse log-json" id="json-{{ $log->id }}">
+                                    <td colspan="8">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <div class="small fw-semibold mb-1">Callback dari Duitku</div>
+                                                <pre>{{ json_encode($log->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) }}</pre>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="small fw-semibold mb-1">Jawaban cek status Duitku <span class="text-muted fw-normal">(dipakai untuk konfirmasi lunas & fee)</span></div>
+                                                <pre>{{ $log->status_response ? json_encode($log->status_response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : 'Belum tersimpan (callback sebelum fitur ini, atau ditolak sebelum dicek ke Duitku).' }}</pre>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endif
                         @empty
-                            <tr><td colspan="6" class="text-center text-muted py-4">Belum ada log.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-4">Belum ada log.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

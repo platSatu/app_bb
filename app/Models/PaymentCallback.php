@@ -9,7 +9,7 @@ class PaymentCallback extends Model
 {
     use HasUuids;
 
-    protected $fillable = ['provider', 'merchant_order_id', 'payload', 'signature_valid', 'result', 'message', 'ip_address'];
+    protected $fillable = ['provider', 'merchant_order_id', 'payload', 'status_response', 'signature_valid', 'result', 'message', 'ip_address'];
 
     public const RESULT_LABELS = [
         'paid' => 'Lunas',
@@ -45,6 +45,6 @@ class PaymentCallback extends Model
 
     protected function casts(): array
     {
-        return ['payload' => 'array', 'signature_valid' => 'boolean'];
+        return ['payload' => 'array', 'status_response' => 'array', 'signature_valid' => 'boolean'];
     }
 }

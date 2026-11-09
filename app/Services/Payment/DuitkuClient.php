@@ -12,8 +12,8 @@ use Throwable;
 /** Pemanggilan API Duitku (pola tanda tangan sama dengan teleios yang sudah berjalan). */
 class DuitkuClient
 {
-    /** Fee asli per order dari cek status terakhir (unpaidReason), dipakai creditPayment di proses yang sama. */
-    private static array $fees = [];
+    /** Jawaban cek status terakhir per order (unpaidReason), dipakai creditPayment & log callback di proses yang sama. */
+    private static array $statuses = [];
 
     public function __construct(private readonly PaymentGatewaySetting $setting)
     {
@@ -118,6 +118,7 @@ class DuitkuClient
         }
 
         $data = $response->json() ?? [];
+        self::$statuses[$merchantOrderId] = array_intersect_key($data, array_flip(['merchantOrderId', 'reference', 'amount', 'fee', 'statusCode', 'statusMessage']));
 
         if (($data['statusCode'] ?? null) !== '00') {
             return 'Status di Duitku belum lunas ('.($data['statusCode'] ?? 'HTTP '.$response->status()).').';
@@ -127,19 +128,27 @@ class DuitkuClient
             return 'Nominal di Duitku tidak sama dengan deposit.';
         }
 
-        // Fee yang dipotong Duitku dari uang masuk ini (contoh: BCA VA 5000.00, BSI VA 3000.00).
-        self::$fees[$merchantOrderId] = (int) round((float) ($data['fee'] ?? 0));
-
         return null;
     }
 
-    /** Fee asli Duitku untuk order yang baru dikonfirmasi lunas; null kalau belum dicek di proses ini. Sekali pakai. */
+    /**
+     * Fee transaksi menurut Duitku (contoh: BCA VA 5000.00) untuk order yang baru dikonfirmasi lunas; null kalau belum
+     * dicek di proses ini. Ini BESARNYA fee, bukan siapa yang menanggung: lihat PaymentGatewaySetting::bearsFee().
+     */
     public static function confirmedFee(string $merchantOrderId): ?int
     {
-        $fee = self::$fees[$merchantOrderId] ?? null;
-        unset(self::$fees[$merchantOrderId]);
+        $status = self::$statuses[$merchantOrderId] ?? [];
 
-        return $fee;
+        return ($status['statusCode'] ?? null) === '00' ? (int) round((float) ($status['fee'] ?? 0)) : null;
+    }
+
+    /** Jawaban cek status Duitku untuk disimpan di log callback; dihapus dari memori setelah diambil. */
+    public static function pullStatus(string $merchantOrderId): ?array
+    {
+        $status = self::$statuses[$merchantOrderId] ?? null;
+        unset(self::$statuses[$merchantOrderId]);
+
+        return $status;
     }
 
     private function baseUrl(): string

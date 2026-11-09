@@ -101,9 +101,11 @@ class WalletService
      */
     public function creditPayment(User $user, int $amount, int $paidAmount, string $type, string $idempotencyKey, ?Model $reference = null, ?string $description = null, ?string $paymentMethod = null, ?CarbonInterface $availableAt = null, ?int $duitkuFee = null): ?WalletTransaction
     {
-        // Fee asli Duitku (dari cek status sebelum lunas, DuitkuClient::confirmedFee); kalau tidak ada, perkiraan QRIS.
+        // Fee Duitku yang DITANGGUNG bizbos: hanya untuk metode yang fee-nya dipotong Duitku dari uang masuk (QRIS / kode
+        // baru), sebesar fee asli dari cek status (DuitkuClient::confirmedFee) atau perkiraan QRIS. Metode lain: fee-nya
+        // dibayar pembeli di atas tagihan, uang masuk Duitku utuh, jadi 0.
         $gateway = PaymentGatewaySetting::duitku();
-        $duitkuFee ??= $gateway->qrisFeeFor($paymentMethod, $paidAmount);
+        $duitkuFee = $gateway->bearsFee($paymentMethod) ? ($duitkuFee ?? $gateway->qrisFeeFor($paymentMethod, $paidAmount)) : 0;
         // Satu setting Payment Gateway untuk semua aplikasi: biaya pelanggan, minimal sebesar fee Duitku.
         $fee = min($amount, $gateway->paymentFeeFor($user->getKey(), $paymentMethod, $paidAmount, $duitkuFee));
 

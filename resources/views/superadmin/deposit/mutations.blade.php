@@ -204,7 +204,9 @@
                                     @if ($row->direction === 'credit')
                                         <span class="credit">+{{ $rp($row->amount) }}</span>
                                         @if ($row->duitku_fee > 0)
-                                            <span class="sub">dibayar {{ $rp($row->amount + $row->duitku_fee) }} · fee Duitku {{ $rp($row->duitku_fee) }}</span>
+                                            <span class="sub">dibayar {{ $rp($row->amount + $row->duitku_fee) }} · fee Duitku {{ $rp($row->duitku_fee) }} ditanggung bizbos</span>
+                                        @elseif ($row->duitku_fee !== null)
+                                            <span class="sub">utuh · fee Duitku dibayar pembeli</span>
                                         @endif
                                     @else
                                         <span class="nil">—</span>

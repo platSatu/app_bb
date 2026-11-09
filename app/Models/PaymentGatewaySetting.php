@@ -150,6 +150,19 @@ class PaymentGatewaySetting extends Model
     }
 
     /**
+     * Apakah fee Duitku metode ini ditanggung bizbos (dipotong Duitku dari uang masuk)? Sesuai pengaturan di dashboard
+     * Duitku: daftar "metode yang fee-nya ditanggung bizbos" (kolom qris_fee_methods, saat ini QRIS), ditambah kode yang
+     * belum dikenal (kode baru / kosong) supaya aman. Metode lain: fee dibayar pembeli di atas tagihan.
+     */
+    public function bearsFee(?string $method): bool
+    {
+        // Dikenal = ada di daftar metode yang disimpan superadmin ATAU di daftar resmi Duitku di atas.
+        $known = isset(($this->settlementMethods() + self::DEFAULT_SETTLEMENT_METHODS)[strtoupper((string) $method)]);
+
+        return $this->isQris($method) || ! $known;
+    }
+
+    /**
      * Fee Duitku yang ditanggung bizbos (rupiah, dibulatkan ke atas) dari nominal yang dibayar customer.
      * Metode yang fee-nya dibayar customer di Duitku (VA, e-wallet, dll.) = 0. QRIS, dan juga metode yang
      * BELUM dikenal (bukan kode resmi Duitku di daftar ini; kode baru / kosong), dianggap ditanggung bizbos:
@@ -158,10 +171,7 @@ class PaymentGatewaySetting extends Model
      */
     public function qrisFeeFor(?string $method, int $paidAmount): int
     {
-        // Dikenal = ada di daftar metode yang disimpan superadmin ATAU di daftar resmi Duitku di atas.
-        $known = isset(($this->settlementMethods() + self::DEFAULT_SETTLEMENT_METHODS)[strtoupper((string) $method)]);
-
-        if ($paidAmount <= 0 || (! $this->isQris($method) && $known)) {
+        if ($paidAmount <= 0 || ! $this->bearsFee($method)) {
             return 0;
         }
 
