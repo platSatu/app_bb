@@ -25,7 +25,7 @@ class PaymentGatewaySetting extends Model
     /** Potongan QRIS default (%) kalau belum diatur. */
     public const DEFAULT_QRIS_FEE_PERCENT = 0.7;
 
-    /** MDR QRIS 0% sampai nominal ini (aturan BI, berlaku 1 Oktober 2026): Potongan (%) tidak dipakai. */
+    /** MDR QRIS 0% sampai nominal ini (aturan BI, 1 Oktober 2026): Potongan (%) tidak dipakai kalau Duitku memang tidak memotong fee. */
     public const QRIS_FREE_UP_TO = 100_000;
 
     /** Kode metode Duitku => [nama, hari kerja settlement]. null = ikut default. Bisa diubah superadmin. */
@@ -170,11 +170,11 @@ class PaymentGatewaySetting extends Model
      * Metode yang fee-nya dibayar customer di Duitku (VA, e-wallet, dll.) = 0. QRIS, dan juga metode yang
      * BELUM dikenal (bukan kode resmi Duitku di daftar ini; kode baru / kosong), dianggap ditanggung bizbos:
      * lebih aman memotong daripada bizbos menanggung diam-diam. Tambahkan kodenya di daftar metode kalau
-     * ternyata fee-nya dibayar customer. QRIS sampai QRIS_FREE_UP_TO = 0 (fee asli Duitku tetap dipotong kalau ada).
+     * ternyata fee-nya dibayar customer.
      */
     public function qrisFeeFor(?string $method, int $paidAmount): int
     {
-        if ($paidAmount <= 0 || ! $this->bearsFee($method) || ($this->isQris($method) && $paidAmount <= self::QRIS_FREE_UP_TO)) {
+        if ($paidAmount <= 0 || ! $this->bearsFee($method)) {
             return 0;
         }
 
@@ -187,6 +187,7 @@ class PaymentGatewaySetting extends Model
      * biaya pelanggan "semua metode". Hasilnya yang TERBESAR dari: biaya pelanggan, fee asli Duitku ($duitkuFee dari
      * cek status) dan Potongan (%) QRIS (minimal untuk semua pelanggan; 0 = ikut fee asli Duitku saja), supaya bizbos
      * tidak pernah menanggung fee Duitku dan selisihnya (mis. 0,8% - 0,7%) menjadi pendapatan bizbos.
+     * Ikut Duitku: sampai QRIS_FREE_UP_TO dan Duitku tidak memotong (fee asli 0) = tanpa Potongan (%).
      */
     public function paymentFeeFor(string $userId, ?string $method, int $paidAmount, ?int $duitkuFee = null): int
     {
@@ -194,7 +195,9 @@ class PaymentGatewaySetting extends Model
         $method = $method ? strtoupper($method) : null;
         $rule = ($method ? $rules->firstWhere('payment_method', $method) : null) ?? $rules->firstWhere('payment_method', null);
 
-        return max((int) $rule?->feeFor($paidAmount), (int) $duitkuFee, $this->qrisFeeFor($method, $paidAmount));
+        $free = $duitkuFee === 0 && $paidAmount <= self::QRIS_FREE_UP_TO;
+
+        return max((int) $rule?->feeFor($paidAmount), (int) $duitkuFee, $free ? 0 : $this->qrisFeeFor($method, $paidAmount));
     }
 
     public function isReady(): bool
