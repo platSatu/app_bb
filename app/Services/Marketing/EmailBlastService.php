@@ -46,7 +46,8 @@ class EmailBlastService
         return (int) EmailBlast::where('created_at', '>=', today())->get(['recipients'])->sum(fn ($b) => count($b->recipients ?? []));
     }
 
-    public function queue(string $subject, string $body, array $recipients, User $user): EmailBlast
+    /** $user null = dikirim sistem (Agent Prospek, draf yang sudah disetujui). */
+    public function queue(string $subject, string $body, array $recipients, ?User $user): EmailBlast
     {
         $setting = EmailBlastSetting::current();
 
@@ -71,7 +72,7 @@ class EmailBlastService
                 throw new RuntimeException('Melebihi batas harian '.$setting->daily_limit.' email. Sisa hari ini: '.max(0, $remaining).'.');
             }
 
-            return EmailBlast::create(['subject' => $subject, 'body' => $body, 'recipients' => $recipients, 'created_by' => $user->getKey()]);
+            return EmailBlast::create(['subject' => $subject, 'body' => $body, 'recipients' => $recipients, 'created_by' => $user?->getKey()]);
         });
 
         SendEmailBlast::dispatch($blast->getKey());

@@ -19,6 +19,8 @@
 @section('content')
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item"><a class="nav-link {{ ($tab ?? 'list') === 'list' ? 'active' : '' }}" href="{{ route('superadmin.tools.prospects.index') }}"><i class="ri-contacts-book-line me-1"></i>Prospek</a></li>
+        <li class="nav-item"><a class="nav-link {{ ($tab ?? 'list') === 'outreach' ? 'active' : '' }}" href="{{ route('superadmin.tools.prospects.outreach') }}"><i class="ri-mail-check-line me-1"></i>Persetujuan
+            @if ($draftCount = Prospect::where('outreach_status', 'draft')->count()) <span class="badge bg-warning text-dark ms-1">{{ $draftCount }}</span> @endif</a></li>
         <li class="nav-item"><a class="nav-link {{ ($tab ?? 'list') === 'agent' ? 'active' : '' }}" href="{{ route('superadmin.tools.prospects.agent') }}"><i class="ri-robot-2-line me-1"></i>Agent</a></li>
     </ul>
 
@@ -70,7 +72,7 @@
                         </form>
                         <div class="small text-muted mt-3">
                             Penilaian: {!! \App\Models\AiProvider::active() ? '<span class="text-success">AI ('.e(\App\Models\AiProvider::active()->name).')</span>' : 'aturan sederhana (isi API key di Superadmin › AI supaya dinilai AI)' !!}.
-                            Maks 3 giliran per hari; kuota Open Places harian tetap berlaku. Agent belum mengirim pesan apa pun.
+                            Maks 3 giliran per hari; kuota Open Places harian tetap berlaku. Email hanya dikirim setelah disetujui di tab Persetujuan.
                         </div>
                     </div>
                 </div>
@@ -100,6 +102,99 @@
                         </div>
                     </div>
                 </div>
+            </div>
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                            <div>
+                                <h6 class="mb-1">Template email pembuka</h6>
+                                <div class="small text-muted">Dipakai untuk draf prospek yang punya email. <code>{nama}</code> <code>{kota}</code> <code>{segmen}</code> diganti otomatis;
+                                    kalau AI aktif, AI menyesuaikan tiap draf dari template ini. Kalimat "{{ \App\Services\Marketing\ProspectAgent::STOP_LINE }}" selalu ditambahkan di akhir.</div>
+                            </div>
+                            @if (\App\Models\AiProvider::active())
+                                <form method="POST" action="{{ route('superadmin.tools.prospects.agent.templates.ai') }}" onsubmit="this.querySelector('button').disabled = true;">
+                                    @csrf
+                                    <button type="submit" class="btn btn-outline-primary btn-sm"><i class="ri-sparkling-line"></i> Buatkan dengan AI</button>
+                                </form>
+                            @endif
+                        </div>
+                        <form method="POST" action="{{ route('superadmin.tools.prospects.agent.templates') }}" class="row g-3">
+                            @csrf
+                            @method('PUT')
+                            <div class="col-6 col-md-3">
+                                <label class="form-label">Skor minimal untuk dibuatkan draf</label>
+                                <input type="number" name="min_score" class="form-control" min="0" max="100" required value="{{ old('min_score', $setting->min_score) }}">
+                            </div>
+                            @foreach ($setting->segments ?? [] as $i => $segment)
+                                @php($template = $setting->template($segment['name']))
+                                <div class="col-12 col-lg-6">
+                                    <input type="hidden" name="templates[{{ $i }}][segment]" value="{{ $segment['name'] }}">
+                                    <label class="form-label fw-semibold">{{ $segment['name'] }}</label>
+                                    <input type="text" name="templates[{{ $i }}][subject]" class="form-control form-control-sm mb-2" maxlength="200" required value="{{ old("templates.$i.subject", $template['subject']) }}" placeholder="Subjek">
+                                    <textarea name="templates[{{ $i }}][body]" rows="8" class="form-control form-control-sm" maxlength="5000" required>{{ old("templates.$i.body", $template['body']) }}</textarea>
+                                </div>
+                            @endforeach
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary"><i class="ri-save-line"></i> Simpan template</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @elseif (($tab ?? 'list') === 'outreach')
+        {{-- Draf email pembuka dari agent. Disetujui -> dikirim lewat Email Blast (Senin-Jumat 09.00-16.00, batas harian Email Blast). --}}
+        <div class="card">
+            <div class="card-body">
+                <div class="small text-muted mb-3">
+                    Email yang disetujui dikirim otomatis Senin–Jumat 09.00–16.00 WIB lewat Email Blast (satu email per prospek, batas harian
+                    {{ $blastSetting->daily_limit }} email, hasilnya di Tools › Email Blast › Terkirim). Menunggu dikirim: <b>{{ $approvedCount }}</b>.
+                    @unless ($blastSetting->isConfigured()) <span class="text-danger">Akun pengirim Email Blast belum diatur.</span> @endunless
+                </div>
+
+                @if ($drafts->isNotEmpty())
+                    <form method="POST" action="{{ route('superadmin.tools.prospects.outreach.bulk') }}" id="bulk-outreach" class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                        @csrf
+                        <div class="form-check me-2">
+                            <input class="form-check-input" type="checkbox" id="check-all" onclick="document.querySelectorAll('.draft-check').forEach(c => c.checked = this.checked)">
+                            <label class="form-check-label small" for="check-all">Pilih semua di halaman ini</label>
+                        </div>
+                        <button type="submit" name="action" value="approve" class="btn btn-sm btn-success" onclick="return confirm('Setujui semua draf terpilih apa adanya?')"><i class="ri-check-double-line"></i> Setujui terpilih</button>
+                        <button type="submit" name="action" value="skip" class="btn btn-sm btn-outline-secondary">Lewati terpilih</button>
+                    </form>
+                @endif
+
+                @forelse ($drafts as $draft)
+                    <div class="border rounded p-3 mb-3">
+                        <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input draft-check" type="checkbox" name="ids[]" value="{{ $draft->id }}" form="bulk-outreach" id="d-{{ $draft->id }}">
+                                <label class="form-check-label fw-semibold" for="d-{{ $draft->id }}">{{ $draft->name }}</label>
+                                <span class="small text-muted d-block">{{ $draft->email }} · {{ collect([$draft->segment, $draft->city])->filter()->implode(' · ') }}</span>
+                            </div>
+                            <div class="text-end small">
+                                <span class="badge {{ $draft->score >= 70 ? 'bg-success' : 'bg-warning text-dark' }}">{{ $draft->score }}</span>
+                                <span class="d-block text-muted" style="max-width: 320px">{{ $draft->score_reason }}</span>
+                            </div>
+                        </div>
+                        <form method="POST" action="{{ route('superadmin.tools.prospects.outreach.update', $draft) }}">
+                            @csrf
+                            @method('PUT')
+                            <input type="text" name="subject" class="form-control form-control-sm mb-2" maxlength="200" value="{{ $draft->outreach_subject }}">
+                            <textarea name="body" rows="7" class="form-control form-control-sm" maxlength="5000">{{ $draft->outreach_body }}</textarea>
+                            <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+                                <button type="submit" name="action" value="approve" class="btn btn-sm btn-success"><i class="ri-check-line"></i> Simpan & setujui</button>
+                                <button type="submit" name="action" value="skip" class="btn btn-sm btn-outline-secondary">Lewati</button>
+                                @if ($draft->website) <a href="{{ $draft->website }}" target="_blank" rel="noopener nofollow" class="btn btn-sm btn-link">Lihat website</a> @endif
+                            </div>
+                        </form>
+                    </div>
+                @empty
+                    <div class="text-center text-muted py-4">Belum ada draf. Agent membuat draf untuk prospek Baru yang punya email & skornya cukup.</div>
+                @endforelse
+
+                {{ $drafts->links() }}
             </div>
         </div>
     @else
@@ -193,6 +288,7 @@
                                 </td>
                                 <td>
                                     <span class="badge {{ $prospect->statusBadge() }}">{{ $prospect->statusLabel() }}</span>
+                                    @if ($outreach = Prospect::OUTREACH[$prospect->outreach_status] ?? null) <span class="badge {{ $outreach[1] }}">{{ $outreach[0] }}</span> @endif
                                     @if ($prospect->notes) <span class="sub text-truncate" style="max-width: 200px" title="{{ $prospect->notes }}">{{ $prospect->notes }}</span> @endif
                                 </td>
                                 <td class="text-end text-nowrap">

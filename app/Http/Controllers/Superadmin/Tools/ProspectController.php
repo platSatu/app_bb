@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Superadmin\Tools;
 
 use App\Http\Controllers\Controller;
+use App\Models\EmailBlastSetting;
 use App\Models\Prospect;
 use App\Models\ProspectAgentSetting;
 use App\Services\Marketing\ProspectAgent;
@@ -78,6 +79,89 @@ class ProspectController extends Controller
         ]);
 
         return back()->with('success', 'Pengaturan agent disimpan'.($request->boolean('is_active') ? ' & agent AKTIF.' : '. Agent nonaktif.'));
+    }
+
+    /** Template email pembuka per segmen (tab Agent) & skor minimal prospek yang dibuatkan draf. */
+    public function updateTemplates(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'min_score' => ['required', 'integer', 'between:0,100'],
+            'templates' => ['nullable', 'array', 'max:20'],
+            'templates.*.segment' => ['required', 'string', 'max:60'],
+            'templates.*.subject' => ['required', 'string', 'max:200'],
+            'templates.*.body' => ['required', 'string', 'max:5000'],
+        ]);
+        $setting = ProspectAgentSetting::current();
+        $names = collect($setting->segments ?? [])->pluck('name');
+
+        $setting->update([
+            'templates' => collect($data['templates'] ?? [])->filter(fn ($t) => $names->contains($t['segment']))
+                ->mapWithKeys(fn ($t) => [$t['segment'] => ProspectAgent::clean($t['subject'], $t['body'])])->all(),
+            'min_score' => $data['min_score'],
+            'updated_by' => $request->user()->getKey(),
+        ]);
+
+        return back()->with('success', 'Template email disimpan.');
+    }
+
+    /** Contoh template dari AI untuk semua segmen (menimpa template segmen itu), lalu bisa diedit. */
+    public function aiTemplates(ProspectAgent $agent): RedirectResponse
+    {
+        try {
+            $count = $agent->suggestTemplates(ProspectAgentSetting::current());
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'AI belum bisa membuat template: '.mb_substr($e->getMessage(), 0, 150));
+        }
+
+        return back()->with($count ? 'success' : 'error', $count ? "AI membuat {$count} template. Periksa & ubah sesuai kebutuhan, lalu Simpan." : 'Jawaban AI tidak bisa dipakai, coba lagi.');
+    }
+
+    /** Tab Persetujuan: draf email pembuka dari agent. Yang disetujui dikirim lewat Email Blast (ProspectAgent::sendApproved). */
+    public function outreach(): View
+    {
+        return view('superadmin.tools.prospects', [
+            'tab' => 'outreach',
+            'drafts' => Prospect::where('outreach_status', 'draft')->orderByDesc('score')->paginate(20),
+            'approvedCount' => Prospect::where('outreach_status', 'approved')->count(),
+            'blastSetting' => EmailBlastSetting::current(),
+        ]);
+    }
+
+    /** Satu draf: simpan editan & setujui, atau lewati. Hanya draf yang masih "draf" yang bisa diubah. */
+    public function updateOutreach(Request $request, Prospect $prospect): RedirectResponse
+    {
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['approve', 'skip'])],
+            'subject' => ['required_if:action,approve', 'nullable', 'string', 'max:200'],
+            'body' => ['required_if:action,approve', 'nullable', 'string', 'max:5000'],
+        ]);
+
+        if ($prospect->outreach_status !== 'draft') {
+            return back()->with('error', "Draf {$prospect->name} sudah diproses sebelumnya.");
+        }
+
+        $clean = ProspectAgent::clean((string) $data['subject'], (string) $data['body']);
+        $prospect->forceFill($data['action'] === 'approve'
+            ? ['outreach_status' => 'approved', 'outreach_subject' => $clean['subject'], 'outreach_body' => $clean['body']]
+            : ['outreach_status' => 'skipped'])->save();
+
+        return back()->with('success', $data['action'] === 'approve' ? "Email ke {$prospect->name} disetujui, dikirim di jam kerja." : "Draf {$prospect->name} dilewati.");
+    }
+
+    /** Setujui / lewati banyak draf sekaligus (tanpa mengubah isinya). */
+    public function bulkOutreach(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['approve', 'skip'])],
+            'ids' => ['required', 'array', 'max:100'],
+            'ids.*' => ['uuid'],
+        ]);
+        $count = Prospect::whereIn('id', $data['ids'])->where('outreach_status', 'draft')
+            ->update(['outreach_status' => $data['action'] === 'approve' ? 'approved' : 'skipped', 'updated_at' => now()]);
+
+        return back()->with('success', $count.' draf '.($data['action'] === 'approve' ? 'disetujui, dikirim di jam kerja.' : 'dilewati.'));
     }
 
     /** Jalankan satu putaran sekarang (lewat antrean). Kuota harian & kuota Open Places tetap berlaku. */

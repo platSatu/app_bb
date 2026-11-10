@@ -25,7 +25,16 @@ class ProspectAgentSetting extends Model
 
     public const MAX_RUNS = 50;
 
-    protected $fillable = ['is_active', 'segments', 'cities', 'daily_quota', 'run_at', 'report_email', 'updated_by'];
+    /** Template email pembuka kalau segmen belum punya template sendiri. {nama} {kota} {segmen} diganti per prospek. */
+    public const DEFAULT_TEMPLATE = [
+        'subject' => 'Jadwal kelas & tagihan {nama} jadi lebih mudah',
+        'body' => "Halo {nama},\n\nPerkenalkan, kami dari bizbos, aplikasi untuk usaha {segmen} di Indonesia. Dengan bizbos Anda bisa "
+            ."mengatur jadwal kelas, menagih biaya bulanan lewat link bayar (QRIS, virtual account, e-wallet), dan mengirim pengingat "
+            ."otomatis lewat WhatsApp, semuanya dalam satu aplikasi.\n\nKalau berminat, kami bisa bantu demo singkat 15 menit secara "
+            ."online, gratis.\n\nSalam,\nTim bizbos\nhttps://app.bizbos.id",
+    ];
+
+    protected $fillable = ['is_active', 'segments', 'cities', 'templates', 'min_score', 'daily_quota', 'run_at', 'report_email', 'updated_by'];
 
     protected function casts(): array
     {
@@ -33,6 +42,8 @@ class ProspectAgentSetting extends Model
             'is_active' => 'boolean',
             'segments' => 'array',
             'cities' => 'array',
+            'templates' => 'array',
+            'min_score' => 'integer',
             'runs' => 'array',
             'daily_quota' => 'integer',
             'cursor' => 'integer',
@@ -72,6 +83,12 @@ class ProspectAgentSetting extends Model
     public function segmentsText(): string
     {
         return collect($this->segments ?? [])->map(fn ($s) => $s['name'].': '.implode(', ', $s['keywords'] ?? []))->implode("\n");
+    }
+
+    /** @return array{subject: string, body: string} */
+    public function template(?string $segment): array
+    {
+        return ($this->templates ?? [])[(string) $segment] ?? self::DEFAULT_TEMPLATE;
     }
 
     public function logRun(array $run): void

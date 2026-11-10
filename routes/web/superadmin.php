@@ -239,6 +239,11 @@ Route::middleware(['auth', 'superadmin'])
             Route::get('agent', 'agent')->middleware('permission:superadmin.tools.prospects,view')->name('agent');
             Route::put('agent', 'updateAgent')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:20,1'])->name('agent.update');
             Route::post('agent/run', 'runAgent')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:3,10'])->name('agent.run');
+            Route::put('agent/templates', 'updateTemplates')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:20,1'])->name('agent.templates');
+            Route::post('agent/templates/ai', 'aiTemplates')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:3,10'])->name('agent.templates.ai');
+            Route::get('outreach', 'outreach')->middleware('permission:superadmin.tools.prospects,view')->name('outreach');
+            Route::post('outreach/bulk', 'bulkOutreach')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:30,1'])->name('outreach.bulk');
+            Route::put('outreach/{prospect}', 'updateOutreach')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:60,1'])->name('outreach.update');
             Route::put('{prospect}', 'update')->middleware('permission:superadmin.tools.prospects,manage')->name('update');
             Route::delete('{prospect}', 'destroy')->middleware('permission:superadmin.tools.prospects,manage')->name('destroy');
         });

@@ -18,6 +18,14 @@ class Prospect extends Model
         'rejected' => ['Tidak Tertarik', 'bg-secondary-subtle text-secondary'],
     ];
 
+    /** Email pembuka dari Agent Prospek (tab Persetujuan). Diubah lewat forceFill, tidak lewat $fillable. */
+    public const OUTREACH = [
+        'draft' => ['Email: draf', 'bg-warning-subtle text-warning'],
+        'approved' => ['Email: disetujui', 'bg-info-subtle text-info'],
+        'sent' => ['Email: terkirim', 'bg-success-subtle text-success'],
+        'skipped' => ['Email: dilewati', 'bg-secondary-subtle text-secondary'],
+    ];
+
     protected $fillable = [
         'source', 'external_id', 'name', 'category', 'segment', 'score', 'score_reason', 'address', 'city', 'province', 'postal_code', 'phone', 'whatsapp',
         'email', 'website', 'rating', 'rating_count', 'opening_hours', 'maps_url', 'lat', 'lon', 'is_closed',
