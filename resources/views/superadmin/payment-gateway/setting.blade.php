@@ -115,7 +115,7 @@
                         <ul class="small text-muted mb-3 ps-3">
                             <li><b>Metode yang fee-nya ditanggung bizbos</b> (di bawah, harus <b>sama dengan pengaturan di dashboard Duitku</b>; saat ini QRIS): Duitku memotong fee dari uang masuk, jadi <b>fee asli Duitku</b> transaksi itu (diambil otomatis saat pembayaran dikonfirmasi) dipotong dari saldo pelanggan.</li>
                             <li><b>Metode lain</b> (VA, e-wallet, dll.): fee Duitku dibayar pembeli di atas tagihan, uang masuk utuh. Yang dipotong hanya biaya per pelanggan di bawah (kalau ada).</li>
-                            <li>Potongan (%) hanya <b>cadangan</b> kalau Duitku tidak bisa ditanya. Biaya per pelanggan tidak pernah lebih kecil dari fee yang ditanggung bizbos.</li>
+                            <li>Potongan (%) = <b>potongan minimal</b> metode di atas untuk <b>semua pelanggan</b> (mis. 0,8 = 0,7 Duitku + 0,1 bizbos). Kalau fee asli Duitku atau biaya per pelanggan lebih besar, yang lebih besar yang dipotong. Isi 0 = ikut fee asli Duitku saja.</li>
                             <li>Kode metode baru yang belum dikenal ikut dianggap ditanggung bizbos (aman).</li>
                         </ul>
                         <div class="row g-3">
@@ -123,7 +123,7 @@
                                 <label for="qris_fee_percent" class="form-label">Potongan (%)</label>
                                 <input type="number" id="qris_fee_percent" name="qris_fee_percent" min="0" max="10" step="0.01"
                                     class="form-control @error('qris_fee_percent') is-invalid @enderror" value="{{ old('qris_fee_percent', $setting->qrisFeePercent()) }}">
-                                <div class="form-text">Contoh 0,7 = Rp 700 per Rp 100.000. Isi 0 untuk mematikan.</div>
+                                <div class="form-text">Contoh 0,8 = minimal Rp 800 per Rp 100.000. Isi 0 = ikut fee asli Duitku.</div>
                                 @error('qris_fee_percent') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                             <div class="col-md-5">
