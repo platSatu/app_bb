@@ -73,26 +73,7 @@ class GooglePlacesController extends Controller
     public function save(Request $request): \Illuminate\Http\RedirectResponse
     {
         $rows = $this->selected($request);
-        $saved = 0;
-
-        foreach ($rows as $row) {
-            $exists = \App\Models\Prospect::where('external_id', 'open:'.$row['id'])
-                ->when($row['phone'] !== '', fn ($q) => $q->orWhere('phone', $row['phone']))->exists();
-
-            if ($row['id'] === '' || $exists) {
-                continue;
-            }
-
-            \App\Models\Prospect::create([
-                'source' => 'open',
-                'external_id' => 'open:'.$row['id'],
-                'is_closed' => $row['closed'],
-                'created_by' => $request->user()->getKey(),
-            ] + array_map(fn ($value) => $value === '' ? null : $value, array_intersect_key($row, array_flip([
-                'name', 'category', 'address', 'city', 'province', 'postal_code', 'phone', 'whatsapp', 'website', 'maps_url', 'lat', 'lon',
-            ]))));
-            $saved++;
-        }
+        $saved = \App\Models\Prospect::saveFromPlaces($rows, 'open', $request->user()->getKey());
 
         $skipped = $rows->count() - $saved;
 

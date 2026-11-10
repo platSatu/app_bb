@@ -17,6 +17,92 @@
 @endpush
 
 @section('content')
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item"><a class="nav-link {{ ($tab ?? 'list') === 'list' ? 'active' : '' }}" href="{{ route('superadmin.tools.prospects.index') }}"><i class="ri-contacts-book-line me-1"></i>Prospek</a></li>
+        <li class="nav-item"><a class="nav-link {{ ($tab ?? 'list') === 'agent' ? 'active' : '' }}" href="{{ route('superadmin.tools.prospects.agent') }}"><i class="ri-robot-2-line me-1"></i>Agent</a></li>
+    </ul>
+
+    @if (($tab ?? 'list') === 'agent')
+        {{-- Agent Prospek (App\Services\Marketing\ProspectAgent): setiap hari mencari & menilai prospek, belum mengirim pesan. --}}
+        <div class="row g-3">
+            <div class="col-12 col-xl-5">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="mb-3">Pengaturan</h6>
+                        <form method="POST" action="{{ route('superadmin.tools.prospects.agent.update') }}" class="row g-3">
+                            @csrf
+                            @method('PUT')
+                            <div class="col-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="agent-active" name="is_active" value="1" @checked(old('is_active', $setting->is_active))>
+                                    <label class="form-check-label fw-semibold" for="agent-active">Agent aktif (jalan otomatis setiap hari)</label>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Segmen & kata kunci</label>
+                                <textarea name="segments" rows="6" class="form-control font-monospace small" required maxlength="3000">{{ old('segments', $setting->segmentsText()) }}</textarea>
+                                <div class="form-text">Satu baris per segmen: <code>Nama segmen: kata kunci 1, kata kunci 2</code> (maks 20 segmen, 6 kata kunci).</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Kota / area</label>
+                                <textarea name="cities" rows="5" class="form-control small" required maxlength="2000">{{ old('cities', implode("\n", $setting->cities ?? [])) }}</textarea>
+                                <div class="form-text">Satu kota per baris, mis. "Tebet, Jakarta Selatan".</div>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Prospek baru / hari</label>
+                                <input type="number" name="daily_quota" class="form-control" min="1" max="200" required value="{{ old('daily_quota', $setting->daily_quota) }}">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Jam jalan (WIB)</label>
+                                <input type="time" name="run_at" class="form-control" required value="{{ old('run_at', $setting->run_at) }}">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Email laporan harian</label>
+                                <input type="email" name="report_email" class="form-control" maxlength="150" value="{{ old('report_email', $setting->report_email) }}" placeholder="kosongkan kalau tidak perlu">
+                            </div>
+                            <div class="col-12 d-flex flex-wrap gap-2">
+                                <button type="submit" class="btn btn-primary"><i class="ri-save-line"></i> Simpan</button>
+                            </div>
+                        </form>
+                        <form method="POST" action="{{ route('superadmin.tools.prospects.agent.run') }}" class="mt-2" onsubmit="this.querySelector('button').disabled = true;">
+                            @csrf
+                            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="ri-play-line"></i> Jalankan sekarang (uji coba)</button>
+                        </form>
+                        <div class="small text-muted mt-3">
+                            Penilaian: {!! \App\Models\AiProvider::active() ? '<span class="text-success">AI ('.e(\App\Models\AiProvider::active()->name).')</span>' : 'aturan sederhana (isi API key di Superadmin › AI supaya dinilai AI)' !!}.
+                            Maks 3 giliran per hari; kuota Open Places harian tetap berlaku. Agent belum mengirim pesan apa pun.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-xl-7">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="mb-3">Riwayat</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0 prospect-table">
+                                <thead class="table-light"><tr><th>Waktu</th><th>Segmen / kata kunci</th><th>Kota</th><th class="text-end">Ditemukan</th><th class="text-end">Baru</th></tr></thead>
+                                <tbody>
+                                    @forelse ($setting->runs ?? [] as $run)
+                                        <tr>
+                                            <td class="text-nowrap">{{ \Illuminate\Support\Carbon::parse($run['at'])->timezone(config('app.timezone'))->translatedFormat('d M H:i') }}</td>
+                                            <td>{{ $run['segment'] }}<span class="sub">{{ $run['keyword'] }}{{ $run['ai'] ? ' · dinilai AI' : '' }}</span>
+                                                @if ($run['error']) <span class="sub text-danger">{{ $run['error'] }}</span> @endif</td>
+                                            <td>{{ $run['city'] }}</td>
+                                            <td class="text-end">{{ $run['found'] }}</td>
+                                            <td class="text-end fw-semibold">{{ $run['saved'] }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr><td colspan="5" class="text-center text-muted py-4">Belum pernah berjalan.</td></tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @else
     <div class="card">
         <div class="card-body">
             {{-- Jumlah per status; klik untuk menyaring. --}}
@@ -33,11 +119,21 @@
 
             <form method="GET" class="row g-2 align-items-end mb-3">
                 @if (request('status')) <input type="hidden" name="status" value="{{ request('status') }}"> @endif
-                <div class="col-12 col-md-6">
+                @if (request('sort')) <input type="hidden" name="sort" value="{{ request('sort') }}"> @endif
+                <div class="col-12 col-md-4">
                     <label class="form-label small text-muted mb-1">Cari</label>
                     <input type="text" name="search" class="form-control" maxlength="100" value="{{ request('search') }}" placeholder="Nama, kategori, telepon, alamat">
                 </div>
-                <div class="col-12 col-md-3">
+                <div class="col-6 col-md-2">
+                    <label class="form-label small text-muted mb-1">Segmen</label>
+                    <select name="segment" class="form-select">
+                        <option value="">Semua</option>
+                        @foreach ($segments as $segment)
+                            <option value="{{ $segment }}" @selected(request('segment') === $segment)>{{ $segment }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
                     <label class="form-label small text-muted mb-1">Kecamatan / Kota</label>
                     <select name="city" class="form-select">
                         <option value="">Semua</option>
@@ -49,7 +145,7 @@
                 <div class="col-12 col-md-3 d-flex gap-2">
                     <button type="submit" class="btn btn-primary flex-grow-1" title="Filter"><i class="ri-search-line"></i></button>
                     <a href="{{ route('superadmin.tools.prospects.export', request()->except('page')) }}" class="btn btn-success" title="Download Excel (sesuai filter)"><i class="ri-file-excel-2-line"></i></a>
-                    @if (request()->hasAny(['search', 'city', 'status']))
+                    @if (request()->hasAny(['search', 'city', 'status', 'segment', 'sort']))
                         <a href="{{ route('superadmin.tools.prospects.index') }}" class="btn btn-outline-danger" title="Hapus filter"><i class="ri-close-line"></i></a>
                     @endif
                 </div>
@@ -58,7 +154,9 @@
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0 prospect-table">
                     <thead class="table-light">
-                        <tr><th>Nama</th><th>Alamat</th><th>Kontak</th><th>Rating</th><th>Status</th><th class="text-end">Aksi</th></tr>
+                        <tr><th>Nama</th><th>Alamat</th><th>Kontak</th>
+                            <th class="text-nowrap"><a href="{{ route('superadmin.tools.prospects.index', ['sort' => request('sort') === 'score' ? null : 'score'] + request()->except('sort', 'page')) }}" class="text-reset" title="Urutkan skor tertinggi">Skor <i class="ri-arrow-down-line"></i></a></th>
+                            <th>Rating</th><th>Status</th><th class="text-end">Aksi</th></tr>
                     </thead>
                     <tbody>
                         @forelse ($prospects as $prospect)
@@ -66,7 +164,7 @@
                                 <td style="min-width: 200px">
                                     <span class="fw-semibold">{{ $prospect->name }}</span>
                                     @if ($prospect->is_closed) <span class="badge bg-secondary ms-1">Tutup</span> @endif
-                                    <span class="sub">{{ $prospect->category ?: '-' }}</span>
+                                    <span class="sub">{{ $prospect->category ?: '-' }}@if ($prospect->segment) · {{ $prospect->segment }}@endif</span>
                                 </td>
                                 <td style="min-width: 220px">
                                     {{ $prospect->address ?: '-' }}
@@ -76,6 +174,14 @@
                                     {{ $prospect->phone ?: '-' }}
                                     @if ($prospect->email) <span class="sub">{{ $prospect->email }}</span> @endif
                                     @if ($prospect->opening_hours) <span class="sub"><i class="ri-time-line"></i> {{ $prospect->opening_hours }}</span> @endif
+                                </td>
+                                <td style="max-width: 200px">
+                                    @if ($prospect->score !== null)
+                                        <span class="badge {{ $prospect->score >= 70 ? 'bg-success' : ($prospect->score >= 50 ? 'bg-warning text-dark' : 'bg-secondary') }}">{{ $prospect->score }}</span>
+                                        <span class="sub">{{ $prospect->score_reason }}</span>
+                                    @else
+                                        -
+                                    @endif
                                 </td>
                                 <td class="text-nowrap">
                                     @if ($prospect->rating)
@@ -103,7 +209,7 @@
                                 </td>
                             </tr>
                             <tr class="collapse prospect-edit" id="edit-{{ $prospect->id }}">
-                                <td colspan="6">
+                                <td colspan="7">
                                     <form method="POST" action="{{ route('superadmin.tools.prospects.update', $prospect) }}" class="row g-2 align-items-end">
                                         @csrf
                                         @method('PUT')
@@ -156,7 +262,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="text-center text-muted py-4">Belum ada prospek. Simpan dari Tools › Open Places.</td></tr>
+                            <tr><td colspan="7" class="text-center text-muted py-4">Belum ada prospek. Simpan dari Tools › Open Places atau nyalakan Agent.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -170,4 +276,5 @@
             </div>
         </div>
     </div>
+    @endif
 @endsection

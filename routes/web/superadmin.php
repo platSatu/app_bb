@@ -236,6 +236,9 @@ Route::middleware(['auth', 'superadmin'])
         Route::controller(ProspectController::class)->prefix('tools/prospects')->name('tools.prospects.')->group(function () {
             Route::get('/', 'index')->middleware('permission:superadmin.tools.prospects,view')->name('index');
             Route::get('export', 'export')->middleware(['permission:superadmin.tools.prospects,view', 'throttle:10,1'])->name('export');
+            Route::get('agent', 'agent')->middleware('permission:superadmin.tools.prospects,view')->name('agent');
+            Route::put('agent', 'updateAgent')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:20,1'])->name('agent.update');
+            Route::post('agent/run', 'runAgent')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:3,10'])->name('agent.run');
             Route::put('{prospect}', 'update')->middleware('permission:superadmin.tools.prospects,manage')->name('update');
             Route::delete('{prospect}', 'destroy')->middleware('permission:superadmin.tools.prospects,manage')->name('destroy');
         });
