@@ -37,8 +37,12 @@ class MutationController extends Controller
             'until' => $request->date('date_to')?->endOfDay(),
         ];
 
+        // Saldo per baris berpatokan saldo asli Duitku saat ini (cache 30 detik); gagal = saldo tercatat.
+        $anchor = $this->duitku()['balance'] ?? null;
+
         return view('superadmin.deposit.mutations', [
-            'rows' => $ledger->paginate($filters),
+            'rows' => $ledger->paginate($filters, 15, $anchor),
+            'anchored' => $anchor !== null,
             'summary' => $ledger->summary($filters),
             'filters' => $filters,
         ]);

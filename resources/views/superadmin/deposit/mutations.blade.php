@@ -236,6 +236,7 @@
                 @if ($narrowed)
                     Saldo per baris disembunyikan saat memakai filter sumber/arah/cari.
                 @endif
+                {{ $anchored ? 'Saldo Akhir baris paling baru = saldo Duitku saat ini; ke bawah: Saldo Awal = Saldo Akhir − Kredit + Debit, menjadi Saldo Akhir baris di bawahnya.' : 'Saldo Duitku belum bisa dicek, saldo per baris memakai saldo tercatat bizbos.' }}
                 Kredit = yang masuk ke Duitku (sudah dikurangi fee asli Duitku per transaksi; transaksi sebelum 6 Nov 2026 tanpa catatan fee). Debit = nominal transfer + biaya Duitku per transfer.
             </div>
         </div>

@@ -134,15 +134,18 @@ class MutationLedger
 
     /**
      * Halaman tabel, terbaru di atas. Saldo Awal/Akhir dihitung dari SEMUA mutasi (bukan hanya yang terfilter),
-     * seperti rekening koran: saldo akhir baris = total kredit - debit sampai baris itu.
+     * seperti rekening koran / mutasi Duitku. Dengan $anchor (saldo asli Duitku saat ini): baris paling baru =
+     * saldo Duitku, lalu mundur: saldo awal = saldo akhir - kredit + debit, dan menjadi saldo akhir baris di bawahnya.
+     * Tanpa $anchor (Duitku tidak bisa ditanya): total kredit - debit tercatat sampai baris itu.
      */
-    public function paginate(array $filters, int $perPage = 15): LengthAwarePaginator
+    public function paginate(array $filters, int $perPage = 15, ?int $anchor = null): LengthAwarePaginator
     {
         $page = $this->filtered($filters)->orderByDesc('m.at')->orderByDesc('m.reference')->paginate($perPage)->withQueryString();
 
         // Dengan filter sumber/arah/cari ada baris yang disembunyikan, jadi saldo per baris tidak ditampilkan.
         if (! $this->narrowed($filters) && ($top = $page->getCollection()->first())) {
-            $balance = $this->balanceUntil($top->at, $top->reference);
+            // Geser semua saldo tercatat sebesar (saldo Duitku - saldo tercatat saat ini): halaman berapa pun tetap nyambung.
+            $balance = $this->balanceUntil($top->at, $top->reference) + ($anchor === null ? 0 : $anchor - $this->balanceUntil());
 
             $page->getCollection()->each(function ($row) use (&$balance) {
                 $delta = $row->direction === 'credit' ? (int) $row->amount : -(int) $row->amount;
