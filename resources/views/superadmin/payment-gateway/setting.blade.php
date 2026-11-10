@@ -115,7 +115,7 @@
                         <ul class="small text-muted mb-3 ps-3">
                             <li><b>Metode yang fee-nya ditanggung bizbos</b> (di bawah, harus <b>sama dengan pengaturan di dashboard Duitku</b>; saat ini QRIS): Duitku memotong fee dari uang masuk, jadi <b>fee asli Duitku</b> transaksi itu (diambil otomatis saat pembayaran dikonfirmasi) dipotong dari saldo pelanggan.</li>
                             <li><b>Metode lain</b> (VA, e-wallet, dll.): fee Duitku dibayar pembeli di atas tagihan, uang masuk utuh. Yang dipotong hanya biaya per pelanggan di bawah (kalau ada).</li>
-                            <li>Potongan (%) = <b>potongan minimal</b> metode di atas untuk <b>semua pelanggan</b> (mis. 0,8 = 0,7 Duitku + 0,1 bizbos). Kalau fee asli Duitku atau biaya per pelanggan lebih besar, yang lebih besar yang dipotong. Isi 0 = ikut fee asli Duitku saja.</li>
+                            <li>Potongan (%) = <b>potongan minimal</b> metode di atas untuk <b>semua pelanggan</b> (mis. 0,8 = 0,7 Duitku + 0,1 bizbos). Kalau fee asli Duitku atau biaya per pelanggan lebih besar, yang lebih besar yang dipotong. Isi 0 = ikut fee asli Duitku saja. QRIS sampai Rp 100.000 tidak dipotong (MDR 0% aturan BI), kecuali Duitku tetap memotong fee.</li>
                             <li>Kode metode baru yang belum dikenal ikut dianggap ditanggung bizbos (aman).</li>
                         </ul>
                         <div class="row g-3">

@@ -25,6 +25,9 @@ class PaymentGatewaySetting extends Model
     /** Potongan QRIS default (%) kalau belum diatur. */
     public const DEFAULT_QRIS_FEE_PERCENT = 0.7;
 
+    /** MDR QRIS 0% sampai nominal ini (aturan BI, berlaku 1 Oktober 2026): Potongan (%) tidak dipakai. */
+    public const QRIS_FREE_UP_TO = 100_000;
+
     /** Kode metode Duitku => [nama, hari kerja settlement]. null = ikut default. Bisa diubah superadmin. */
     public const DEFAULT_SETTLEMENT_METHODS = [
         'BC' => ['name' => 'BCA Virtual Account', 'days' => null],
@@ -167,11 +170,11 @@ class PaymentGatewaySetting extends Model
      * Metode yang fee-nya dibayar customer di Duitku (VA, e-wallet, dll.) = 0. QRIS, dan juga metode yang
      * BELUM dikenal (bukan kode resmi Duitku di daftar ini; kode baru / kosong), dianggap ditanggung bizbos:
      * lebih aman memotong daripada bizbos menanggung diam-diam. Tambahkan kodenya di daftar metode kalau
-     * ternyata fee-nya dibayar customer.
+     * ternyata fee-nya dibayar customer. QRIS sampai QRIS_FREE_UP_TO = 0 (fee asli Duitku tetap dipotong kalau ada).
      */
     public function qrisFeeFor(?string $method, int $paidAmount): int
     {
-        if ($paidAmount <= 0 || ! $this->bearsFee($method)) {
+        if ($paidAmount <= 0 || ! $this->bearsFee($method) || ($this->isQris($method) && $paidAmount <= self::QRIS_FREE_UP_TO)) {
             return 0;
         }
 
