@@ -10,6 +10,7 @@ use App\Models\InvoiceSetting;
 use App\Models\WalletTransaction;
 use App\Services\Invoice\InvoicePaymentService;
 use App\Services\Invoice\InvoiceService;
+use App\Services\Payment\DuitkuClient;
 use App\Services\Wallet\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,6 +43,8 @@ class InvoiceApiController extends Controller
             'expiry_minutes' => ['nullable', 'integer', 'min:5', 'max:43200'],
             'return_url' => ['nullable', 'url:https,http', 'max:500'],
             'send_email' => ['nullable', 'boolean'],
+            // Opsional: metode yang dipilih customer di website pemanggil (kode dari GET /payment-methods).
+            'payment_method' => ['nullable', 'string', 'max:5', 'regex:/^[A-Z0-9]+$/'],
         ]);
 
         [$invoice, $created] = $this->invoices->createFromApi($client, $data, $setting->api_expiry_minutes);
@@ -54,13 +57,30 @@ class InvoiceApiController extends Controller
         // Gagal ke Duitku tidak menggagalkan API: dicoba lagi saat customer menekan "Bayar".
         if ($invoice->isUnpaid()) {
             try {
-                $this->payments->checkout($invoice, route('invoice.pay.return', $invoice->token), self::DUITKU_TIMEOUT);
+                $this->payments->checkout($invoice, route('invoice.pay.return', $invoice->token), self::DUITKU_TIMEOUT, $data['payment_method'] ?? null);
             } catch (RuntimeException) {
                 // Sudah dicatat di log oleh InvoicePaymentService; payment_url = null, checkout_url tetap bisa dipakai.
             }
         }
 
         return response()->json(['success' => true, 'created' => $created, 'data' => $invoice->refresh()->toApi()], $created ? 201 : 200);
+    }
+
+    /** Metode bayar yang tersedia untuk nominal ini, supaya website pemanggil bisa menampilkan pilihannya sendiri. */
+    public function paymentMethods(Request $request): JsonResponse
+    {
+        $setting = InvoiceSetting::current();
+        $amount = (int) $request->validate([
+            'amount' => ['required', 'integer', "min:{$setting->min_amount}", "max:{$setting->max_amount}"],
+        ])['amount'];
+
+        try {
+            $methods = DuitkuClient::make(forCallback: true)->paymentMethods($amount);
+        } catch (RuntimeException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 503);
+        }
+
+        return response()->json(['success' => true, 'data' => $methods]);
     }
 
     public function show(Request $request, string $invoice): JsonResponse

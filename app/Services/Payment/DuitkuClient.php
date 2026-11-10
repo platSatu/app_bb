@@ -3,6 +3,7 @@
 namespace App\Services\Payment;
 
 use App\Models\PaymentGatewaySetting;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -35,7 +36,7 @@ class DuitkuClient
     /**
      * Buat invoice Duitku untuk apa saja (top up, tiket, ...).
      *
-     * @param  array{amount: int, orderId: string, product: string, customer: array{name: string, email: string, phone: ?string}, items: array, returnUrl: string, userInfo?: string, expiryMinutes?: int}  $invoice
+     * @param  array{amount: int, orderId: string, product: string, customer: array{name: string, email: string, phone: ?string}, items: array, returnUrl: string, userInfo?: string, expiryMinutes?: int, paymentMethod?: ?string}  $invoice
      * @return array{paymentUrl: ?string, reference: ?string, message: ?string}
      */
     public function createInvoice(array $invoice, int $timeout = 20): array
@@ -64,6 +65,11 @@ class DuitkuClient
             'expiryPeriod' => max(1, min((int) $this->setting->expiry_minutes, (int) ($invoice['expiryMinutes'] ?? $this->setting->expiry_minutes))),
         ];
 
+        // Metode sudah dipilih di website pemanggil (API payment_method): halaman Duitku langsung ke metode itu.
+        if (! empty($invoice['paymentMethod'])) {
+            $payload['paymentMethod'] = $invoice['paymentMethod'];
+        }
+
         $timestamp = (string) round(microtime(true) * 1000);
 
         $response = Http::connectTimeout(min(5, $timeout))->timeout($timeout)->withHeaders([
@@ -84,6 +90,42 @@ class DuitkuClient
             'reference' => $data['reference'] ?? null,
             'message' => $data['statusMessage'] ?? ($response->failed() ? 'HTTP '.$response->status() : null),
         ];
+    }
+
+    /**
+     * Metode bayar yang aktif di akun Duitku untuk nominal ini (API getpaymentmethod), dicache 10 menit.
+     *
+     * @return array<int, array{code: string, name: string, image: ?string, fee: int}>
+     */
+    public function paymentMethods(int $amount): array
+    {
+        return Cache::remember('duitku:methods:'.$this->setting->mode.':'.$amount, now()->addMinutes(10), function () use ($amount) {
+            $datetime = now()->format('Y-m-d H:i:s');
+            $response = Http::connectTimeout(5)->timeout(10)->post(
+                ($this->setting->isSandbox() ? 'https://sandbox.duitku.com' : 'https://passport.duitku.com').'/webapi/api/merchant/paymentmethod/getpaymentmethod',
+                [
+                    'merchantcode' => $this->setting->merchantCode(),
+                    'amount' => $amount,
+                    'datetime' => $datetime,
+                    'signature' => hash('sha256', $this->setting->merchantCode().$amount.$datetime.$this->setting->apiKey()),
+                ]
+            );
+
+            if ($response->failed() || ! is_array($response->json('paymentFee'))) {
+                Log::warning('Duitku getpaymentmethod gagal', ['http' => $response->status(), 'body' => Str::limit($response->body(), 300)]);
+
+                throw new RuntimeException('Daftar metode pembayaran belum bisa diambil. Coba lagi sebentar.');
+            }
+
+            return collect($response->json('paymentFee'))
+                ->filter(fn ($m) => is_array($m) && filled($m['paymentMethod'] ?? null))
+                ->map(fn (array $m) => [
+                    'code' => (string) $m['paymentMethod'],
+                    'name' => (string) ($m['paymentName'] ?? $m['paymentMethod']),
+                    'image' => $m['paymentImage'] ?? null,
+                    'fee' => (int) round((float) ($m['totalFee'] ?? 0)),
+                ])->values()->all();
+        });
     }
 
     public function verifySignature(array $callback): bool

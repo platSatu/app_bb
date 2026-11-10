@@ -31,6 +31,7 @@ Route::get('/user', function (Request $request) {
 
 // API Invoice bizbos. Dokumentasi: docs/invoice-api.md atau menu Invoice > API & Integrasi.
 Route::prefix('v1')->middleware('invoice.api')->group(function () {
+    Route::get('payment-methods', [InvoiceApiController::class, 'paymentMethods']);
     Route::post('invoices', [InvoiceApiController::class, 'store']);
     Route::get('invoices/{invoice}', [InvoiceApiController::class, 'show']);
     Route::post('invoices/{invoice}/cancel', [InvoiceApiController::class, 'cancel']);

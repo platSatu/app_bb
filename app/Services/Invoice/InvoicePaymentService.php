@@ -38,22 +38,25 @@ class InvoicePaymentService
      *
      * Antre per invoice: dua permintaan bersamaan (klik "Bayar" dua kali, API dipanggil ulang) diproses satu per satu,
      * yang kedua memakai order Duitku yang baru dibuat yang pertama, jadi tidak ada order dobel.
+     *
+     * $method: metode bayar yang sudah dipilih di website pemanggil (API payment_method). Order yang dipakai ulang
+     * harus bermetode sama, jadi pembayar yang ganti metode mendapat order baru untuk metode barunya.
      */
-    public function checkout(Invoice $invoice, string $returnUrl, int $timeout = 20): InvoicePayment
+    public function checkout(Invoice $invoice, string $returnUrl, int $timeout = 20, ?string $method = null): InvoicePayment
     {
         try {
             return Cache::lock('invoice-checkout:'.$invoice->getKey(), $timeout + 15)
-                ->block($timeout + 5, fn () => $this->startCheckout($invoice, $returnUrl, $timeout));
+                ->block($timeout + 5, fn () => $this->startCheckout($invoice, $returnUrl, $timeout, $method));
         } catch (LockTimeoutException) {
             throw new RuntimeException('Pembayaran invoice ini sedang disiapkan. Coba lagi beberapa detik lagi.');
         }
     }
 
-    private function startCheckout(Invoice $invoice, string $returnUrl, int $timeout): InvoicePayment
+    private function startCheckout(Invoice $invoice, string $returnUrl, int $timeout, ?string $method): InvoicePayment
     {
         $client = DuitkuClient::make(forCallback: true);
 
-        $payment = DB::transaction(function () use ($invoice) {
+        $payment = DB::transaction(function () use ($invoice, $method) {
             $locked = Invoice::with('category')->whereKey($invoice->getKey())->lockForUpdate()->firstOrFail();
 
             if (! $locked->isUnpaid()) {
@@ -87,7 +90,9 @@ class InvoicePaymentService
 
             // Order Duitku yang masih berlaku dengan nominal sama dipakai lagi, supaya tidak menumpuk.
             $open = $locked->payments()->where('status', InvoicePayment::STATUS_PENDING)->where('amount', $total)
-                ->where('expires_at', '>', now()->addMinutes(2))->whereNotNull('payment_url')->latest()->first();
+                ->where('expires_at', '>', now()->addMinutes(2))->whereNotNull('payment_url')
+                ->when($method, fn ($q) => $q->where('payment_method', $method), fn ($q) => $q->whereNull('payment_method'))
+                ->latest()->first();
 
             if ($open) {
                 return $open;
@@ -115,6 +120,7 @@ class InvoicePaymentService
                 'merchant_order_id' => $this->uniqueOrderId(),
                 'amount' => $total,
                 'late_fee' => $total - $locked->amount,
+                'payment_method' => $method,
                 'status' => InvoicePayment::STATUS_PENDING,
                 'expires_at' => now()->addMinutes($minutes),
             ])->save();
@@ -143,6 +149,7 @@ class InvoicePaymentService
                 ])),
                 'returnUrl' => $returnUrl,
                 'expiryMinutes' => max(1, (int) floor(now()->diffInSeconds($payment->expires_at, false) / 60)),
+                'paymentMethod' => $method,
             ], $timeout);
         } catch (Throwable $e) {
             report($e);

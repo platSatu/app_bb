@@ -167,6 +167,7 @@ Base URL: `{{BASE_URL}}/api/v1`
 | `expiry_minutes` | tidak | Masa berlaku invoice, 5–43200 menit. Default {{EXPIRY}} menit. Lewat dari ini invoice menjadi `expired`. |
 | `return_url` | tidak | Halaman website Anda setelah bayar (mode redirect). |
 | `send_email` | tidak | `true` = bizbos mengirim email tagihan berisi link bayar ke `customer.email`. |
+| `payment_method` | tidak | Kode metode bayar yang sudah dipilih customer di website Anda (dari `GET /api/v1/payment-methods`, mis. `BC`, `SP`). `payment_url` langsung ke halaman metode itu. Dikirim ulang dengan metode lain (`external_id` sama) = dibuatkan halaman bayar untuk metode baru. |
 
 Contoh request:
 
@@ -266,6 +267,20 @@ Filter opsional lewat query string: `date_from`, `date_to` (format `YYYY-MM-DD`)
 
 - `pending_until`: terisi kalau uang masuk ini belum bisa ditarik (menunggu settlement), `null` kalau sudah.
 - `invoice` / `payout`: referensi transaksi terkait (kalau ada). `payout.status` mengikuti tabel di bagian 13.5.
+
+### 4.6 Metode bayar — `GET /api/v1/payment-methods?amount=150000`
+
+Untuk menampilkan pilihan metode di website Anda sendiri. Query string tidak ikut ditandatangani (path `/api/v1/payment-methods`).
+
+```json
+{ "success": true, "data": [
+  { "code": "BC", "name": "BCA VA", "image": "https://images.duitku.com/...", "fee": 5000 },
+  { "code": "SP", "name": "ShopeePay QRIS", "image": "https://images.duitku.com/...", "fee": 0 }
+] }
+```
+
+Setelah customer memilih, kirim `POST /api/v1/invoices` dengan `payment_method` = `code` yang dipilih. Kalau daftar gagal
+diambil (`503`), buat invoice tanpa `payment_method`: customer memilih metode di halaman bayar.
 
 ## 5. Status invoice
 
