@@ -24,6 +24,11 @@
         <li class="nav-item"><a class="nav-link {{ ($tab ?? 'list') === 'agent' ? 'active' : '' }}" href="{{ route('superadmin.tools.prospects.agent') }}"><i class="ri-robot-2-line me-1"></i>Agent</a></li>
     </ul>
 
+    {{-- Kesalahan isian (mis. Kirim tes / pengaturan) tampil di sini, supaya tidak gagal diam-diam. --}}
+    @if ($errors->any())
+        <div class="alert alert-danger"><i class="ri-error-warning-line"></i> {{ $errors->first() }}</div>
+    @endif
+
     @if (($tab ?? 'list') === 'agent')
         {{-- Agent Prospek (App\Services\Marketing\ProspectAgent): setiap hari mencari & menilai prospek, belum mengirim pesan. --}}
         <div class="row g-3">

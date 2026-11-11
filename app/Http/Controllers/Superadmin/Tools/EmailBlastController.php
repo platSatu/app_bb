@@ -6,7 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Jobs\SendEmailBlast;
 use App\Models\EmailBlast;
 use App\Models\EmailBlastSetting;
+use App\Models\Prospect;
+use App\Models\ProspectAgentSetting;
 use App\Services\Marketing\EmailBlastService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -36,6 +39,13 @@ class EmailBlastController extends Controller
                 report($e);
                 $data['inboxError'] = 'Inbox belum bisa dibuka: '.mb_substr($e->getMessage(), 0, 200);
             }
+        }
+
+        if ($tab === 'compose') {
+            // Template email dari Tools › Prospek › Agent, untuk diisi ke Subjek & Isi (tombol "Pakai template").
+            $agent = ProspectAgentSetting::current();
+            $data['templates'] = collect($agent->templateSegments())->mapWithKeys(fn ($name) => [$name => $agent->template($name)])->all();
+            $data['segments'] = Prospect::whereNotNull('email')->whereNotNull('segment')->distinct()->orderBy('segment')->pluck('segment');
         }
 
         if ($tab === 'sent') {
@@ -76,10 +86,33 @@ class EmailBlastController extends Controller
             return back()->withInput()->with('error', $e->getMessage());
         }
 
+        // Satu data dengan Prospek: penerima yang ada di Prospek ikut tercatat Dihubungi & tidak dikirimi email pembuka Agent lagi.
+        Prospect::whereIn('email', $blast->recipients)->whereNull('outreach_status')
+            ->update(['outreach_status' => 'sent', 'email_blast_id' => $blast->getKey(), 'updated_at' => now()]);
+        Prospect::whereIn('email', $blast->recipients)->where('status', 'new')->update(['status' => 'contacted', 'contacted_at' => now()]);
+
         Log::info('[EMAIL BLAST] Diantrekan', ['blast' => $blast->id, 'recipients' => count($blast->recipients), 'user' => $request->user()->id]);
 
         return redirect()->route('superadmin.tools.email-blast.show', $blast)
             ->with('success', count($blast->recipients).' email diantrekan. Status per penerima tampil di halaman ini.');
+    }
+
+    /** Daftar email dari Prospek untuk kolom "Kepada" (cari nama/email, filter segmen). Yang berhenti / tidak tertarik tidak ikut. */
+    public function prospects(Request $request): JsonResponse
+    {
+        $data = $request->validate(['q' => ['nullable', 'string', 'max:100'], 'segment' => ['nullable', 'string', 'max:60'], 'status' => ['nullable', 'in:new,contacted,interested,customer']]);
+        $like = '%'.addcslashes((string) ($data['q'] ?? ''), '%_\\').'%';
+        $query = Prospect::whereNotNull('email')->where('status', '!=', 'rejected')
+            ->where(fn ($q) => $q->whereNull('outreach_status')->orWhere('outreach_status', '!=', 'unsubscribed'))
+            ->when($data['q'] ?? null, fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', $like)->orWhere('email', 'like', $like)))
+            ->when($data['segment'] ?? null, fn ($q, $segment) => $q->where('segment', $segment))
+            ->when($data['status'] ?? null, fn ($q, $status) => $q->where('status', $status));
+
+        return response()->json([
+            'total' => (clone $query)->count(),
+            'items' => $query->orderBy('name')->limit(EmailBlastService::MAX_RECIPIENTS)->get(['name', 'email', 'status'])
+                ->map(fn ($p) => ['name' => $p->name, 'email' => $p->email, 'status' => $p->statusLabel()]),
+        ]);
     }
 
     /** Lanjutkan kiriman yang berhenti di tengah (mis. worker sempat mati). Penerima yang sudah terkirim tidak dikirimi ulang. */

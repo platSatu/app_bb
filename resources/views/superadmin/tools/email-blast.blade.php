@@ -151,8 +151,41 @@
                         <input type="text" class="form-control" value="{{ $setting->from_name ? $setting->from_name.' <'.$setting->from_address.'>' : ($setting->from_address ?? '-') }}" disabled>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Kepada</label>
-                        <textarea name="recipients" rows="4" class="form-control font-monospace small" required maxlength="20000"
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
+                            <label class="form-label mb-0">Kepada <span class="small text-muted" id="rcpt-count"></span></label>
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#rcpt-picker"><i class="ri-contacts-book-line"></i> Pilih dari Prospek</button>
+                        </div>
+                        {{-- Pemilih penerima dari Prospek: cari, centang (atau pilih semua), lalu tambahkan ke kolom Kepada. --}}
+                        <div class="collapse" id="rcpt-picker">
+                            <div class="border rounded p-3 mb-2 bg-light-subtle">
+                                <div class="row g-2 mb-2">
+                                    <div class="col-12 col-md-6"><input type="search" id="rcpt-q" class="form-control form-control-sm" placeholder="Cari nama atau email..."></div>
+                                    <div class="col-6 col-md-3">
+                                        <select id="rcpt-segment" class="form-select form-select-sm">
+                                            <option value="">Semua segmen</option>
+                                            @foreach ($segments as $segment) <option value="{{ $segment }}">{{ $segment }}</option> @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <select id="rcpt-status" class="form-select form-select-sm">
+                                            <option value="">Semua status</option>
+                                            @foreach (\Illuminate\Support\Arr::except(\App\Models\Prospect::STATUSES, 'rejected') as $key => [$label]) <option value="{{ $key }}">{{ $label }}</option> @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center small mb-1">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input" type="checkbox" id="rcpt-all">
+                                        <label class="form-check-label" for="rcpt-all">Pilih semua</label>
+                                    </div>
+                                    <span class="text-muted" id="rcpt-info">Memuat...</span>
+                                </div>
+                                <div id="rcpt-list" class="border rounded bg-body small" style="max-height: 260px; overflow-y: auto"></div>
+                                <button type="button" class="btn btn-sm btn-primary mt-2" id="rcpt-add"><i class="ri-add-line"></i> Tambahkan ke Kepada</button>
+                                <span class="small text-muted ms-2">Kontak yang minta berhenti / tidak tertarik tidak ditampilkan.</span>
+                            </div>
+                        </div>
+                        <textarea name="recipients" id="rcpt-text" rows="4" class="form-control font-monospace small" required maxlength="20000"
                                   placeholder="satu@contoh.com, dua@contoh.com&#10;atau satu alamat per baris">{{ old('recipients', request('to')) }}</textarea>
                         <div class="form-text">
                             Tempel daftar email (pisah koma / baris baru). Tiap penerima dikirimi email sendiri, alamat penerima lain tidak terlihat.
@@ -161,12 +194,20 @@
                         </div>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Pakai template <span class="small text-muted">(opsional, dari Tools › Prospek › Agent)</span></label>
+                        <select id="tpl" class="form-select" style="max-width: 360px">
+                            <option value="">— Tulis sendiri —</option>
+                            @foreach ($templates as $name => $template) <option value="{{ $name }}">{{ $name }}</option> @endforeach
+                        </select>
+                        <div class="form-text">Isi semua penerima sama, jadi {nama} diganti "Bapak/Ibu". Subjek & isi tetap bisa diubah.</div>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Subjek</label>
-                        <input type="text" name="subject" class="form-control" required maxlength="200" value="{{ old('subject', request('subject')) }}">
+                        <input type="text" name="subject" id="subject" class="form-control" required maxlength="200" value="{{ old('subject', request('subject')) }}">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Isi email</label>
-                        <textarea name="body" rows="12" class="form-control" required maxlength="20000">{{ old('body') }}</textarea>
+                        <textarea name="body" id="body" rows="12" class="form-control" required maxlength="20000">{{ old('body') }}</textarea>
                         <div class="form-text">Teks biasa; baris baru ikut terkirim. Link (https://...) tetap bisa diklik di kebanyakan aplikasi email.</div>
                     </div>
                     <button type="submit" class="btn btn-primary" @disabled(! $setting->isConfigured())><i class="ri-send-plane-line"></i> Kirim</button>
@@ -228,3 +269,61 @@
         </div>
     </div>
 @endsection
+
+@if ($tab === 'compose')
+    @push('scripts')
+        <script>
+            (() => {
+                const templates = @json($templates), max = {{ \App\Services\Marketing\EmailBlastService::MAX_RECIPIENTS }};
+                const $ = (id) => document.getElementById(id), text = $('rcpt-text'), list = $('rcpt-list');
+                const current = () => [...new Set((text.value.match(/[^\s,;<>]+@[^\s,;<>]+\.[a-z]{2,}/gi) || []).map(e => e.toLowerCase()))];
+                const count = () => { const n = current().length; $('rcpt-count').textContent = n ? `(${n} penerima${n > max ? ', maks ' + max : ''})` : ''; $('rcpt-count').classList.toggle('text-danger', n > max); };
+                let timer;
+
+                const load = () => {
+                    const params = new URLSearchParams({ q: $('rcpt-q').value, segment: $('rcpt-segment').value, status: $('rcpt-status').value });
+                    $('rcpt-info').textContent = 'Memuat...';
+                    fetch(`{{ route('superadmin.tools.email-blast.prospects') }}?${params}`, { headers: { Accept: 'application/json' } })
+                        .then(r => r.json()).then(({ total, items }) => {
+                            list.replaceChildren(...items.map(p => {
+                                const row = document.createElement('label');
+                                row.className = 'd-flex gap-2 align-items-center px-2 py-1 border-bottom mb-0';
+                                const box = Object.assign(document.createElement('input'), { type: 'checkbox', className: 'form-check-input mt-0 rcpt-check', value: p.email });
+                                const info = document.createElement('span');
+                                info.textContent = `${p.name} — ${p.email}`;
+                                const status = Object.assign(document.createElement('span'), { className: 'ms-auto text-muted', textContent: p.status });
+                                row.append(box, info, status);
+                                return row;
+                            }));
+                            $('rcpt-all').checked = false;
+                            $('rcpt-info').textContent = total > items.length ? `${items.length} dari ${total} ditampilkan (persempit pencarian)` : `${total} kontak`;
+                            if (! items.length) list.innerHTML = '<div class="text-muted text-center py-3">Tidak ada yang cocok.</div>';
+                        }).catch(() => $('rcpt-info').textContent = 'Gagal memuat daftar, coba lagi.');
+                };
+
+                $('rcpt-picker').addEventListener('show.bs.collapse', load, { once: true });
+                $('rcpt-q').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(load, 350); });
+                $('rcpt-segment').addEventListener('change', load);
+                $('rcpt-status').addEventListener('change', load);
+                $('rcpt-all').addEventListener('change', e => list.querySelectorAll('.rcpt-check').forEach(c => c.checked = e.target.checked));
+                $('rcpt-add').addEventListener('click', () => {
+                    const picked = [...list.querySelectorAll('.rcpt-check:checked')].map(c => c.value.toLowerCase());
+                    const merged = [...new Set([...current(), ...picked])];
+                    text.value = merged.join('\n');
+                    count();
+                });
+                text.addEventListener('input', count);
+                count();
+
+                $('tpl').addEventListener('change', e => {
+                    const t = templates[e.target.value];
+                    if (! t) return;
+                    if (($('subject').value || $('body').value) && ! confirm('Ganti subjek & isi dengan template ini?')) { e.target.value = ''; return; }
+                    const fill = s => s.replaceAll('{nama}', 'Bapak/Ibu').replaceAll('{kota}', 'kota Anda').replaceAll('{segmen}', 'usaha');
+                    $('subject').value = fill(t.subject);
+                    $('body').value = fill(t.body);
+                });
+            })();
+        </script>
+    @endpush
+@endif

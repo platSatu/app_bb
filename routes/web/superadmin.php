@@ -242,7 +242,7 @@ Route::middleware(['auth', 'superadmin'])
             Route::put('agent/templates', 'updateTemplates')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:20,1'])->name('agent.templates');
             Route::post('agent/templates/ai', 'aiTemplates')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:3,10'])->name('agent.templates.ai');
             Route::put('agent/send', 'updateSending')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:20,1'])->name('agent.send');
-            Route::post('agent/templates/test', 'testTemplate')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:5,10'])->name('agent.templates.test');
+            Route::post('agent/templates/test', 'testTemplate')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:10,10'])->name('agent.templates.test');
             Route::get('import/template', 'importTemplate')->middleware('permission:superadmin.tools.prospects,view')->name('import.template');
             Route::post('bulk-delete', 'bulkDestroy')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:20,1'])->name('bulk-destroy');
             Route::post('import', 'import')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:10,10'])->name('import');
@@ -259,6 +259,7 @@ Route::middleware(['auth', 'superadmin'])
                 Route::get('/', 'index')->middleware('throttle:30,1')->name('index');
                 Route::get('inbox/{uid}', 'message')->whereNumber('uid')->middleware('throttle:30,1')->name('message');
                 Route::get('sent/{blast}', 'show')->name('show');
+                Route::get('prospects', 'prospects')->middleware('throttle:60,1')->name('prospects');
                 Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
                 Route::post('sent/{blast}/resume', 'resume')->middleware('throttle:10,1')->name('resume');
                 Route::put('settings', 'updateSettings')->middleware('throttle:10,1')->name('settings');
