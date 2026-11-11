@@ -77,6 +77,9 @@ Route::middleware(['auth', 'superadmin'])
         Route::get('vouchers', [VoucherController::class, 'index'])
             ->middleware('permission:superadmin.vouchers,view')
             ->name('vouchers.index');
+        Route::post('vouchers', [VoucherController::class, 'store'])
+            ->middleware(['permission:superadmin.vouchers,manage', 'throttle:20,1'])
+            ->name('vouchers.store');
 
         Route::get('referral', [ReferralController::class, 'index'])
             ->middleware('permission:superadmin.referral,view')
