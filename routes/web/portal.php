@@ -11,6 +11,7 @@ Route::middleware(['auth', 'permission:schedules.portal'])->prefix('schedules/po
     Route::get('/', [PortalAdminController::class, 'requests'])->name('requests');
     Route::post('requests/{portalRequest}/approve', [PortalAdminController::class, 'approve'])->middleware('throttle:60,1')->name('approve');
     Route::post('requests/{portalRequest}/reject', [PortalAdminController::class, 'reject'])->middleware('throttle:60,1')->name('reject');
+    Route::post('requests/{portalRequest}/access', [PortalAdminController::class, 'access'])->middleware('throttle:30,1')->name('access');
     Route::get('links', [PortalAdminController::class, 'links'])->name('links');
     Route::post('links/{link}/toggle', [PortalAdminController::class, 'toggle'])->middleware('throttle:30,1')->name('links.toggle');
     Route::post('links/{link}/regenerate', [PortalAdminController::class, 'regenerate'])->middleware('throttle:10,1')->name('links.regenerate');

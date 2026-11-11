@@ -167,6 +167,45 @@ class SchedulePortalService
     }
 
     /** @return class-string<ScheduleStudent|ScheduleTeacher> */
+    /**
+     * Akses portal pendaftar yang sudah disetujui: mati = akun dilepas dari data murid/pengajarnya, jadi tidak bisa membuka
+     * portal di branch ini. Data murid/pengajar, jadwal & riwayatnya tetap. Nyala = disambungkan lagi ke data yang sama.
+     */
+    public function setAccess(SchedulePortalRequest $request, bool $on): ScheduleStudent|ScheduleTeacher
+    {
+        return DB::transaction(function () use ($request, $on) {
+            $locked = SchedulePortalRequest::whereKey($request->getKey())->lockForUpdate()->firstOrFail();
+            $model = $this->modelFor($locked);
+            $member = $locked->status === SchedulePortalRequest::STATUS_APPROVED && $locked->member_id
+                ? $model::where('branch_id', $locked->branch_id)->whereKey($locked->member_id)->lockForUpdate()->first()
+                : null;
+
+            if (! $member) {
+                throw new RuntimeException('Data murid/pengajar untuk pendaftar ini sudah tidak ada.');
+            }
+
+            if (! $on) {
+                if ($member->user_id === $locked->user_id) {
+                    $member->forceFill(['user_id' => null])->save();
+                }
+
+                return $member;
+            }
+
+            if ($member->user_id && $member->user_id !== $locked->user_id) {
+                throw new RuntimeException("{$member->name} sudah terhubung ke akun lain.");
+            }
+
+            if (! $locked->isStudent() && ScheduleTeacher::where('branch_id', $locked->branch_id)->where('user_id', $locked->user_id)->whereKeyNot($member->getKey())->exists()) {
+                throw new RuntimeException('Akun ini sudah terhubung ke pengajar lain di branch ini.');
+            }
+
+            $member->forceFill(['user_id' => $locked->user_id])->save();
+
+            return $member;
+        });
+    }
+
     private function modelFor(SchedulePortalRequest $request): string
     {
         return $request->isStudent() ? ScheduleStudent::class : ScheduleTeacher::class;

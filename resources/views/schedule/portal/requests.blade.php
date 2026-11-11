@@ -73,7 +73,7 @@
                             <th>Kontak</th>
                             @if ($showBranch) <th>Branch</th> @endif
                             <th>{{ $isPending ? 'Tanggal Daftar' : 'Diproses' }}</th>
-                            <th class="text-end" style="min-width: {{ $isPending ? '340px' : '0' }}">{{ $isPending ? 'Hubungkan & Setujui' : 'Keterangan' }}</th>
+                            <th class="text-end" style="min-width: {{ $isPending ? '340px' : '0' }}">{{ $isPending ? 'Hubungkan & Setujui' : ($status === SchedulePortalRequest::STATUS_APPROVED ? 'Akses Portal' : 'Keterangan') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -114,6 +114,17 @@
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Tolak"><i class="ri-close-line"></i></button>
                                             </form>
                                         </div>
+                                    @elseif ($status === SchedulePortalRequest::STATUS_APPROVED && $item->portal_access !== null)
+                                        {{-- Mati = akun tidak bisa membuka portal; data & jadwal tetap. --}}
+                                        <form method="POST" action="{{ route('schedules.portal.access', $item) }}" class="d-inline-flex align-items-center gap-2">
+                                            @csrf
+                                            <input type="hidden" name="active" value="{{ $item->portal_access ? 0 : 1 }}">
+                                            <label for="access-{{ $item->id }}" class="small mb-0 {{ $item->portal_access ? 'text-success' : 'text-muted' }}">{{ $item->portal_access ? 'Bisa masuk' : 'Dimatikan' }}</label>
+                                            <div class="form-check form-switch mb-0">
+                                                <input type="checkbox" role="switch" class="form-check-input" style="width: 2.5em; height: 1.3em" id="access-{{ $item->id }}" @checked($item->portal_access)
+                                                    onchange="if (! this.checked && ! confirm('Matikan akses portal {{ addslashes($item->name) }}? Akunnya tidak bisa membuka portal lagi, data & jadwalnya tetap aman.')) { this.checked = true; return; } this.form.submit();">
+                                            </div>
+                                        </form>
                                     @else
                                         <span class="badge {{ $item->statusBadge() }}">{{ $item->statusLabel() }}</span>
                                         @if ($item->reject_reason)

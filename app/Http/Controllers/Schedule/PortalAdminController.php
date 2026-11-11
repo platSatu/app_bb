@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Schedule;
 use App\Http\Controllers\Controller;
 use App\Models\SchedulePortalLink;
 use App\Models\SchedulePortalRequest;
+use App\Models\ScheduleStudent;
+use App\Models\ScheduleTeacher;
 use App\Models\UserBranch;
 use App\Services\Schedule\SchedulePortalService;
 use App\Services\Subscription\AppAccess;
@@ -46,6 +48,14 @@ class PortalAdminController extends Controller
             $items->getCollection()->each(fn ($item) => $item->setRelation('matches', $this->portal->matches($item)));
         }
 
+        // Disetujui: slide akses portal nyala kalau data murid/pengajarnya masih tersambung ke akun pendaftar.
+        if ($status === SchedulePortalRequest::STATUS_APPROVED) {
+            $linked = fn (string $model, bool $student) => $model::whereIn('id', $items->getCollection()->filter(fn ($i) => $i->isStudent() === $student)->pluck('member_id')->filter())
+                ->pluck('user_id', 'id');
+            $members = $linked(ScheduleStudent::class, true)->union($linked(ScheduleTeacher::class, false));
+            $items->getCollection()->each(fn ($item) => $item->setAttribute('portal_access', $members->has($item->member_id) ? $members[$item->member_id] === $item->user_id : null));
+        }
+
         return view('schedule.portal.requests', [
             'items' => $items,
             'status' => $status,
@@ -82,6 +92,22 @@ class PortalAdminController extends Controller
         }
 
         return back()->with('success', "Pendaftaran {$item->name} ditolak.");
+    }
+
+    public function access(Request $request, string $portalRequest): RedirectResponse
+    {
+        $item = $this->find($request, $portalRequest);
+        $on = $request->boolean('active');
+
+        try {
+            $member = $this->portal->setAccess($item, $on);
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', $on
+            ? "Akses portal {$member->name} dinyalakan lagi, akunnya sudah bisa masuk."
+            : "Akses portal {$member->name} dimatikan. Akunnya tidak bisa membuka portal lagi, data & jadwalnya tetap aman.");
     }
 
     public function links(Request $request): View|RedirectResponse

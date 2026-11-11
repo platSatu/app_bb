@@ -2,8 +2,9 @@
 <html lang="id">
 <head>
     @php
-        $pageTitle = trim($__env->yieldContent('title')) ?: 'Dashboard';
-        $pageSection = trim($__env->yieldContent('page-section'));
+        // @section('title', '...') sudah di-escape Blade; dikembalikan dulu supaya "&" tidak tampil "&amp;" (tetap di-escape saat dicetak).
+        $pageTitle = html_entity_decode(trim($__env->yieldContent('title')), ENT_QUOTES | ENT_HTML5) ?: 'Dashboard';
+        $pageSection = html_entity_decode(trim($__env->yieldContent('page-section')), ENT_QUOTES | ENT_HTML5);
     @endphp
 
     <meta charset="utf-8" />
