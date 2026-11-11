@@ -12,13 +12,14 @@
         ['Jadwal otomatis', $schedulerOk ? 'Berjalan' : 'Tidak jalan', $schedulerOk, 'ri-timer-line', $heartbeat ? 'Terakhir aktif '.$heartbeat->diffForHumans() : 'Belum pernah tercatat. Cek cron di server.'],
         ['Job gagal', $failedTotal ? $failedTotal.' job' : 'Tidak ada', ! $failedTotal, 'ri-error-warning-line', $failedTotal ? 'Bisa dicoba lagi di bawah.' : 'Semua job berhasil.'],
         ['Pembayaran tertahan', $paymentStuck ? $paymentStuck.' transaksi' : 'Tidak ada', ! $paymentStuck, 'ri-bank-card-line', $paymentStuck ? 'Callback Duitku tidak datang.' : 'Semua callback masuk.'],
+        ['Error aplikasi', $errorsToday ? $errorsToday.' kali' : 'Tidak ada', ! $errorsToday, 'ri-bug-line', $errorsToday ? 'Dalam 24 jam terakhir. Rinciannya di bawah.' : 'Tidak ada error 24 jam terakhir.'],
     ];
 @endphp
 
 @section('content')
     <div class="row g-3 mb-1">
         @foreach ($cards as [$title, $value, $ok, $icon, $hint])
-            <div class="col-sm-6 col-xl-3">
+            <div class="col-sm-6 col-xl">
                 <div class="card h-100 mb-0 border-{{ $ok ? 'light' : 'warning' }}">
                     <div class="card-body d-flex gap-3">
                         <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 {{ $ok ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning' }}" style="width: 2.75rem; height: 2.75rem;"><i class="{{ $icon }} fs-4"></i></div>
@@ -66,6 +67,27 @@
                     @endforeach
                 </div>
             </div>
+        </div>
+    </div>
+
+    {{-- Error terbaru dari log aplikasi: pesan singkat saja; rincian lengkap (stack trace) tetap hanya di server. --}}
+    <div class="card mt-3">
+        <div class="card-header bg-white border-bottom px-4 py-3">
+            <h6 class="mb-1 fw-semibold">Error terbaru</h6>
+            <div class="small text-muted lh-sm">Dari catatan error aplikasi, yang terbaru di atas. Error yang sama digabung. Kalau satu error terus berulang, kirimkan pesannya ke tim teknis.</div>
+        </div>
+        <div class="card-body px-4">
+            @forelse ($errors as $error)
+                <div class="d-flex gap-3 align-items-start py-2 {{ $loop->last ? '' : 'border-bottom' }}">
+                    <span class="badge {{ $error->last->gt(now()->subDay()) ? 'bg-warning-subtle text-warning' : 'bg-light text-muted' }} flex-shrink-0" style="min-width: 3.25rem">{{ $error->count }}&times;</span>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="small text-break">{{ $error->message }}</div>
+                        <div class="small text-muted">Terakhir {{ $error->last->diffForHumans() }} · {{ $error->last->translatedFormat('d M Y H:i') }}</div>
+                    </div>
+                </div>
+            @empty
+                <div class="text-center text-muted py-3"><i class="ri-checkbox-circle-line text-success fs-3 d-block"></i>Belum ada error tercatat. Aplikasi berjalan baik.</div>
+            @endforelse
         </div>
     </div>
 

@@ -20,7 +20,7 @@ use Illuminate\View\View;
 
 /**
  * Settings > Antrean & Tugas: semua yang nyangkut di satu tempat.
- * Antrean email/job, job gagal, pembayaran yang callback-nya tidak datang, dan transfer yang belum pasti.
+ * Antrean email/job, job gagal, pembayaran yang callback-nya tidak datang, transfer yang belum pasti, dan error aplikasi terbaru.
  */
 class MonitorController extends Controller
 {
@@ -31,6 +31,9 @@ class MonitorController extends Controller
     private const PAYMENT_STUCK_MINUTES = 20;
 
     public const HEARTBEAT = 'scheduler:heartbeat';
+
+    /** Bagian akhir file log yang dibaca untuk kartu Error terbaru (cukup untuk ratusan error terakhir). */
+    private const LOG_TAIL_BYTES = 1024 * 1024;
 
     public function index(): View
     {
@@ -51,8 +54,11 @@ class MonitorController extends Controller
             'failed_at' => Carbon::parse($job->failed_at),
         ]);
         $heartbeat = Cache::get(self::HEARTBEAT);
+        [$errors, $errorsToday] = $this->recentErrors();
 
         return view('superadmin.monitor.index', [
+            'errors' => $errors,
+            'errorsToday' => $errorsToday,
             'jobs' => $jobs,
             'jobTotal' => DB::table('jobs')->count(),
             'failed' => $failed,
@@ -107,6 +113,42 @@ class MonitorController extends Controller
         return back()->with($left ? 'warning' : 'success', $left
             ? "Sudah diproses, tapi masih ada {$left} pembayaran tertahan. Kemungkinan Duitku belum bisa dihubungi; coba lagi beberapa saat."
             : 'Semua pembayaran tertahan sudah dicek ke Duitku dan dibereskan.');
+    }
+
+    /**
+     * Error terbaru dari log aplikasi (storage/logs/laravel*.log), supaya tidak perlu masuk VPS. Hanya baris pesannya
+     * (tanpa stack trace & konteks, yang bisa memuat data sensitif); error yang sama digabung. Yang dibaca hanya
+     * bagian akhir 2 file log terbaru, jadi tetap ringan walau log besar.
+     *
+     * @return array{0: list<object>, 1: int} [maks. 20 error (terbaru dulu), jumlah error 24 jam terakhir]
+     */
+    private function recentErrors(): array
+    {
+        $files = collect(glob(storage_path('logs/laravel*.log')) ?: [])->sortByDesc(fn ($f) => filemtime($f))->take(2);
+        $since = now()->subDay();
+        $groups = [];
+        $today = 0;
+
+        foreach ($files as $file) {
+            $handle = fopen($file, 'r');
+            fseek($handle, max(0, filesize($file) - self::LOG_TAIL_BYTES));
+            $tail = stream_get_contents($handle);
+            fclose($handle);
+
+            preg_match_all('/^\[(\d{4}-\d\d-\d\d[ T]\d\d:\d\d:\d\d)[^\]]*\] \w+\.(?:ERROR|CRITICAL|ALERT|EMERGENCY): (.*)$/m', $tail, $matches, PREG_SET_ORDER);
+
+            foreach ($matches as [, $time, $line]) {
+                $at = Carbon::parse($time);
+                // Pesan saja: konteks JSON di belakangnya (exception, userId, ...) tidak ditampilkan.
+                $message = Str::limit(trim(preg_replace('/\s\{".*$/', '', $line)), 220);
+                $today += $at->gte($since) ? 1 : 0;
+                $group = $groups[$message] ??= (object) ['message' => $message, 'count' => 0, 'last' => $at];
+                $group->count++;
+                $group->last = $at->gt($group->last) ? $at : $group->last;
+            }
+        }
+
+        return [collect($groups)->sortByDesc('last')->take(20)->values()->all(), $today];
     }
 
     private function stuckPayments(): array
