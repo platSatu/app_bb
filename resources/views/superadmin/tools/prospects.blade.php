@@ -122,9 +122,10 @@
                         <form method="POST" action="{{ route('superadmin.tools.prospects.agent.templates') }}" class="row g-3">
                             @csrf
                             @method('PUT')
-                            <div class="col-6 col-md-3">
+                            {{-- Baris sendiri, supaya template segmen di bawahnya rata 2 kolom. --}}
+                            <div class="col-12">
                                 <label class="form-label">Skor minimal untuk dibuatkan draf</label>
-                                <input type="number" name="min_score" class="form-control" min="0" max="100" required value="{{ old('min_score', $setting->min_score) }}">
+                                <input type="number" name="min_score" class="form-control" style="max-width: 160px" min="0" max="100" required value="{{ old('min_score', $setting->min_score) }}">
                             </div>
                             @foreach ($setting->segments ?? [] as $i => $segment)
                                 @php($template = $setting->template($segment['name']))
