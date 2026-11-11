@@ -32,7 +32,8 @@ class ProspectController extends Controller
     {
         return view('superadmin.tools.prospects', [
             'prospects' => $this->sorted($this->filtered($request), $request)->paginate(15)->withQueryString(),
-            'counts' => Prospect::query()->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status'),
+            // Angka di tab status mengikuti filter cari/segmen/kota yang sedang dipakai.
+            'counts' => $this->filtered($request, false)->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status'),
             'cities' => Prospect::query()->whereNotNull('city')->distinct()->orderBy('city')->pluck('city'),
             'segments' => Prospect::query()->whereNotNull('segment')->distinct()->orderBy('segment')->pluck('segment'),
         ]);
@@ -319,7 +320,7 @@ class ProspectController extends Controller
         return $request->query('sort') === 'score' ? $query->orderByDesc('score')->latest() : $query->latest();
     }
 
-    private function filtered(Request $request): Builder
+    private function filtered(Request $request, bool $withStatus = true): Builder
     {
         $data = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
@@ -330,7 +331,7 @@ class ProspectController extends Controller
         $search = trim((string) ($data['search'] ?? ''));
 
         return Prospect::query()
-            ->when($data['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
+            ->when($withStatus ? ($data['status'] ?? null) : null, fn ($q, $status) => $q->where('status', $status))
             ->when($data['city'] ?? null, fn ($q, $city) => $q->where('city', $city))
             ->when($data['segment'] ?? null, fn ($q, $segment) => $q->where('segment', $segment))
             ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%")
