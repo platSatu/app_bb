@@ -117,7 +117,8 @@
                                     </td>
                                 @endif
                                 <td><span class="badge {{ $item->statusBadge() }}">{{ $item->statusLabel() }}</span></td>
-                                <td class="text-end text-nowrap">
+                                <td class="text-end">
+                                    <div class="d-inline-flex flex-nowrap justify-content-end gap-2">
                                     @includeIf('schedule.'.$resource.'._actions')
                                     @if ($canManage)
                                         @if ($childConfig)
@@ -133,6 +134,7 @@
                                             <button type="submit" class="btn btn-sm rounded-pill btn-outline-danger"><i class="ri-delete-bin-line"></i> Hapus</button>
                                         </form>
                                     @endif
+                                    </div>
                                 </td>
                             </tr>
                         @empty

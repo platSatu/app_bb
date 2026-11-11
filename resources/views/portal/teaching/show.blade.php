@@ -47,8 +47,11 @@
                     <form method="POST" action="{{ route('portal.absen.save', $session) }}">
                         @csrf
                         @method('PUT')
+                        @if ($canFill && $session->attendances->isNotEmpty())
+                            @include('schedule._qr-scan')
+                        @endif
                         @forelse ($session->attendances as $attendance)
-                            <div class="py-3 {{ $loop->last ? '' : 'border-bottom' }}">
+                            <div class="py-3 px-2 rounded-3 {{ $loop->last ? '' : 'border-bottom' }}" data-qr-row>
                                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                                     <div class="fw-semibold flex-grow-1">{{ $attendance->student?->name }}</div>
                                     @unless ($canFill)
@@ -60,7 +63,8 @@
                                         @foreach ($options as $status => [$label, $color, $icon])
                                             <div class="col-4">
                                                 <input type="radio" class="btn-check" name="statuses[{{ $attendance->student_id }}]" value="{{ $status }}" id="st-{{ $attendance->id }}-{{ $status }}"
-                                                    @checked(old('statuses.'.$attendance->student_id, $attendance->status) === $status) required>
+                                                    @checked(old('statuses.'.$attendance->student_id, $attendance->status) === $status) required
+                                                    @if ($status === ScheduleAttendance::STATUS_PRESENT && $attendance->student) data-qr="{{ $attendance->student->qrCode() }}" data-name="{{ $attendance->student->name }}" @endif>
                                                 <label class="btn btn-outline-{{ $color }} w-100" for="st-{{ $attendance->id }}-{{ $status }}"><i class="{{ $icon }}"></i> {{ $label }}</label>
                                             </div>
                                         @endforeach

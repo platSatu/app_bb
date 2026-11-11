@@ -81,6 +81,26 @@
                 </div>
             </div>
         </div>
+
+        @if ($portal['cards']->isNotEmpty())
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="mb-1"><i class="ri-qr-code-line text-primary me-1"></i> Kartu Absen</h6>
+                        <p class="small text-muted mb-3">Tunjukkan QR ini ke pengajar saat les dimulai, kehadiran langsung tercatat.</p>
+                        <div class="row g-3">
+                            @foreach ($portal['cards'] as $card)
+                                <div class="col-6 col-md-4 text-center">
+                                    <img src="{{ $card['qr'] }}" alt="QR absen {{ $card['student']->name }}" class="img-fluid border rounded-3 p-1">
+                                    <div class="fw-semibold small mt-2 text-truncate">{{ $card['student']->name }}</div>
+                                    <a href="{{ $card['student']->cardUrl() }}" target="_blank" rel="noopener" class="small">Perbesar / simpan</a>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
     @endif
 </div>
 @endif

@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Portal\Concerns\InPortal;
 use App\Models\ScheduleAttendance;
 use App\Models\ScheduleSession;
+use App\Models\ScheduleStudent;
+use App\Services\Media\QrCodeGenerator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
@@ -35,6 +37,14 @@ class PortalController extends Controller
             'showStudent' => count($tabs) > 1 && ! $active,
             'colors' => $this->branchColors($students->pluck('branch_id')),
         ]);
+    }
+
+    /** Kartu absen: QR yang di-scan pengajar saat les dimulai. Link-nya bertanda tangan, jadi tidak bisa ditebak. */
+    public function card(string $student, QrCodeGenerator $qr): View
+    {
+        $model = ScheduleStudent::with('branch:id,name')->findOrFail($student);
+
+        return view('portal.card', ['student' => $model, 'qr' => $qr->dataUri($model->qrCode(), 10)]);
     }
 
     public function attendance(Request $request): View

@@ -2,14 +2,23 @@
 
 namespace App\Http\Controllers\Schedule;
 
+use App\Mail\ScheduleCardMail;
 use App\Models\ScheduleAttendance;
+use App\Models\ScheduleStudent;
 use App\Models\User;
 use App\Models\UserBranch;
+use App\Models\WaDevice;
 use App\Services\Customer\CustomerService;
 use App\Services\Schedule\ScheduleRoutineService;
+use App\Services\Subscription\AppAccess;
+use App\Services\WhatsApp\WaGateway;
+use App\Support\Menu;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class StudentController extends ScheduleResourceController
@@ -32,6 +41,47 @@ class StudentController extends ScheduleResourceController
             'phone' => User::normalizePhone($request->input('phone')) ?: null,
             'email' => filled($request->input('email')) ? strtolower(trim($request->input('email'))) : null,
         ]);
+    }
+
+    /**
+     * Kirim kartu absen QR ke email terdaftar, atau ke WhatsApp murid lewat nomor WhatsApp branch
+     * (hanya kalau paket WhatsApp aktif & ada nomor yang terhubung). Tanpa paket, admin memakai link wa.me di menu.
+     */
+    public function sendCard(Request $request, string $student, WaGateway $wa): RedirectResponse
+    {
+        $item = ScheduleStudent::accessibleBy($request->user(), Menu::ABILITY_MANAGE)->with('branch:id,name')->findOrFail($student);
+        $via = $request->validate(['via' => ['required', Rule::in(['email', 'whatsapp'])]])['via'];
+
+        if ($via === 'email') {
+            if (! $item->email) {
+                return back()->with('error', "{$item->name} belum punya email. Tambahkan dulu lewat Edit, lalu kirim lagi.");
+            }
+
+            Mail::to($item->email)->queue(new ScheduleCardMail($item->getKey()));
+
+            return back()->with('success', "Kartu absen {$item->name} sedang dikirim ke {$item->email}.");
+        }
+
+        $device = self::waDevices()[$item->branch_id] ?? null;
+
+        if (! $item->phone || ! $device) {
+            return back()->with('error', $item->phone
+                ? 'Nomor WhatsApp branch belum terhubung. Kirim lewat link WhatsApp manual dulu ya.'
+                : "{$item->name} belum punya nomor WhatsApp. Tambahkan dulu lewat Edit.");
+        }
+
+        $result = $wa->sendText($item->branch_id, ['device_id' => $device, 'to' => $item->phone, 'text' => $item->cardMessage(), 'client_ref' => (string) Str::uuid()]);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['success']
+            ? "Kartu absen {$item->name} terkirim ke WhatsApp {$item->phone}."
+            : 'WhatsApp belum terkirim: '.($result['message'] ?? 'coba lagi sebentar lagi.'));
+    }
+
+    /** [branch_id => device_id] nomor WhatsApp yang terhubung di branch dengan paket WhatsApp aktif. */
+    public static function waDevices(): array
+    {
+        return once(fn () => WaDevice::where('status', 'connected')->whereIn('branch_id', AppAccess::activeBranches('whatsapp'))
+            ->orderBy('created_at')->get(['id', 'branch_id'])->unique('branch_id')->pluck('id', 'branch_id')->all());
     }
 
     protected function extraRules(Request $request, string $branchId, Model $item): array

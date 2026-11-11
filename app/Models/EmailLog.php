@@ -33,6 +33,7 @@ class EmailLog extends Model
         \App\Mail\InvoicePaidOwnerMail::class => 'Invoice lunas (owner)',
         \App\Mail\TicketOrderPaid::class => 'E-ticket',
         \App\Mail\SubscriptionReminderMail::class => 'Pengingat paket',
+        \App\Mail\ScheduleCardMail::class => 'Kartu absen murid',
         \App\Notifications\ContactMessageReceivedNotification::class => 'Pesan kontak website',
         \App\Notifications\QueuedVerifyEmail::class => 'Verifikasi email',
         \App\Notifications\QueuedResetPassword::class => 'Reset password',

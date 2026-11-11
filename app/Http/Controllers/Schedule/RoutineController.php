@@ -112,7 +112,8 @@ class RoutineController extends Controller
         $period = $month->format('Y-m');
 
         $routines = ScheduleRoutine::accessibleBy($request->user())
-            ->with(['teacher:id,name', 'grade:id,name,price,meetings_per_month,category_id', ...ScheduleRoutine::LABEL_WITH,
+            // Grade ditulis lengkap (bukan LABEL_WITH) supaya kolom harga & pertemuan ikut termuat.
+            ->with(['teacher:id,name', 'grade:id,name,price,meetings_per_month,category_id', 'grade.category:id,name,subject_id', 'grade.category.subject:id,name',
                 'participants' => fn ($q) => $q->orderBy('name'),
                 'sessions' => fn ($q) => $q->where('period', $period)->orderBy('start_at')->with('attendances:id,session_id,student_id,status,teacher_fee')])
             ->whereHas('sessions', fn ($q) => $q->where('period', $period))

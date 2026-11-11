@@ -19,23 +19,27 @@
 
     <div class="card">
         <div class="card-body">
-            <form method="GET" class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                <input type="month" name="month" class="form-control w-auto" value="{{ $month->format('Y-m') }}" onchange="this.form.submit()">
-                <a href="{{ route($routes.'.routines.recap', ['month' => $month->format('Y-m'), 'export' => 1]) }}" class="btn btn-success"><i class="ri-file-excel-2-line"></i> Unduh Excel</a>
-                <a href="{{ route($routes.'.routines.index', ['month' => $month->format('Y-m')]) }}" class="btn btn-outline-secondary">Kembali ke jadwal</a>
-            </form>
-            <div class="small text-muted mb-3">
-                <span class="badge bg-success-subtle text-success">H</span> Hadir ·
-                <span class="badge bg-danger-subtle text-danger">A</span> Alpa ·
-                <span class="badge bg-warning-subtle text-warning">I</span> Izin ·
-                <span class="badge bg-light text-muted">·</span> Belum diisi ·
-                <span class="text-muted">–</span> tidak ikut sesi ini.
-                Tagihan prorata = harga grade ÷ pertemuan per bulan × sesi yang diikuti (maksimal harga sebulan).
+            <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+                <form method="GET" class="d-flex align-items-center gap-2 me-auto">
+                    <label for="month" class="text-muted small text-nowrap mb-0">Bulan</label>
+                    <input type="month" id="month" name="month" class="form-control" style="width: 11rem" value="{{ $month->format('Y-m') }}" onchange="this.form.submit()">
+                </form>
+                <a href="{{ route($routes.'.routines.index', ['month' => $month->format('Y-m')]) }}" class="btn btn-outline-secondary"><i class="ri-arrow-left-line me-1"></i>Kembali ke jadwal</a>
+                <a href="{{ route($routes.'.routines.recap', ['month' => $month->format('Y-m'), 'export' => 1]) }}" class="btn btn-success"><i class="ri-file-excel-2-line me-1"></i>Unduh Excel</a>
             </div>
+
+            <div class="d-flex flex-wrap align-items-center gap-3 small text-muted mb-2">
+                <span><span class="badge bg-success-subtle text-success me-1">H</span>Hadir</span>
+                <span><span class="badge bg-danger-subtle text-danger me-1">A</span>Alpa</span>
+                <span><span class="badge bg-warning-subtle text-warning me-1">I</span>Izin</span>
+                <span><span class="badge bg-light text-muted me-1">·</span>Belum diisi</span>
+                <span><span class="me-1">–</span>Tidak ikut sesi ini</span>
+            </div>
+            <p class="small text-muted mb-4">Tagihan dihitung sesuai sesi yang diikuti: harga grade ÷ pertemuan sebulan × sesi diikuti (paling banyak harga sebulan).</p>
 
             @forelse ($rows as $row)
                 @php($routine = $row['routine'])
-                <div class="border rounded mb-4">
+                <div class="border rounded-3 overflow-hidden mb-4">
                     <div class="d-flex flex-wrap justify-content-between gap-2 px-3 py-2 bg-light-subtle border-bottom">
                         <div>
                             <div class="fw-semibold">{{ $routine->grade?->label() }}</div>
@@ -47,10 +51,16 @@
                         </div>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-sm align-middle mb-0 text-nowrap small">
+                        {{-- Lebar kolom tetap supaya kolom Murid s/d Honor sejajar di semua jadwal. --}}
+                        <table class="table table-sm align-middle mb-0 text-nowrap small" style="table-layout: fixed; min-width: 760px">
+                            <colgroup>
+                                <col style="width: 18%"><col style="width: 15%">
+                                @foreach ($row['sessions'] as $session) <col> @endforeach
+                                <col style="width: 8%"><col style="width: 7%"><col style="width: 12%"><col style="width: 12%">
+                            </colgroup>
                             <thead>
                                 <tr>
-                                    <th>Murid</th>
+                                    <th class="ps-3">Murid</th>
                                     <th>Masuk / Keluar</th>
                                     @foreach ($row['sessions'] as $session)
                                         <th class="text-center {{ $session->status === \App\Models\ScheduleSession::STATUS_CANCELLED ? 'text-decoration-line-through text-muted' : '' }}"
@@ -59,13 +69,13 @@
                                     <th class="text-center">Diikuti</th>
                                     <th class="text-center">Hadir</th>
                                     <th class="text-end">Tagihan</th>
-                                    <th class="text-end">Honor</th>
+                                    <th class="text-end pe-3">Honor</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($row['students'] as $s)
                                     <tr @class(['table-light text-muted' => $s['left_on']])>
-                                        <td>{{ $s['student']->name }}</td>
+                                        <td class="ps-3 text-truncate">{{ $s['student']->name }}</td>
                                         <td>
                                             {{ $s['joined_on'] ? \Carbon\Carbon::parse($s['joined_on'])->translatedFormat('d M') : 'awal' }}
                                             @if ($s['left_on']) – <span class="text-danger">keluar {{ \Carbon\Carbon::parse($s['left_on'])->translatedFormat('d M') }}</span> @endif
@@ -83,7 +93,7 @@
                                         <td class="text-center">{{ $s['followed'] }}</td>
                                         <td class="text-center">{{ $s['present'] }}</td>
                                         <td class="text-end">{{ $rupiah($s['charge']) }}</td>
-                                        <td class="text-end">{{ $rupiah($s['teacher_fee']) }}</td>
+                                        <td class="text-end pe-3">{{ $rupiah($s['teacher_fee']) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

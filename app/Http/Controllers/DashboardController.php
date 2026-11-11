@@ -13,6 +13,7 @@ use App\Models\InvoiceCategory;
 use App\Models\SchedulePortalRequest;
 use App\Models\ScheduleRoutine;
 use App\Models\ScheduleSession;
+use App\Models\ScheduleStudent;
 use App\Models\TicketOrder;
 use App\Models\UserCompany;
 use App\Models\User;
@@ -21,6 +22,7 @@ use App\Models\WaChat;
 use App\Models\WaDevice;
 use App\Models\WalletWithdrawal;
 use App\Models\WebContactMessage;
+use App\Services\Media\QrCodeGenerator;
 use App\Support\Menu;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -70,7 +72,8 @@ class DashboardController extends Controller
     /** Kartu peran pengajar & murid/orang tua (status pendaftaran, mengajar hari ini, les berikutnya). */
     private function portal(User $user): array
     {
-        $studentIds = $this->students($user)->modelKeys();
+        $students = $this->students($user);
+        $studentIds = $students->modelKeys();
         $teacherIds = $this->teachers($user)->modelKeys();
 
         return [
@@ -85,6 +88,10 @@ class DashboardController extends Controller
                 ->whereBetween('start_at', [today(), today()->endOfDay()])->orderBy('start_at')->get() : collect(),
             'toFill' => $teacherIds ? TeachingController::needsAttendance($teacherIds)->count() : 0,
             'multiChild' => count($studentIds) > 1,
+            // Kartu absen QR per anak yang masih aktif, di-scan pengajar saat les dimulai.
+            'cards' => $students->where('status', ScheduleStudent::STATUS_ACTIVE)->map(fn (ScheduleStudent $s) => [
+                'student' => $s, 'qr' => app(QrCodeGenerator::class)->dataUri($s->qrCode(), 5),
+            ])->values(),
         ];
     }
 

@@ -38,6 +38,11 @@ $routineWrite = function () {
     Route::post('routines/{routine}/duplicate', [RoutineController::class, 'duplicate'])->middleware('throttle:30,1')->name('routines.duplicate');
 };
 
+// Kirim kartu absen QR murid (email / WhatsApp branch).
+$studentCard = function () {
+    Route::post('students/{student}/card', [StudentController::class, 'sendCard'])->middleware('throttle:20,1')->name('students.card');
+};
+
 $sessionWrite = function () {
     Route::put('sessions/{session}/attendance', [SessionController::class, 'attendance'])->middleware('throttle:60,1')->name('sessions.attendance');
     Route::post('sessions/{session}/cancel', [SessionController::class, 'cancel'])->middleware('throttle:30,1')->name('sessions.cancel');
@@ -45,7 +50,9 @@ $sessionWrite = function () {
     Route::post('sessions/{session}/attendances/{attendance}/makeup', [SessionController::class, 'makeup'])->middleware('throttle:30,1')->name('sessions.makeup');
 };
 
-Route::middleware('auth')->prefix('schedules')->name('schedules.')->group(function () use ($resources, $sessionRead, $sessionWrite, $routineRead, $routineWrite) {
+Route::middleware('auth')->prefix('schedules')->name('schedules.')->group(function () use ($resources, $sessionRead, $sessionWrite, $routineRead, $routineWrite, $studentCard) {
+    Route::middleware('permission:schedules.students')->group($studentCard);
+
     Route::middleware('permission:schedules.routines')->group(function () use ($routineRead, $routineWrite) {
         $routineRead();
         $routineWrite();
@@ -61,9 +68,10 @@ Route::middleware('auth')->prefix('schedules')->name('schedules.')->group(functi
     });
 });
 
-Route::middleware(['auth', 'superadmin'])->prefix('superadmin/schedules')->name('superadmin.schedules.')->group(function () use ($resources, $sessionRead, $sessionWrite, $routineRead, $routineWrite) {
+Route::middleware(['auth', 'superadmin'])->prefix('superadmin/schedules')->name('superadmin.schedules.')->group(function () use ($resources, $sessionRead, $sessionWrite, $routineRead, $routineWrite, $studentCard) {
     Route::middleware('permission:superadmin.schedules,view')->group($routineRead);
     Route::middleware('permission:superadmin.schedules,manage')->group($routineWrite);
+    Route::middleware('permission:superadmin.schedules,manage')->group($studentCard);
 
     foreach ($resources as $uri => $controller) {
         Route::get($uri, [$controller, 'index'])->middleware('permission:superadmin.schedules,view')->name("{$uri}.index");

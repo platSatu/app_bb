@@ -56,6 +56,9 @@
                     <form method="POST" action="{{ route($routes.'.sessions.attendance', $session) }}">
                         @csrf
                         @method('PUT')
+                        @if ($canFill && $session->attendances->isNotEmpty())
+                            @include('schedule._qr-scan')
+                        @endif
                         <div class="table-responsive">
                             <table class="table align-middle mb-0">
                                 <thead class="table-light">
@@ -68,8 +71,8 @@
                                 </thead>
                                 <tbody>
                                     @forelse ($session->attendances as $attendance)
-                                        <tr>
-                                            <td>
+                                        <tr data-qr-row>
+                                            <td class="text-nowrap">
                                                 <div class="fw-semibold">{{ $attendance->student?->name }}</div>
                                                 @if ($attendance->replaces)
                                                     <div class="text-muted small">Pengganti sesi {{ $attendance->replaces->session?->start_at->translatedFormat('d M Y') }}</div>
@@ -77,11 +80,12 @@
                                             </td>
                                             <td>
                                                 @if ($canFill)
-                                                    <div class="btn-group btn-group-sm" role="group">
+                                                    <div class="d-flex gap-2" role="group" aria-label="Kehadiran {{ $attendance->student?->name }}">
                                                         @foreach ([\App\Models\ScheduleAttendance::STATUS_PRESENT => 'success', \App\Models\ScheduleAttendance::STATUS_ABSENT => 'danger', \App\Models\ScheduleAttendance::STATUS_EXCUSED => 'warning'] as $status => $color)
                                                             <input type="radio" class="btn-check" name="statuses[{{ $attendance->student_id }}]" value="{{ $status }}" id="st-{{ $attendance->id }}-{{ $status }}"
-                                                                @checked(old('statuses.'.$attendance->student_id, $attendance->status) === $status) required>
-                                                            <label class="btn btn-outline-{{ $color }}" for="st-{{ $attendance->id }}-{{ $status }}">{{ \App\Models\ScheduleAttendance::STATUS_LABELS[$status] }}</label>
+                                                                @checked(old('statuses.'.$attendance->student_id, $attendance->status) === $status) required
+                                                                @if ($status === \App\Models\ScheduleAttendance::STATUS_PRESENT && $attendance->student) data-qr="{{ $attendance->student->qrCode() }}" data-name="{{ $attendance->student->name }}" @endif>
+                                                            <label class="btn btn-sm rounded-pill px-3 btn-outline-{{ $color }}" for="st-{{ $attendance->id }}-{{ $status }}">{{ \App\Models\ScheduleAttendance::STATUS_LABELS[$status] }}</label>
                                                         @endforeach
                                                     </div>
                                                 @else
@@ -106,7 +110,7 @@
                             </table>
                         </div>
                         @if ($canFill && $session->attendances->isNotEmpty())
-                            <div class="d-flex justify-content-between align-items-center mt-3">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3">
                                 <span class="small text-muted">Hadir & Alpa dihitung honor. Izin tidak, dan bisa dibuatkan sesi pengganti.</span>
                                 <button type="submit" class="btn btn-primary">{{ $session->status === 'done' ? 'Perbarui Absensi' : 'Simpan & Selesaikan Sesi' }}</button>
                             </div>

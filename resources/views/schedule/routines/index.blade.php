@@ -11,13 +11,34 @@
 
     <div class="card">
         <div class="card-body">
+            {{-- Baris atas: bulan + aksi bulanan (rekap, salin semua ke bulan berikutnya, buat jadwal). --}}
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                <form method="GET" class="d-flex align-items-center gap-2 me-auto">
+                    @foreach (['teacher', 'student', 'grade', 'search', 'day', 'status'] as $keep)
+                        @if (request($keep)) <input type="hidden" name="{{ $keep }}" value="{{ request($keep) }}"> @endif
+                    @endforeach
+                    <label for="month" class="text-muted small text-nowrap mb-0">Bulan</label>
+                    <input type="month" id="month" name="month" class="form-control" style="width: 11rem" value="{{ $month->format('Y-m') }}" onchange="this.form.submit()">
+                </form>
+                <a href="{{ route($routes.'.routines.recap', ['month' => $month->format('Y-m')]) }}" class="btn btn-outline-secondary"><i class="ri-file-list-3-line me-1"></i>Rekap {{ $month->translatedFormat('F') }}</a>
+                @if ($canManage)
+                    <form method="POST" action="{{ route($routes.'.routines.duplicate-month', ['month' => $month->format('Y-m')]) }}"
+                        onsubmit="this.querySelector('button').disabled = true; return confirm('Salin semua jadwal aktif {{ $month->translatedFormat('F Y') }} ke {{ $next->translatedFormat('F Y') }}? Hanya murid yang masih aktif yang ikut.');">
+                        @csrf
+                        <button type="submit" class="btn btn-outline-primary"><i class="ri-file-copy-line me-1"></i>Salin ke {{ $next->translatedFormat('F') }}</button>
+                    </form>
+                @endif
+                @if ($canManage && ! $isAdmin)
+                    <a href="{{ route($routes.'.routines.create', array_filter(['grade' => request('grade'), 'month' => $month->format('Y-m')])) }}" class="btn btn-primary"><i class="ri-add-line me-1"></i>Buat Jadwal</a>
+                @endif
+            </div>
+
+            {{-- Baris kedua: cari & saring. --}}
             <form method="GET" class="row g-2 align-items-center mb-3">
                 @foreach (['teacher', 'student', 'grade'] as $keep)
                     @if (request($keep)) <input type="hidden" name="{{ $keep }}" value="{{ request($keep) }}"> @endif
                 @endforeach
-                <div class="col-6 col-md-2">
-                    <input type="month" name="month" class="form-control" value="{{ $month->format('Y-m') }}" onchange="this.form.submit()" title="Bulan jadwal">
-                </div>
+                <input type="hidden" name="month" value="{{ $month->format('Y-m') }}">
                 <div class="col-12 col-md">
                     <input type="text" name="search" class="form-control" maxlength="100" placeholder="Cari nama pengajar, murid, atau grade" value="{{ request('search') }}">
                 </div>
@@ -38,27 +59,12 @@
                     </select>
                 </div>
                 <div class="col-12 col-md-auto d-flex gap-2">
-                    <button type="submit" class="btn btn-outline-secondary flex-grow-1"><i class="ri-search-line"></i> Cari</button>
+                    <button type="submit" class="btn btn-outline-secondary flex-grow-1"><i class="ri-search-line me-1"></i>Cari</button>
                     @if ($filtered)
-                        <a href="{{ url()->current() }}" class="btn btn-outline-danger" title="Hapus filter"><i class="ri-close-line"></i></a>
+                        <a href="{{ url()->current().'?month='.$month->format('Y-m') }}" class="btn btn-outline-danger" title="Hapus filter"><i class="ri-close-line"></i></a>
                     @endif
                 </div>
             </form>
-
-            {{-- Jadwal bulanan: rekap bulan ini & salin semua ke bulan berikutnya (murid yang resign tidak ikut). --}}
-            <div class="d-flex flex-wrap justify-content-end gap-2 mb-3">
-                <a href="{{ route($routes.'.routines.recap', ['month' => $month->format('Y-m')]) }}" class="btn btn-outline-secondary"><i class="ri-file-list-3-line"></i> Rekap {{ $month->translatedFormat('F Y') }}</a>
-                @if ($canManage)
-                    <form method="POST" action="{{ route($routes.'.routines.duplicate-month', ['month' => $month->format('Y-m')]) }}"
-                        onsubmit="this.querySelector('button').disabled = true; return confirm('Salin semua jadwal aktif {{ $month->translatedFormat('F Y') }} ke {{ $next->translatedFormat('F Y') }}? Hanya murid yang masih aktif yang ikut.');">
-                        @csrf
-                        <button type="submit" class="btn btn-outline-primary"><i class="ri-file-copy-line"></i> Duplikat semua ke {{ $next->translatedFormat('F Y') }}</button>
-                    </form>
-                @endif
-                @if ($canManage && ! $isAdmin)
-                    <a href="{{ route($routes.'.routines.create', array_filter(['grade' => request('grade'), 'month' => $month->format('Y-m')])) }}" class="btn btn-primary"><i class="ri-add-line"></i> Buat Jadwal</a>
-                @endif
-            </div>
 
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
@@ -103,13 +109,14 @@
                                     </td>
                                 @endif
                                 <td><span class="badge {{ $item->statusBadge() }}">{{ $item->statusLabel() }}</span></td>
-                                <td class="text-end text-nowrap">
-                                    <a href="{{ route($routes.'.sessions.index', ['routine' => $item->id, 'date_from' => today()->toDateString()]) }}" class="btn btn-sm rounded-pill btn-outline-success">
+                                <td class="text-end">
+                                    <div class="d-inline-flex flex-nowrap justify-content-end gap-2">
+                                    <a href="{{ route($routes.'.sessions.index', ['routine' => $item->id, 'date_from' => today()->toDateString()]) }}" class="btn btn-sm rounded-pill btn-outline-success" style="min-width: 6.5rem">
                                         <i class="ri-checkbox-multiple-line"></i> Sesi ({{ $item->upcoming_count }})
                                     </a>
                                     @if ($canManage)
                                         <a href="{{ route($routes.'.routines.edit', $item) }}" class="btn btn-sm rounded-pill btn-outline-secondary"><i class="ri-edit-line"></i> Edit</a>
-                                        <form action="{{ route($routes.'.routines.duplicate', $item) }}" method="POST" class="d-inline" onsubmit="this.querySelector('button').disabled = true;">
+                                        <form action="{{ route($routes.'.routines.duplicate', $item) }}" method="POST" onsubmit="this.querySelector('button').disabled = true;">
                                             @csrf
                                             <button type="submit" class="btn btn-sm rounded-pill btn-outline-primary" title="Salin ke bulan berikutnya bersama murid yang masih aktif"><i class="ri-file-copy-line"></i> Duplikat</button>
                                         </form>
@@ -120,6 +127,7 @@
                                             <button type="submit" class="btn btn-sm rounded-pill btn-outline-danger"><i class="ri-delete-bin-line"></i> Hapus</button>
                                         </form>
                                     @endif
+                                    </div>
                                 </td>
                             </tr>
                         @empty
