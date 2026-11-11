@@ -310,11 +310,11 @@
                 @if (request('sort')) <input type="hidden" name="sort" value="{{ request('sort') }}"> @endif
                 <div class="col-12 col-md-4">
                     <label class="form-label small text-muted mb-1">Cari</label>
-                    <input type="text" name="search" class="form-control" maxlength="100" value="{{ request('search') }}" placeholder="Nama, kategori, telepon, alamat">
+                    <input type="text" name="search" class="form-control" maxlength="100" value="{{ request('search') }}" placeholder="Nama, email, telepon, alamat">
                 </div>
                 <div class="col-6 col-md-2">
                     <label class="form-label small text-muted mb-1">Segmen</label>
-                    <select name="segment" class="form-select">
+                    <select name="segment" class="form-select" onchange="this.form.submit()">
                         <option value="">Semua</option>
                         @foreach ($segments as $segment)
                             <option value="{{ $segment }}" @selected(request('segment') === $segment)>{{ $segment }}</option>
@@ -323,7 +323,7 @@
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="form-label small text-muted mb-1">Kecamatan / Kota</label>
-                    <select name="city" class="form-select">
+                    <select name="city" class="form-select" onchange="this.form.submit()">
                         <option value="">Semua</option>
                         @foreach ($cities as $city)
                             <option value="{{ $city }}" @selected(request('city') === $city)>{{ $city }}</option>

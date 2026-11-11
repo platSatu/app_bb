@@ -333,7 +333,7 @@ class ProspectController extends Controller
             ->when($data['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
             ->when($data['city'] ?? null, fn ($q, $city) => $q->where('city', $city))
             ->when($data['segment'] ?? null, fn ($q, $segment) => $q->where('segment', $segment))
-            ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', "%{$search}%")
+            ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%")
                 ->orWhere('category', 'like', "%{$search}%")->orWhere('phone', 'like', "%{$search}%")->orWhere('address', 'like', "%{$search}%")));
     }
 }
