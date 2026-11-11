@@ -8,6 +8,10 @@ Route::get('/', fn () => redirect()->route(auth()->check() ? 'dashboard' : 'logi
 
 Route::get('/dashboard', DashboardController::class)->middleware(['auth', 'verified'])->name('dashboard');
 
+// Link berhenti menerima email promo dari Agent Prospek (publik, URL bertanda tangan; GET konfirmasi, POST berhenti).
+Route::match(['get', 'post'], '/email/berhenti/{prospect}', [\App\Http\Controllers\Superadmin\Tools\ProspectController::class, 'unsubscribe'])
+    ->middleware(['signed', 'throttle:20,1'])->name('prospects.unsubscribe');
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->middleware('throttle:20,1')->name('profile.update');

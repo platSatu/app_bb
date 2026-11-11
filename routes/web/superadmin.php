@@ -241,6 +241,10 @@ Route::middleware(['auth', 'superadmin'])
             Route::post('agent/run', 'runAgent')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:3,10'])->name('agent.run');
             Route::put('agent/templates', 'updateTemplates')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:20,1'])->name('agent.templates');
             Route::post('agent/templates/ai', 'aiTemplates')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:3,10'])->name('agent.templates.ai');
+            Route::put('agent/send', 'updateSending')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:20,1'])->name('agent.send');
+            Route::post('agent/templates/test', 'testTemplate')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:5,10'])->name('agent.templates.test');
+            Route::get('import/template', 'importTemplate')->middleware('permission:superadmin.tools.prospects,view')->name('import.template');
+            Route::post('import', 'import')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:10,10'])->name('import');
             Route::get('outreach', 'outreach')->middleware('permission:superadmin.tools.prospects,view')->name('outreach');
             Route::post('outreach/bulk', 'bulkOutreach')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:30,1'])->name('outreach.bulk');
             Route::put('outreach/{prospect}', 'updateOutreach')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:60,1'])->name('outreach.update');

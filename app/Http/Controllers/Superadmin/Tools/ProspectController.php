@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\EmailBlastSetting;
 use App\Models\Prospect;
 use App\Models\ProspectAgentSetting;
+use App\Services\Contact\ContactBookService;
 use App\Services\Marketing\ProspectAgent;
 use App\Support\XlsxExport;
 use Illuminate\Database\Eloquent\Builder;
@@ -92,7 +93,7 @@ class ProspectController extends Controller
             'templates.*.body' => ['required', 'string', 'max:5000'],
         ]);
         $setting = ProspectAgentSetting::current();
-        $names = collect($setting->segments ?? [])->pluck('name');
+        $names = collect($setting->templateSegments());
 
         $setting->update([
             'templates' => collect($data['templates'] ?? [])->filter(fn ($t) => $names->contains($t['segment']))
@@ -102,6 +103,91 @@ class ProspectController extends Controller
         ]);
 
         return back()->with('success', 'Template email disimpan.');
+    }
+
+    /** Pengaturan kirim otomatis (tab Agent): tombol aktif, hari, jam, jumlah per jam & per hari, kontak import langsung kirim. */
+    public function updateSending(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'send_enabled' => ['boolean'],
+            'send_days' => ['required_if_accepted:send_enabled', 'array'],
+            'send_days.*' => ['integer', 'between:1,7'],
+            'send_start' => ['required', 'integer', 'between:0,23'],
+            'send_end' => ['required', 'integer', 'between:1,24', 'gt:send_start'],
+            'send_per_hour' => ['required', 'integer', 'between:1,200'],
+            'send_per_day' => ['required', 'integer', 'between:1,2000'],
+            'auto_approve_import' => ['boolean'],
+        ], ['send_end.gt' => 'Jam selesai harus setelah jam mulai.', 'send_days.required_if_accepted' => 'Centang minimal satu hari kirim.']);
+        $setting = ProspectAgentSetting::current();
+
+        // Kontak import dikirim tanpa diperiksa satu per satu, jadi template-nya wajib sudah ditulis & disimpan sendiri.
+        $importTemplate = ($setting->templates ?? [])[ProspectAgentSetting::IMPORT_SEGMENT]['body'] ?? '';
+        if ($request->boolean('auto_approve_import') && ($importTemplate === '' || str_contains($importTemplate, '(Tulis isi promo di sini)'))) {
+            return back()->withInput()->with('error', 'Tulis & simpan dulu template "'.ProspectAgentSetting::IMPORT_SEGMENT.'" (isi promonya), baru aktifkan kirim langsung.');
+        }
+
+        $setting->update([
+            'send_enabled' => $request->boolean('send_enabled'),
+            'send_days' => array_values(array_unique(array_map('intval', $data['send_days'] ?? $setting->sendDays()))),
+            'auto_approve_import' => $request->boolean('auto_approve_import'),
+            'updated_by' => $request->user()->getKey(),
+        ] + array_intersect_key($data, array_flip(['send_start', 'send_end', 'send_per_hour', 'send_per_day'])));
+
+        return back()->with('success', $setting->send_enabled ? 'Pengiriman otomatis AKTIF.' : 'Pengiriman otomatis dimatikan. Tidak ada email yang dikirim.');
+    }
+
+    /** Kirim tes satu template ke email sendiri (masuk hitungan batas harian Email Blast). */
+    public function testTemplate(Request $request, ProspectAgent $agent): RedirectResponse
+    {
+        $setting = ProspectAgentSetting::current();
+        $data = $request->validate([
+            'segment' => ['required', Rule::in($setting->templateSegments())],
+            'email' => ['required', 'email', 'max:150'],
+        ]);
+
+        try {
+            $agent->sendTest($setting, $data['segment'], $data['email'], $request->user());
+        } catch (\RuntimeException $e) {
+            return back()->with('error', 'Email tes belum terkirim: '.$e->getMessage());
+        }
+
+        return back()->with('success', "Email tes \"{$data['segment']}\" sedang dikirim ke {$data['email']}. Cek kotak masuk (dan folder spam) 1–2 menit lagi.");
+    }
+
+    /** Import kontak dari Excel/CSV (kolom nama, email; opsional whatsapp, kota). Email dobel/tidak valid dilewati. */
+    public function import(Request $request, ContactBookService $book): RedirectResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:5120']],
+            ['file.mimes' => 'File harus Excel (.xlsx/.xls) atau CSV.', 'file.max' => 'Ukuran file maksimal 5 MB.']);
+
+        [$rows] = $book->read($request->file('file'), ['city' => ['kota', 'city']], Prospect::IMPORT_MAX_ROWS);
+        if (! collect($rows)->contains(fn ($r) => filled($r['email']))) {
+            return back()->with('error', 'Kolom email tidak ditemukan. Baris pertama harus berisi judul kolom: nama, email, whatsapp, kota. Pakai file contoh supaya pas.');
+        }
+
+        $result = Prospect::importRows($rows, $request->user()->getKey());
+
+        return back()->with('success', "Import selesai: {$result['saved']} kontak masuk".($result['skipped'] ? ", {$result['skipped']} dilewati (email kosong, tidak valid, atau sudah ada)." : '.')
+            .(count($rows) >= Prospect::IMPORT_MAX_ROWS ? ' Maksimal '.Prospect::IMPORT_MAX_ROWS.' baris per file; lanjutkan sisanya dengan file berikutnya.' : ''));
+    }
+
+    public function importTemplate(ContactBookService $book): StreamedResponse
+    {
+        return $book->template('contoh-import-kontak.xlsx', [
+            ['nama', 'whatsapp', 'email', 'kota'],
+            ['Budi Santoso', '081234567890', 'budi@contoh.com', 'Bekasi'],
+            ['Siti Aminah', '', 'siti@contoh.com', 'Jakarta Selatan'],
+        ]);
+    }
+
+    /** Link berhenti dari email (URL bertanda tangan, publik). GET = konfirmasi, POST = berhenti. */
+    public function unsubscribe(Request $request, Prospect $prospect): View
+    {
+        if ($request->isMethod('post')) {
+            $prospect->forceFill(['outreach_status' => 'unsubscribed', 'status' => 'rejected'])->save();
+        }
+
+        return view('shared.unsubscribe', ['email' => $prospect->email, 'done' => $prospect->outreach_status === 'unsubscribed']);
     }
 
     /** Contoh template dari AI untuk semua segmen (menimpa template segmen itu), lalu bisa diedit. */

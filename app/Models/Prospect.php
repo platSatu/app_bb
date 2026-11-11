@@ -24,7 +24,11 @@ class Prospect extends Model
         'approved' => ['Email: disetujui', 'bg-info-subtle text-info'],
         'sent' => ['Email: terkirim', 'bg-success-subtle text-success'],
         'skipped' => ['Email: dilewati', 'bg-secondary-subtle text-secondary'],
+        'unsubscribed' => ['Email: berhenti', 'bg-danger-subtle text-danger'],
     ];
+
+    /** Batas baris per file import (pemakaian memori saat membaca Excel). */
+    public const IMPORT_MAX_ROWS = 5000;
 
     protected $fillable = [
         'source', 'external_id', 'name', 'category', 'segment', 'score', 'score_reason', 'address', 'city', 'province', 'postal_code', 'phone', 'whatsapp',
@@ -68,6 +72,49 @@ class Prospect extends Model
         }
 
         return $saved;
+    }
+
+    /**
+     * Kontak dari file Excel/CSV (Tools › Prospek › Import). Email wajib & valid; email yang sudah ada di Prospek
+     * (huruf besar/kecil diabaikan) dilewati, jadi tidak ada kontak dobel.
+     *
+     * @param  array<int, array{name: ?string, phone: ?string, email: ?string, city?: ?string}>  $rows
+     * @return array{saved: int, skipped: int}
+     */
+    public static function importRows(array $rows, ?string $userId): array
+    {
+        $known = static::whereNotNull('email')->pluck('email')->mapWithKeys(fn ($e) => [strtolower($e) => true])->all();
+        $saved = 0;
+        $skipped = 0;
+
+        foreach (array_chunk($rows, 500) as $chunk) {
+            $insert = [];
+
+            foreach ($chunk as $row) {
+                $email = strtolower(trim((string) ($row['email'] ?? '')));
+
+                if (strlen($email) > 150 || ! filter_var($email, FILTER_VALIDATE_EMAIL) || isset($known[$email])) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                $known[$email] = true;
+                $phone = preg_replace('/\D/', '', (string) ($row['phone'] ?? ''));
+                $insert[] = [
+                    'id' => (string) \Illuminate\Support\Str::uuid7(), 'source' => 'import', 'segment' => ProspectAgentSetting::IMPORT_SEGMENT,
+                    'name' => mb_substr(trim((string) ($row['name'] ?? '')) ?: strstr($email, '@', true), 0, 200), 'email' => $email,
+                    'whatsapp' => $phone !== '' ? mb_substr(preg_replace('/^0/', '62', $phone), 0, 20) : null,
+                    'city' => mb_substr(trim((string) ($row['city'] ?? '')), 0, 150) ?: null,
+                    'status' => 'new', 'created_by' => $userId, 'created_at' => now(), 'updated_at' => now(),
+                ];
+            }
+
+            static::insert($insert);
+            $saved += count($insert);
+        }
+
+        return ['saved' => $saved, 'skipped' => $skipped];
     }
 
     public function statusLabel(): string

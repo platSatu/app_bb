@@ -59,7 +59,7 @@ class ContactBookService
      *
      * @return array{0: array<int, array{name: ?string, phone: ?string, email: ?string}>, 1: bool} [baris, kolom WA/email ditemukan]
      */
-    public function read(UploadedFile $file): array
+    public function read(UploadedFile $file, array $extra = [], int $max = self::MAX_ROWS): array
     {
         try {
             $sheet = IOFactory::load($file->getRealPath())->getActiveSheet()->toArray(null, true, false, false);
@@ -73,9 +73,9 @@ class ContactBookService
             'name' => $find(['nama', 'name', 'nama lengkap']),
             'phone' => $find(['whatsapp', 'wa', 'phone', 'hp', 'handphone', 'no hp', 'nomor', 'telepon', 'no whatsapp']),
             'email' => $find(['email', 'e-mail']),
-        ];
+        ] + array_map($find, $extra); // kolom tambahan, mis. ['city' => ['kota', 'city']]
 
-        $rows = collect($sheet)->take(self::MAX_ROWS)
+        $rows = collect($sheet)->take($max)
             // Nomor yang dibaca Excel sebagai angka (mis. 8.12E+10) dikembalikan ke digit utuh.
             ->map(fn ($line) => collect($cols)->map(fn ($i) => $i === false ? null : (trim(is_float($line[$i] ?? null) ? number_format($line[$i], 0, '', '') : (string) ($line[$i] ?? '')) ?: null))->all())
             ->reject(fn ($row) => ! array_filter($row))
@@ -85,14 +85,14 @@ class ContactBookService
     }
 
     /** Contoh file Excel untuk diisi owner. Kolom WhatsApp diformat teks supaya angka 0 di depan tidak hilang. */
-    public function template(string $filename): StreamedResponse
+    public function template(string $filename, ?array $rows = null): StreamedResponse
     {
         $book = new Spreadsheet();
         $sheet = $book->getActiveSheet();
-        $sheet->fromArray([['nama', 'whatsapp', 'email'], ['Budi Santoso', '081234567890', 'budi@contoh.com']]);
+        $sheet->fromArray($rows ?? [['nama', 'whatsapp', 'email'], ['Budi Santoso', '081234567890', 'budi@contoh.com']]);
         $sheet->getStyle('B:B')->getNumberFormat()->setFormatCode('@');
-        $sheet->getStyle('A1:C1')->getFont()->setBold(true);
-        foreach (['A' => 24, 'B' => 18, 'C' => 30] as $col => $width) {
+        $sheet->getStyle('A1:D1')->getFont()->setBold(true);
+        foreach (['A' => 24, 'B' => 18, 'C' => 30, 'D' => 18] as $col => $width) {
             $sheet->getColumnDimension($col)->setWidth($width);
         }
 

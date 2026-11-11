@@ -226,7 +226,13 @@ class EmailBlastService
 
     private function html(string $body): string
     {
-        return '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #222">'.nl2br(e($body)).'</div>';
+        return '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #222">'.$this->linkify(nl2br(e($body))).'</div>';
+    }
+
+    /** Alamat http(s) di teks (sudah di-escape) jadi link yang bisa diklik. */
+    private function linkify(string $html): string
+    {
+        return preg_replace('#https?://[^\s<]+#', '<a href="$0" target="_blank" rel="noopener">$0</a>', $html);
     }
 
     private function sender(ImapMessage $m): string

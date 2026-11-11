@@ -3,6 +3,7 @@
 namespace App\Services\Marketing;
 
 use App\Models\AiProvider;
+use App\Models\EmailBlast;
 use App\Models\Prospect;
 use App\Models\ProspectAgentSetting;
 use App\Services\Ai\AiClient;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use RuntimeException;
 use Throwable;
 
@@ -29,11 +31,8 @@ class ProspectAgent
 
     private const MAX_DRAFTS = 30;
 
-    /** Selalu ditambahkan sistem di akhir email pembuka (tidak bisa dihapus lewat edit draf). */
-    public const STOP_LINE = 'Balas STOP jika tidak ingin menerima email dari kami.';
-
-    /** Jam kirim: Senin-Jumat 09.00-16.00 WIB. */
-    private const SEND_HOURS = [9, 16];
+    /** Selalu ditambahkan sistem di akhir email (tidak bisa dihapus lewat edit draf), diikuti link berhenti. */
+    public const STOP_LINE = 'Tidak ingin menerima email promo dari kami lagi? Berhenti di sini:';
 
     private const AI_DRAFT = 'Kamu menulis email perkenalan singkat (maks 120 kata, bahasa Indonesia sopan) dari tim bizbos ke pemilik '
         .'usaha. Mulai dari TEMPLATE dan sesuaikan dengan data usaha. Jangan menambah fakta, harga, diskon atau janji yang tidak ada '
@@ -93,8 +92,10 @@ class ProspectAgent
         $ai = AiProvider::active() !== null;
         $count = 0;
 
+        // Kontak import tidak punya skor; kalau "langsung kirim" aktif, mereka tidak perlu draf (lihat sendApproved).
         $prospects = Prospect::whereNull('outreach_status')->where('status', 'new')->where('is_closed', false)->whereNotNull('email')
-            ->where('score', '>=', $setting->min_score)->orderByDesc('score')->limit(self::MAX_DRAFTS)->get();
+            ->where(fn ($q) => $q->where('score', '>=', $setting->min_score)->when(! $setting->auto_approve_import, fn ($q) => $q->orWhere('source', 'import')))
+            ->orderByDesc('score')->orderBy('created_at')->limit(self::MAX_DRAFTS)->get();
 
         foreach ($prospects as $prospect) {
             $email = strtolower($prospect->email);
@@ -106,7 +107,7 @@ class ProspectAgent
             }
 
             $taken[] = $email;
-            [$subject, $body] = $this->compose($setting->template($prospect->segment), $prospect, $ai);
+            [$subject, $body] = $this->compose($setting->template($prospect->segment), $prospect, $ai && $prospect->source !== 'import');
             $prospect->forceFill(['outreach_status' => 'draft', 'outreach_subject' => $subject, 'outreach_body' => $body])->save();
             $count++;
         }
@@ -114,24 +115,43 @@ class ProspectAgent
         return $count;
     }
 
-    /** Kirim draf yang disetujui lewat Email Blast (satu email per prospek). Berhenti saat batas harian Email Blast habis. */
+    /**
+     * Kirim otomatis lewat Email Blast (satu email per prospek) menurut pengaturan: tombol aktif, hari, jam, jumlah per
+     * jam & per hari. Yang dikirim: draf yang disetujui, lalu (kalau "langsung kirim" aktif) kontak import pakai template.
+     */
     public function sendApproved(): int
     {
-        if (now()->isWeekend() || now()->hour < self::SEND_HOURS[0] || now()->hour >= self::SEND_HOURS[1]
-            || ! Prospect::where('outreach_status', 'approved')->exists()) {
+        $setting = ProspectAgentSetting::current();
+
+        if (! $setting->sendOpen()) {
             return 0;
         }
 
-        // Scheduler & tombol bersamaan tidak boleh mengirim draf yang sama dua kali.
-        return Cache::lock('prospect-agent-send', 300)->get(function () {
+        // Scheduler & tombol bersamaan tidak boleh mengirim prospek yang sama dua kali.
+        return Cache::lock('prospect-agent-send', 300)->get(function () use ($setting) {
+            $system = EmailBlast::whereNull('created_by'); // kiriman agent (kiriman manual Email Blast punya created_by)
+            $room = min($setting->send_per_hour - (clone $system)->where('created_at', '>=', now()->subHour())->count(),
+                $setting->send_per_day - (clone $system)->where('created_at', '>=', today())->count());
+
+            $queue = $room > 0 ? Prospect::where('outreach_status', 'approved')->orderBy('updated_at')->limit($room)->get() : collect();
+
+            if ($setting->auto_approve_import && $queue->count() < $room) {
+                $queue = $queue->concat(Prospect::whereNull('outreach_status')->where('source', 'import')->where('status', 'new')
+                    ->whereNotNull('email')->orderBy('created_at')->limit($room - $queue->count())->get());
+            }
+
             $sent = 0;
 
-            foreach (Prospect::where('outreach_status', 'approved')->orderBy('updated_at')->limit(50)->get() as $prospect) {
+            foreach ($queue as $prospect) {
+                if ($prospect->outreach_status === null) {
+                    [$prospect->outreach_subject, $prospect->outreach_body] = $this->compose($setting->template($prospect->segment), $prospect, false);
+                }
+
                 try {
                     $blast = app(EmailBlastService::class)->queue($prospect->outreach_subject,
-                        rtrim($prospect->outreach_body)."\n\n--\n".self::STOP_LINE, [strtolower($prospect->email)], null);
+                        self::withFooter($prospect->outreach_body, URL::signedRoute('prospects.unsubscribe', $prospect)), [strtolower($prospect->email)], null);
                 } catch (RuntimeException) {
-                    break; // batas harian habis / akun pengirim belum diatur: dicoba lagi putaran berikutnya
+                    break; // batas harian Email Blast habis / akun pengirim belum diatur: dicoba lagi putaran berikutnya
                 }
 
                 $prospect->forceFill([
@@ -145,6 +165,21 @@ class ProspectAgent
 
             return $sent;
         }) ?? 0;
+    }
+
+    /** Kirim tes satu template ke email sendiri (contoh data), supaya bentuk email terlihat sebelum dikirim massal. */
+    public function sendTest(ProspectAgentSetting $setting, string $segment, string $email, \App\Models\User $user): void
+    {
+        $sample = new Prospect(['name' => $segment === ProspectAgentSetting::IMPORT_SEGMENT ? 'Budi Santoso' : 'Kursus Contoh', 'city' => 'Bekasi', 'segment' => $segment]);
+        [$subject, $body] = $this->compose($setting->template($segment), $sample, false);
+
+        app(EmailBlastService::class)->queue('[TES] '.$subject, self::withFooter($body, url('/')), [$email], $user);
+    }
+
+    /** Isi email + kalimat & link berhenti menerima email (selalu ada, tidak bisa dihapus lewat edit draf). */
+    public static function withFooter(string $body, string $unsubscribeUrl): string
+    {
+        return rtrim($body)."\n\n--\n".self::STOP_LINE.' '.$unsubscribeUrl;
     }
 
     /** Contoh template per segmen dari AI (tombol di tab Agent), menimpa template segmen itu. Hasilnya bisa diedit. */
@@ -176,7 +211,7 @@ class ProspectAgent
     private function compose(array $template, Prospect $prospect, bool $ai): array
     {
         $fill = fn (string $text) => strtr($text, ['{nama}' => $prospect->name, '{kota}' => $prospect->city ?: 'kota Anda',
-            '{segmen}' => mb_strtolower($prospect->segment ?: ($prospect->category ?: 'kursus'))]);
+            '{segmen}' => mb_strtolower($prospect->source === 'import' ? 'usaha' : ($prospect->segment ?: ($prospect->category ?: 'kursus')))]);
         $draft = ['subject' => $fill($template['subject']), 'body' => $fill($template['body'])];
 
         if ($ai) {

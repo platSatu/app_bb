@@ -34,7 +34,15 @@ class ProspectAgentSetting extends Model
             ."online, gratis.\n\nSalam,\nTim bizbos\nhttps://app.bizbos.id",
     ];
 
-    protected $fillable = ['is_active', 'segments', 'cities', 'templates', 'min_score', 'daily_quota', 'run_at', 'report_email', 'updated_by'];
+    /** "Segmen" kontak hasil import Excel: punya template sendiri, tidak dipakai untuk mencari tempat. */
+    public const IMPORT_SEGMENT = 'Kontak import';
+
+    public const DAYS = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
+
+    protected $fillable = [
+        'is_active', 'segments', 'cities', 'templates', 'min_score', 'daily_quota', 'run_at', 'report_email', 'updated_by',
+        'send_enabled', 'send_days', 'send_start', 'send_end', 'send_per_hour', 'send_per_day', 'auto_approve_import',
+    ];
 
     protected function casts(): array
     {
@@ -44,6 +52,13 @@ class ProspectAgentSetting extends Model
             'cities' => 'array',
             'templates' => 'array',
             'min_score' => 'integer',
+            'send_enabled' => 'boolean',
+            'send_days' => 'array',
+            'send_start' => 'integer',
+            'send_end' => 'integer',
+            'send_per_hour' => 'integer',
+            'send_per_day' => 'integer',
+            'auto_approve_import' => 'boolean',
             'runs' => 'array',
             'daily_quota' => 'integer',
             'cursor' => 'integer',
@@ -85,10 +100,37 @@ class ProspectAgentSetting extends Model
         return collect($this->segments ?? [])->map(fn ($s) => $s['name'].': '.implode(', ', $s['keywords'] ?? []))->implode("\n");
     }
 
+    /** Contoh awal untuk kontak import (pembeli tiket yang setuju menerima promo). Wajib disimpan dulu sebelum kirim otomatis. */
+    public const DEFAULT_IMPORT_TEMPLATE = [
+        'subject' => 'Halo {nama}, ada kabar baru untuk Anda',
+        'body' => "Halo {nama},\n\nTerima kasih sudah pernah membeli tiket bersama kami. Sesuai pilihan Anda untuk menerima info promo, "
+            ."kami ingin berbagi kabar terbaru:\n\n(Tulis isi promo di sini)\n\nSampai jumpa di acara berikutnya!\n\nSalam hangat,\nTim bizbos",
+    ];
+
     /** @return array{subject: string, body: string} */
     public function template(?string $segment): array
     {
-        return ($this->templates ?? [])[(string) $segment] ?? self::DEFAULT_TEMPLATE;
+        return ($this->templates ?? [])[(string) $segment]
+            ?? ($segment === self::IMPORT_SEGMENT ? self::DEFAULT_IMPORT_TEMPLATE : self::DEFAULT_TEMPLATE);
+    }
+
+    /** Nama segmen yang punya template: segmen pencarian + Kontak import. */
+    public function templateSegments(): array
+    {
+        return [...collect($this->segments ?? [])->pluck('name')->all(), self::IMPORT_SEGMENT];
+    }
+
+    /** Hari kirim (1 = Senin). Belum diatur = Senin-Jumat. */
+    public function sendDays(): array
+    {
+        return array_map('intval', $this->send_days ?? [1, 2, 3, 4, 5]);
+    }
+
+    /** Sekarang boleh mengirim: tombol aktif, hari dicentang, di antara jam mulai & selesai (WIB). */
+    public function sendOpen(): bool
+    {
+        return $this->send_enabled && in_array(now()->dayOfWeekIso, $this->sendDays(), true)
+            && now()->hour >= $this->send_start && now()->hour < $this->send_end;
     }
 
     public function logRun(array $run): void

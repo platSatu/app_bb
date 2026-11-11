@@ -104,13 +104,81 @@
                 </div>
             </div>
             <div class="col-12">
+                {{-- Pengiriman otomatis: default mati. Pengaturan baru terlihat setelah tombol dinyalakan. --}}
+                <div class="card">
+                    <div class="card-body">
+                        <form method="POST" action="{{ route('superadmin.tools.prospects.agent.send') }}" class="row g-3">
+                            @csrf
+                            @method('PUT')
+                            <div class="col-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="send-enabled" name="send_enabled" value="1" @checked(old('send_enabled', $setting->send_enabled))
+                                        onchange="document.getElementById('send-options').classList.toggle('d-none', ! this.checked)">
+                                    <label class="form-check-label fw-semibold" for="send-enabled">Kirim email otomatis</label>
+                                </div>
+                                <div class="form-text">Mati = tidak ada email yang dikirim sama sekali. Email terkirim tercatat di Tools › Email Blast › Terkirim.</div>
+                            </div>
+                            <div id="send-options" class="col-12 {{ old('send_enabled', $setting->send_enabled) ? '' : 'd-none' }}">
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label">Hari kirim</label>
+                                        <div class="d-flex flex-wrap gap-3">
+                                            @foreach (\App\Models\ProspectAgentSetting::DAYS as $day => $label)
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="send_days[]" value="{{ $day }}" id="day-{{ $day }}" @checked(in_array($day, old('send_days', $setting->sendDays())))>
+                                                    <label class="form-check-label" for="day-{{ $day }}">{{ $label }}</label>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <label class="form-label">Mulai jam</label>
+                                        <select name="send_start" class="form-select">
+                                            @foreach (range(0, 23) as $h) <option value="{{ $h }}" @selected(old('send_start', $setting->send_start) == $h)>{{ sprintf('%02d.00', $h) }}</option> @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <label class="form-label">Sampai jam</label>
+                                        <select name="send_end" class="form-select">
+                                            @foreach (range(1, 24) as $h) <option value="{{ $h }}" @selected(old('send_end', $setting->send_end) == $h)>{{ sprintf('%02d.00', $h) }}</option> @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <label class="form-label">Email per jam</label>
+                                        <input type="number" name="send_per_hour" class="form-control" min="1" max="200" required value="{{ old('send_per_hour', $setting->send_per_hour) }}">
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <label class="form-label">Email per hari</label>
+                                        <input type="number" name="send_per_day" class="form-control" min="1" max="2000" required value="{{ old('send_per_day', $setting->send_per_day) }}">
+                                    </div>
+                                    @php($blastLimit = \App\Models\EmailBlastSetting::current()->daily_limit)
+                                    @if ($blastLimit < $setting->send_per_day)
+                                        <div class="col-12"><div class="alert alert-warning small mb-0">Batas harian di Email Blast masih {{ $blastLimit }} email. Naikkan di Tools › Email Blast › Pengaturan supaya {{ $setting->send_per_day }} email per hari bisa terkirim.</div></div>
+                                    @endif
+                                    <div class="col-12">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="auto_approve_import" value="1" id="auto-import" @checked(old('auto_approve_import', $setting->auto_approve_import))>
+                                            <label class="form-check-label" for="auto-import">Kontak import langsung dikirim memakai template "{{ \App\Models\ProspectAgentSetting::IMPORT_SEGMENT }}" (tanpa persetujuan satu per satu)</label>
+                                        </div>
+                                        <div class="form-text">Kalau tidak dicentang, kontak import masuk tab Persetujuan dulu (30 draf per hari). Prospek dari pencarian selalu lewat Persetujuan.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary"><i class="ri-save-line"></i> Simpan pengiriman</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
                             <div>
-                                <h6 class="mb-1">Template email pembuka</h6>
-                                <div class="small text-muted">Dipakai untuk draf prospek yang punya email. <code>{nama}</code> <code>{kota}</code> <code>{segmen}</code> diganti otomatis;
-                                    kalau AI aktif, AI menyesuaikan tiap draf dari template ini. Kalimat "{{ \App\Services\Marketing\ProspectAgent::STOP_LINE }}" selalu ditambahkan di akhir.</div>
+                                <h6 class="mb-1">Template email</h6>
+                                <div class="small text-muted"><code>{nama}</code> <code>{kota}</code> <code>{segmen}</code> diganti otomatis; kalau AI aktif, AI menyesuaikan draf prospek
+                                    pencarian dari template ini. Di akhir email selalu ditambahkan link kecil untuk berhenti menerima email promo.</div>
                             </div>
                             @if (\App\Models\AiProvider::active())
                                 <form method="POST" action="{{ route('superadmin.tools.prospects.agent.templates.ai') }}" onsubmit="this.querySelector('button').disabled = true;">
@@ -127,17 +195,35 @@
                                 <label class="form-label">Skor minimal untuk dibuatkan draf</label>
                                 <input type="number" name="min_score" class="form-control" style="max-width: 160px" min="0" max="100" required value="{{ old('min_score', $setting->min_score) }}">
                             </div>
-                            @foreach ($setting->segments ?? [] as $i => $segment)
-                                @php($template = $setting->template($segment['name']))
+                            @foreach ($setting->templateSegments() as $i => $name)
+                                @php($template = $setting->template($name))
                                 <div class="col-12 col-lg-6">
-                                    <input type="hidden" name="templates[{{ $i }}][segment]" value="{{ $segment['name'] }}">
-                                    <label class="form-label fw-semibold">{{ $segment['name'] }}</label>
+                                    <input type="hidden" name="templates[{{ $i }}][segment]" value="{{ $name }}">
+                                    <label class="form-label fw-semibold">{{ $name }}
+                                        @if ($name === \App\Models\ProspectAgentSetting::IMPORT_SEGMENT) <span class="fw-normal small text-muted">(untuk kontak dari Excel)</span> @endif</label>
                                     <input type="text" name="templates[{{ $i }}][subject]" class="form-control form-control-sm mb-2" maxlength="200" required value="{{ old("templates.$i.subject", $template['subject']) }}" placeholder="Subjek">
                                     <textarea name="templates[{{ $i }}][body]" rows="8" class="form-control form-control-sm" maxlength="5000" required>{{ old("templates.$i.body", $template['body']) }}</textarea>
                                 </div>
                             @endforeach
                             <div class="col-12">
                                 <button type="submit" class="btn btn-primary"><i class="ri-save-line"></i> Simpan template</button>
+                            </div>
+                        </form>
+                        <hr>
+                        {{-- Kirim tes: template yang SUDAH disimpan, dengan contoh nama, ke email sendiri. --}}
+                        <form method="POST" action="{{ route('superadmin.tools.prospects.agent.templates.test') }}" class="row g-2 align-items-end">
+                            @csrf
+                            <div class="col-12"><span class="fw-semibold">Kirim tes ke email Anda</span> <span class="small text-muted">— lihat dulu bentuk emailnya (template yang sudah disimpan).</span></div>
+                            <div class="col-12 col-md-4">
+                                <select name="segment" class="form-select">
+                                    @foreach ($setting->templateSegments() as $name) <option value="{{ $name }}">{{ $name }}</option> @endforeach
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-5">
+                                <input type="email" name="email" class="form-control" required maxlength="150" value="{{ old('email', auth()->user()->email) }}" placeholder="email@anda.com">
+                            </div>
+                            <div class="col-12 col-md-3">
+                                <button type="submit" class="btn btn-outline-primary w-100"><i class="ri-send-plane-line"></i> Kirim tes</button>
                             </div>
                         </form>
                     </div>
@@ -241,11 +327,28 @@
                 <div class="col-12 col-md-3 d-flex gap-2">
                     <button type="submit" class="btn btn-primary flex-grow-1" title="Filter"><i class="ri-search-line"></i></button>
                     <a href="{{ route('superadmin.tools.prospects.export', request()->except('page')) }}" class="btn btn-success" title="Download Excel (sesuai filter)"><i class="ri-file-excel-2-line"></i></a>
+                    <button type="button" class="btn btn-outline-primary" title="Import kontak dari Excel" data-bs-toggle="collapse" data-bs-target="#import-box"><i class="ri-upload-2-line"></i></button>
                     @if (request()->hasAny(['search', 'city', 'status', 'segment', 'sort']))
                         <a href="{{ route('superadmin.tools.prospects.index') }}" class="btn btn-outline-danger" title="Hapus filter"><i class="ri-close-line"></i></a>
                     @endif
                 </div>
             </form>
+
+            {{-- Import kontak (mis. pembeli tiket yang setuju menerima promo): nama & email wajib, email dobel dilewati. --}}
+            <div class="collapse {{ $errors->has('file') ? 'show' : '' }}" id="import-box">
+                <form method="POST" action="{{ route('superadmin.tools.prospects.import') }}" enctype="multipart/form-data" class="border rounded p-3 mb-3 bg-light-subtle">
+                    @csrf
+                    <div class="fw-semibold mb-1">Import kontak dari Excel / CSV</div>
+                    <div class="small text-muted mb-2">Kolom: <b>nama</b>, <b>email</b> (wajib), whatsapp, kota. Maks {{ number_format(Prospect::IMPORT_MAX_ROWS, 0, ',', '.') }} baris per file,
+                        email yang sudah ada otomatis dilewati. Hanya untuk kontak yang setuju menerima info/promo dari Anda.
+                        <a href="{{ route('superadmin.tools.prospects.import.template') }}"><i class="ri-download-2-line"></i> Unduh file contoh</a></div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <input type="file" name="file" accept=".xlsx,.xls,.csv" class="form-control" style="max-width: 420px" required>
+                        <button type="submit" class="btn btn-primary" onclick="this.disabled = true; this.form.submit();"><i class="ri-upload-2-line"></i> Import</button>
+                    </div>
+                    @error('file') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                </form>
+            </div>
 
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0 prospect-table">
