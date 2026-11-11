@@ -45,11 +45,79 @@ class ScheduleRoutineService
             }
 
             $routine->save();
-            $routine->students()->sync($studentIds);
-            $this->refresh($routine);
+            $removed = $this->syncParticipants($routine, $studentIds);
+            $this->refresh($routine, $removed);
 
             return $routine;
         });
+    }
+
+    /**
+     * Salin jadwal ke bulan berikutnya: grade, pengajar, ruangan, hari, jam, kapasitas & murid yang masih aktif.
+     * Tidak dobel: kalau bulan itu sudah punya jadwal yang sama (grade, pengajar, hari, jam), dilewati.
+     */
+    public function duplicate(ScheduleRoutine $routine): ScheduleRoutine
+    {
+        $start = $routine->starts_on->copy()->addMonthNoOverflow()->startOfMonth();
+
+        $exists = ScheduleRoutine::where('branch_id', $routine->branch_id)->where('grade_id', $routine->grade_id)
+            ->where('teacher_id', $routine->teacher_id)->where('day_of_week', $routine->day_of_week)
+            ->where('start_time', $routine->start_time)->whereDate('starts_on', $start)->exists();
+
+        if ($exists) {
+            throw new RuntimeException('Jadwal '.$routine->label().' untuk '.$start->translatedFormat('F Y').' sudah ada.');
+        }
+
+        $copy = new ScheduleRoutine();
+        $copy->forceFill(['branch_id' => $routine->branch_id]);
+
+        return $this->save($copy, [
+            ...$routine->only(['grade_id', 'teacher_id', 'room_id', 'day_of_week', 'duration_minutes', 'capacity', 'notes']),
+            'start_time' => substr((string) $routine->start_time, 0, 5),
+            'starts_on' => $start->toDateString(),
+            'ends_on' => $start->copy()->endOfMonth()->toDateString(),
+            'status' => ScheduleRoutine::STATUS_ACTIVE,
+        ], $routine->students()->where('schedule_students.status', 'active')->pluck('schedule_students.id')->all());
+    }
+
+    /**
+     * Murid resign/keluar: dikeluarkan dari semua jadwal per tanggal itu (left_on) dan dihapus dari sesi mendatang
+     * yang belum diabsen. Absensi & honor sebelumnya tetap utuh sebagai arsip.
+     */
+    public function removeStudent(string $studentId, \Carbon\CarbonInterface $leftOn): void
+    {
+        DB::table('schedule_participants')->where('student_id', $studentId)->whereNull('left_on')
+            ->update(['left_on' => $leftOn->toDateString(), 'updated_at' => now()]);
+
+        ScheduleAttendance::where('student_id', $studentId)->where('status', ScheduleAttendance::STATUS_PENDING)
+            ->whereHas('session', fn ($q) => $q->where('status', ScheduleSession::STATUS_SCHEDULED)->whereDate('date', '>=', $leftOn))
+            ->delete();
+    }
+
+    /**
+     * Peserta dicatat masuk/keluar per tanggal, tidak dihapus: murid baru joined_on = tanggal mulai ikut, murid yang
+     * dikeluarkan diberi left_on. Mengembalikan id murid yang baru keluar.
+     */
+    private function syncParticipants(ScheduleRoutine $routine, array $studentIds): array
+    {
+        $date = max(today(), $routine->starts_on->copy()->startOfDay())->toDateString();
+        $table = DB::table('schedule_participants')->where('routine_id', $routine->getKey());
+        $rows = (clone $table)->get()->keyBy('student_id');
+
+        foreach ($studentIds as $id) {
+            $row = $rows->get($id);
+
+            if (! $row) {
+                DB::table('schedule_participants')->insert(['routine_id' => $routine->getKey(), 'student_id' => $id, 'joined_on' => $date, 'created_at' => now(), 'updated_at' => now()]);
+            } elseif ($row->left_on) {
+                (clone $table)->where('student_id', $id)->update(['joined_on' => $date, 'left_on' => null, 'updated_at' => now()]);
+            }
+        }
+
+        $removed = $rows->filter(fn ($row) => ! $row->left_on && ! in_array($row->student_id, $studentIds, true))->keys()->all();
+        (clone $table)->whereIn('student_id', $removed ?: ['-'])->update(['left_on' => $date, 'updated_at' => now()]);
+
+        return $removed;
     }
 
     public function delete(ScheduleRoutine $routine): void
@@ -71,15 +139,27 @@ class ScheduleRoutineService
         });
     }
 
-    /** Sesi mendatang yang belum disentuh dibuat ulang mengikuti jadwal terbaru (jam, pengajar, ruangan, murid). */
-    private function refresh(ScheduleRoutine $routine): void
+    /**
+     * Sesi mendatang yang belum disentuh dibuat ulang mengikuti jadwal terbaru (jam, pengajar, ruangan, murid).
+     * Sesi mendatang yang sudah sebagian diabsen/dipindah tetap ada: murid baru ditambahkan, murid yang keluar dilepas.
+     */
+    private function refresh(ScheduleRoutine $routine, array $removed = []): void
     {
-        $routine->sessions()
-            ->where('status', ScheduleSession::STATUS_SCHEDULED)
-            ->whereNull('moved_at')
-            ->where('start_at', '>', now())
+        $upcoming = fn () => $routine->sessions()->where('status', ScheduleSession::STATUS_SCHEDULED)->where('start_at', '>', now());
+
+        $upcoming()->whereNull('moved_at')
             ->whereDoesntHave('attendances', fn ($q) => $q->where('status', '!=', ScheduleAttendance::STATUS_PENDING))
             ->delete();
+
+        $active = $routine->students()->pluck('schedule_students.id')->all();
+
+        foreach ($upcoming()->with('attendances:id,session_id,student_id')->get() as $session) {
+            $session->attendances()->whereIn('student_id', $removed ?: ['-'])->where('status', ScheduleAttendance::STATUS_PENDING)->delete();
+
+            foreach (array_diff($active, $session->attendances->pluck('student_id')->all()) as $studentId) {
+                (new ScheduleAttendance())->forceFill(['session_id' => $session->getKey(), 'student_id' => $studentId, 'status' => ScheduleAttendance::STATUS_PENDING])->save();
+            }
+        }
 
         $this->generate($routine);
     }

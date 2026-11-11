@@ -15,13 +15,13 @@ class ScheduleStudent extends Authenticatable
 
     public const LABEL_WITH = [];
 
-    protected $fillable = ['name', 'email', 'phone', 'guardian_name', 'description', 'status'];
+    protected $fillable = ['name', 'email', 'phone', 'guardian_name', 'description', 'status', 'left_on'];
 
     protected $hidden = ['password', 'remember_token'];
 
     protected function casts(): array
     {
-        return ['password' => 'hashed', 'last_login_at' => 'datetime'];
+        return ['password' => 'hashed', 'last_login_at' => 'datetime', 'left_on' => 'date'];
     }
 
     public function customer(): BelongsTo

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Schedule;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Schedule\Concerns\InScheduleArea;
+use App\Models\ScheduleAttendance;
 use App\Models\ScheduleGrade;
 use App\Models\ScheduleRoom;
 use App\Models\ScheduleRoutine;
@@ -13,14 +14,17 @@ use App\Models\ScheduleTeacher;
 use App\Models\UserBranch;
 use App\Services\Schedule\ScheduleRoutineService;
 use App\Support\Menu;
+use App\Support\XlsxExport;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use RuntimeException;
 
-/** Jadwal rutin mingguan. Branch selalu mengikuti grade yang dipilih. */
+/** Jadwal rutin mingguan per bulan (lanjut bulan berikutnya lewat Duplikat). Branch selalu mengikuti grade yang dipilih. */
 class RoutineController extends Controller
 {
     use InScheduleArea;
@@ -38,8 +42,12 @@ class RoutineController extends Controller
         }
 
         $search = trim((string) $request->query('search'));
+        $month = $this->month($request);
 
         $routines = ScheduleRoutine::accessibleBy($user)
+            // Jadwal yang berlaku di bulan yang dipilih (jadwal lama tanpa tanggal akhir ikut tampil).
+            ->whereDate('starts_on', '<=', $month->copy()->endOfMonth())
+            ->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', $month))
             ->with(['branch:id,name,company_id', 'branch.company:id,name', 'teacher:id,name', 'room:id,name', 'students:id,name', ...ScheduleRoutine::LABEL_WITH])
             ->withCount(['sessions as upcoming_count' => fn ($q) => $q->where('status', ScheduleSession::STATUS_SCHEDULED)->where('start_at', '>', now())])
             ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w
@@ -56,8 +64,95 @@ class RoutineController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('schedule.routines.index', [...$this->shared($request), 'items' => $routines]);
+        return view('schedule.routines.index', [...$this->shared($request), 'items' => $routines, 'month' => $month]);
     }
+
+    /** Salin satu jadwal ke bulan berikutnya (murid yang masih aktif ikut). */
+    public function duplicate(Request $request, string $routine): RedirectResponse
+    {
+        try {
+            $copy = $this->routines->duplicate($this->find($request, $routine));
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Jadwal disalin ke '.$copy->monthLabel().' bersama '.$copy->students()->count().' murid aktif.');
+    }
+
+    /** Salin semua jadwal aktif di bulan yang dipilih ke bulan berikutnya. Yang sudah ada / bentrok dilewati & dilaporkan. */
+    public function duplicateMonth(Request $request): RedirectResponse
+    {
+        $month = $this->month($request);
+        $done = 0;
+        $skipped = [];
+
+        ScheduleRoutine::accessibleBy($request->user(), Menu::ABILITY_MANAGE)->active()->with(ScheduleRoutine::LABEL_WITH)
+            ->whereDate('starts_on', '>=', $month)->whereDate('starts_on', '<=', $month->copy()->endOfMonth())
+            ->get()->each(function (ScheduleRoutine $routine) use (&$done, &$skipped) {
+                try {
+                    $this->routines->duplicate($routine);
+                    $done++;
+                } catch (RuntimeException $e) {
+                    $skipped[] = $e->getMessage();
+                }
+            });
+
+        $next = $month->copy()->addMonthNoOverflow()->translatedFormat('F Y');
+
+        return back()->with($done ? 'success' : 'info', "{$done} jadwal disalin ke {$next}.".($skipped ? ' Dilewati: '.implode(' · ', array_slice($skipped, 0, 5)).(count($skipped) > 5 ? ' …' : '') : ''));
+    }
+
+    /**
+     * Rekap bulanan per jadwal: peserta (masuk/keluar), kehadiran per tanggal, honor, dan tagihan prorata
+     * (harga grade ÷ pertemuan/bulan × sesi yang diikuti, maksimal harga sebulan). ?export=1 = Excel.
+     */
+    public function recap(Request $request): View|StreamedResponse
+    {
+        $month = $this->month($request);
+        $period = $month->format('Y-m');
+
+        $routines = ScheduleRoutine::accessibleBy($request->user())
+            ->with(['teacher:id,name', 'grade:id,name,price,meetings_per_month,category_id', ...ScheduleRoutine::LABEL_WITH,
+                'participants' => fn ($q) => $q->orderBy('name'),
+                'sessions' => fn ($q) => $q->where('period', $period)->orderBy('start_at')->with('attendances:id,session_id,student_id,status,teacher_fee')])
+            ->whereHas('sessions', fn ($q) => $q->where('period', $period))
+            ->orderBy('day_of_week')->orderBy('start_time')->get();
+
+        $rows = $routines->map(function (ScheduleRoutine $routine) {
+            $sessions = $routine->sessions->values();
+            $price = (int) $routine->grade?->price;
+            $meetings = max(1, (int) $routine->grade?->meetings_per_month);
+
+            return ['routine' => $routine, 'sessions' => $sessions, 'students' => $routine->participants->map(function ($student) use ($sessions, $price, $meetings) {
+                $marks = $sessions->map(fn ($session) => $session->attendances->firstWhere('student_id', $student->id));
+                $followed = $sessions->filter(fn ($session, $i) => $marks[$i] && $session->status !== ScheduleSession::STATUS_CANCELLED)->count();
+
+                return [
+                    'student' => $student,
+                    'joined_on' => $student->pivot->joined_on,
+                    'left_on' => $student->pivot->left_on,
+                    'marks' => $marks,
+                    'present' => $marks->filter(fn ($a) => $a?->status === ScheduleAttendance::STATUS_PRESENT)->count(),
+                    'followed' => $followed,
+                    'charge' => (int) min($price, round($price / $meetings * $followed)),
+                    'teacher_fee' => (int) $marks->sum(fn ($a) => $a?->teacher_fee),
+                ];
+            })];
+        });
+
+        if ($request->boolean('export')) {
+            $date = fn ($value, $empty) => $value ? Carbon::parse($value)->format('d/m/Y') : $empty;
+
+            return XlsxExport::download('rekap-jadwal-'.$period, ['Jadwal', 'Pengajar', 'Murid', 'Masuk', 'Keluar', 'Sesi diikuti', 'Hadir', 'Tagihan (prorata)', 'Honor pengajar'],
+                $rows->flatMap(fn ($row) => $row['students']->map(fn ($s) => [
+                    $row['routine']->label(), $row['routine']->teacher?->name, $s['student']->name, $date($s['joined_on'], 'awal'), $date($s['left_on'], '-'),
+                    $s['followed'], $s['present'], $s['charge'], $s['teacher_fee'],
+                ])));
+        }
+
+        return view('schedule.routines.recap', [...$this->shared($request), 'rows' => $rows, 'month' => $month]);
+    }
+
 
     public function create(Request $request): View|RedirectResponse
     {
@@ -74,7 +169,7 @@ class RoutineController extends Controller
             'room_id' => $grade?->category?->subject?->room_id,
             'duration_minutes' => $grade?->duration_minutes ?? 60,
             'capacity' => 1,
-            'starts_on' => today(),
+            'starts_on' => $this->month($request),
             'status' => ScheduleRoutine::STATUS_ACTIVE,
         ]);
 
@@ -137,8 +232,7 @@ class RoutineController extends Controller
             'capacity' => ['required', 'integer', 'min:1', 'max:100'],
             'student_ids' => ['nullable', 'array'],
             'student_ids.*' => ['string', 'distinct', $inBranch('schedule_students')],
-            'starts_on' => ['required', 'date'],
-            'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
+            'month' => ['required', 'date_format:Y-m'],
             'status' => ['required', Rule::in(array_keys(ScheduleRoutine::STATUS_LABELS))],
             'notes' => ['nullable', 'string', 'max:1000'],
         ], [
@@ -147,8 +241,12 @@ class RoutineController extends Controller
             'student_ids.*.exists' => 'Ada murid yang tidak ditemukan atau sedang tidak aktif.',
         ], [
             'teacher_id' => 'pengajar', 'room_id' => 'ruangan', 'day_of_week' => 'hari', 'start_time' => 'jam mulai',
-            'duration_minutes' => 'durasi', 'capacity' => 'kapasitas', 'starts_on' => 'mulai berlaku', 'ends_on' => 'berlaku sampai',
+            'duration_minutes' => 'durasi', 'capacity' => 'kapasitas', 'month' => 'bulan',
         ]);
+
+        // Satu jadwal = satu bulan penuh; bulan berikutnya lewat tombol Duplikat.
+        $start = Carbon::createFromFormat('!Y-m', $data['month']);
+        $data = [...collect($data)->except('month')->all(), 'starts_on' => $start->toDateString(), 'ends_on' => $start->copy()->endOfMonth()->toDateString()];
 
         if (! $grade->teachers()->whereKey($data['teacher_id'])->exists()) {
             throw ValidationException::withMessages(['teacher_id' => 'Pengajar ini belum ditandai mengajar grade '.$grade->name.'. Centang dulu di menu Pengajar.']);
@@ -194,6 +292,14 @@ class RoutineController extends Controller
     private function shared(Request $request): array
     {
         return ['resource' => 'routines', 'routes' => $this->routes($request), 'isAdmin' => $this->isAdmin($request), 'canManage' => $this->canManage($request)];
+    }
+
+    /** Bulan dari ?month=YYYY-MM (bawaan: bulan ini). */
+    private function month(Request $request): Carbon
+    {
+        $value = (string) $request->input('month');
+
+        return preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $value) ? Carbon::createFromFormat('!Y-m', $value) : today()->startOfMonth();
     }
 
     private function find(Request $request, string $id): ScheduleRoutine

@@ -4,6 +4,7 @@
 @section('page-section', $isAdmin ? 'Superadmin' : 'Schedules')
 
 @php($filtered = request()->hasAny(['search', 'day', 'status', 'teacher', 'student', 'grade']))
+@php($next = $month->copy()->addMonthNoOverflow())
 
 @section('content')
     @include('schedule._tabs')
@@ -14,6 +15,9 @@
                 @foreach (['teacher', 'student', 'grade'] as $keep)
                     @if (request($keep)) <input type="hidden" name="{{ $keep }}" value="{{ request($keep) }}"> @endif
                 @endforeach
+                <div class="col-6 col-md-2">
+                    <input type="month" name="month" class="form-control" value="{{ $month->format('Y-m') }}" onchange="this.form.submit()" title="Bulan jadwal">
+                </div>
                 <div class="col-12 col-md">
                     <input type="text" name="search" class="form-control" maxlength="100" placeholder="Cari nama pengajar, murid, atau grade" value="{{ request('search') }}">
                 </div>
@@ -41,11 +45,20 @@
                 </div>
             </form>
 
-            @if ($canManage && ! $isAdmin)
-                <div class="d-flex justify-content-end mb-3">
-                    <a href="{{ route($routes.'.routines.create', array_filter(['grade' => request('grade')])) }}" class="btn btn-primary"><i class="ri-add-line"></i> Buat Jadwal</a>
-                </div>
-            @endif
+            {{-- Jadwal bulanan: rekap bulan ini & salin semua ke bulan berikutnya (murid yang resign tidak ikut). --}}
+            <div class="d-flex flex-wrap justify-content-end gap-2 mb-3">
+                <a href="{{ route($routes.'.routines.recap', ['month' => $month->format('Y-m')]) }}" class="btn btn-outline-secondary"><i class="ri-file-list-3-line"></i> Rekap {{ $month->translatedFormat('F Y') }}</a>
+                @if ($canManage)
+                    <form method="POST" action="{{ route($routes.'.routines.duplicate-month', ['month' => $month->format('Y-m')]) }}"
+                        onsubmit="this.querySelector('button').disabled = true; return confirm('Salin semua jadwal aktif {{ $month->translatedFormat('F Y') }} ke {{ $next->translatedFormat('F Y') }}? Hanya murid yang masih aktif yang ikut.');">
+                        @csrf
+                        <button type="submit" class="btn btn-outline-primary"><i class="ri-file-copy-line"></i> Duplikat semua ke {{ $next->translatedFormat('F Y') }}</button>
+                    </form>
+                @endif
+                @if ($canManage && ! $isAdmin)
+                    <a href="{{ route($routes.'.routines.create', array_filter(['grade' => request('grade'), 'month' => $month->format('Y-m')])) }}" class="btn btn-primary"><i class="ri-add-line"></i> Buat Jadwal</a>
+                @endif
+            </div>
 
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
@@ -77,7 +90,11 @@
                                     <div>{{ $item->students->pluck('name')->join(', ') ?: 'Belum ada murid' }}</div>
                                 </td>
                                 <td class="small text-nowrap">
-                                    {{ $item->starts_on->translatedFormat('d M Y') }} – {{ $item->ends_on?->translatedFormat('d M Y') ?? 'seterusnya' }}
+                                    @if ($item->ends_on && $item->starts_on->isSameMonth($item->ends_on))
+                                        {{ $item->monthLabel() }}
+                                    @else
+                                        {{ $item->starts_on->translatedFormat('d M Y') }} – {{ $item->ends_on?->translatedFormat('d M Y') ?? 'seterusnya' }}
+                                    @endif
                                 </td>
                                 @if ($isAdmin)
                                     <td>
@@ -92,6 +109,10 @@
                                     </a>
                                     @if ($canManage)
                                         <a href="{{ route($routes.'.routines.edit', $item) }}" class="btn btn-sm rounded-pill btn-outline-secondary"><i class="ri-edit-line"></i> Edit</a>
+                                        <form action="{{ route($routes.'.routines.duplicate', $item) }}" method="POST" class="d-inline" onsubmit="this.querySelector('button').disabled = true;">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm rounded-pill btn-outline-primary" title="Salin ke bulan berikutnya bersama murid yang masih aktif"><i class="ri-file-copy-line"></i> Duplikat</button>
+                                        </form>
                                         <form action="{{ route($routes.'.routines.destroy', $item) }}" method="POST" class="d-inline"
                                             onsubmit="return confirm('Hapus jadwal ini? Sesi yang belum berjalan ikut terhapus.');">
                                             @csrf

@@ -86,17 +86,16 @@
                         @error('capacity') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
+                    {{-- Satu jadwal = satu bulan. Bulan berikutnya: tombol Duplikat di daftar jadwal (murid aktif ikut tersalin). --}}
                     <div class="col-md-4">
-                        <label for="starts_on" class="form-label">Mulai Berlaku</label>
-                        <input type="date" id="starts_on" name="starts_on" class="form-control @error('starts_on') is-invalid @enderror" value="{{ old('starts_on', $item->starts_on?->format('Y-m-d')) }}" required>
-                        @error('starts_on') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                    </div>
-
-                    <div class="col-md-4">
-                        <label for="ends_on" class="form-label">Berlaku Sampai (opsional)</label>
-                        <input type="date" id="ends_on" name="ends_on" class="form-control @error('ends_on') is-invalid @enderror" value="{{ old('ends_on', $item->ends_on?->format('Y-m-d')) }}">
-                        <div class="form-text">Kosongkan kalau berlaku terus.</div>
-                        @error('ends_on') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <label for="month" class="form-label">Bulan</label>
+                        <input type="month" id="month" name="month" class="form-control @error('month') is-invalid @enderror" value="{{ old('month', $item->starts_on?->format('Y-m')) }}" required>
+                        <div class="form-text">Berlaku tgl 1 sampai akhir bulan. Murid yang ditambah/dikeluarkan di tengah bulan tercatat tanggalnya.</div>
+                        @error('month') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        @if ($item->exists && ($item->ends_on === null || ! $item->starts_on->isSameMonth($item->ends_on)))
+                            <div class="alert alert-warning small mt-2 mb-0">Jadwal lama ini berlaku {{ $item->starts_on->translatedFormat('d M Y') }} – {{ $item->ends_on?->translatedFormat('d M Y') ?? 'seterusnya' }}.
+                                Saat disimpan, jadwal menjadi bulanan sesuai bulan di atas; sesi bulan berikutnya yang belum berjalan dibuat lewat Duplikat.</div>
+                        @endif
                     </div>
 
                     <div class="col-12">

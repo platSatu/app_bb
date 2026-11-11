@@ -6,6 +6,7 @@ use App\Models\ScheduleAttendance;
 use App\Models\User;
 use App\Models\UserBranch;
 use App\Services\Customer\CustomerService;
+use App\Services\Schedule\ScheduleRoutineService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,12 +42,13 @@ class StudentController extends ScheduleResourceController
             'email' => ['nullable', 'email', 'max:255', $unique('email')],
             'phone' => ['nullable', 'string', 'min:10', 'max:20', $unique('phone')],
             'guardian_name' => ['nullable', 'string', 'max:150'],
+            'left_on' => ['nullable', 'date'],
         ];
     }
 
     protected function attributes(): array
     {
-        return ['phone' => 'nomor WhatsApp', 'guardian_name' => 'nama orang tua / wali'];
+        return ['phone' => 'nomor WhatsApp', 'guardian_name' => 'nama orang tua / wali', 'left_on' => 'tanggal keluar'];
     }
 
     protected function isUsed(Model $item): bool
@@ -55,9 +57,19 @@ class StudentController extends ScheduleResourceController
             || ScheduleAttendance::where('student_id', $item->getKey())->exists();
     }
 
-    /** Murid yang punya WA/email ikut tercatat di Buku Kontak branch. */
+    /**
+     * Murid Tidak Aktif = resign/keluar per tanggal keluar (bawaan hari ini): dilepas dari jadwal & sesi mendatang,
+     * riwayat absensi tetap. Murid yang punya WA/email ikut tercatat di Buku Kontak branch.
+     */
     protected function saved(Request $request, Model $item, array $data): void
     {
+        if ($item->isActive()) {
+            $item->forceFill(['left_on' => null])->save();
+        } else {
+            $item->forceFill(['left_on' => $item->left_on ?? today()])->save();
+            app(ScheduleRoutineService::class)->removeStudent($item->getKey(), $item->left_on);
+        }
+
         if (! $item->phone && ! $item->email) {
             return;
         }

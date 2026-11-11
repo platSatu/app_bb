@@ -10,7 +10,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** Jadwal rutin mingguan. Sesi per tanggal dibuat otomatis, maksimal sesuai pertemuan per bulan di grade. */
+/**
+ * Jadwal rutin mingguan untuk satu bulan (starts_on = tgl 1, ends_on = akhir bulan); bulan berikutnya dibuat lewat Duplikat.
+ * Sesi per tanggal dibuat otomatis, maksimal sesuai pertemuan per bulan di grade. Peserta yang keluar tidak dihapus,
+ * hanya diberi left_on, supaya arsip bulanan tetap utuh.
+ */
 class ScheduleRoutine extends Model
 {
     use BelongsToScheduleBranch, HasActiveStatus, HasUuids;
@@ -41,9 +45,22 @@ class ScheduleRoutine extends Model
         return $this->belongsTo(ScheduleRoom::class, 'room_id');
     }
 
+    /** Peserta aktif (belum keluar). Dipakai untuk membuat sesi, cek bentrok & form. */
     public function students(): BelongsToMany
     {
-        return $this->belongsToMany(ScheduleStudent::class, 'schedule_participants', 'routine_id', 'student_id')->withTimestamps();
+        return $this->participants()->wherePivotNull('left_on');
+    }
+
+    /** Semua peserta termasuk yang sudah keluar, dengan tanggal masuk/keluar (arsip & rekap). */
+    public function participants(): BelongsToMany
+    {
+        return $this->belongsToMany(ScheduleStudent::class, 'schedule_participants', 'routine_id', 'student_id')
+            ->withPivot(['joined_on', 'left_on'])->withTimestamps();
+    }
+
+    public function monthLabel(): string
+    {
+        return $this->starts_on->translatedFormat('F Y');
     }
 
     public function sessions(): HasMany

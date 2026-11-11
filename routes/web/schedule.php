@@ -28,6 +28,16 @@ $sessionRead = function () {
     Route::get('sessions/{session}', [SessionController::class, 'show'])->name('sessions.show');
 };
 
+// Jadwal per bulan: rekap (lihat) dan duplikat ke bulan berikutnya (kelola).
+$routineRead = function () {
+    Route::get('routines/recap', [RoutineController::class, 'recap'])->middleware('throttle:30,1')->name('routines.recap');
+};
+
+$routineWrite = function () {
+    Route::post('routines/duplicate-month', [RoutineController::class, 'duplicateMonth'])->middleware('throttle:10,1')->name('routines.duplicate-month');
+    Route::post('routines/{routine}/duplicate', [RoutineController::class, 'duplicate'])->middleware('throttle:30,1')->name('routines.duplicate');
+};
+
 $sessionWrite = function () {
     Route::put('sessions/{session}/attendance', [SessionController::class, 'attendance'])->middleware('throttle:60,1')->name('sessions.attendance');
     Route::post('sessions/{session}/cancel', [SessionController::class, 'cancel'])->middleware('throttle:30,1')->name('sessions.cancel');
@@ -35,7 +45,12 @@ $sessionWrite = function () {
     Route::post('sessions/{session}/attendances/{attendance}/makeup', [SessionController::class, 'makeup'])->middleware('throttle:30,1')->name('sessions.makeup');
 };
 
-Route::middleware('auth')->prefix('schedules')->name('schedules.')->group(function () use ($resources, $sessionRead, $sessionWrite) {
+Route::middleware('auth')->prefix('schedules')->name('schedules.')->group(function () use ($resources, $sessionRead, $sessionWrite, $routineRead, $routineWrite) {
+    Route::middleware('permission:schedules.routines')->group(function () use ($routineRead, $routineWrite) {
+        $routineRead();
+        $routineWrite();
+    });
+
     foreach ($resources as $uri => $controller) {
         Route::resource($uri, $controller)->except('show')->middleware("permission:schedules.{$uri}");
     }
@@ -46,7 +61,10 @@ Route::middleware('auth')->prefix('schedules')->name('schedules.')->group(functi
     });
 });
 
-Route::middleware(['auth', 'superadmin'])->prefix('superadmin/schedules')->name('superadmin.schedules.')->group(function () use ($resources, $sessionRead, $sessionWrite) {
+Route::middleware(['auth', 'superadmin'])->prefix('superadmin/schedules')->name('superadmin.schedules.')->group(function () use ($resources, $sessionRead, $sessionWrite, $routineRead, $routineWrite) {
+    Route::middleware('permission:superadmin.schedules,view')->group($routineRead);
+    Route::middleware('permission:superadmin.schedules,manage')->group($routineWrite);
+
     foreach ($resources as $uri => $controller) {
         Route::get($uri, [$controller, 'index'])->middleware('permission:superadmin.schedules,view')->name("{$uri}.index");
         Route::resource($uri, $controller)->except(['index', 'show'])->middleware('permission:superadmin.schedules,manage');
