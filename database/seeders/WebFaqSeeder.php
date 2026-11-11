@@ -18,6 +18,36 @@ use Illuminate\Database\Seeder;
  */
 class WebFaqSeeder extends Seeder
 {
+    /**
+     * 10 FAQ teratas yang tampil di beranda website (2 per layanan), dipasang lewat migration
+     * 2026_12_11_100000_refresh_home_faqs. Bahasa sehari-hari, tanpa istilah teknis.
+     */
+    public const HOME = [
+        // Pages
+        'Apa saja yang bisa saya buat di Pages?' => 'Banyak, dan semuanya gratis. Anda bisa membuat bio link, katalog online yang bisa langsung dibayar, landing page tanpa coding, sampai kuis dan tes online. Setiap orang yang mengisi otomatis tersimpan sebagai customer, jadi tidak ada calon pelanggan yang terlewat.',
+        'Bisakah saya membuat placement test dan melihat hasilnya?' => 'Bisa. Buat tes penempatan sendiri, lalu bagikan link-nya ke calon murid. Tesnya bisa gratis atau berbayar, jawaban dinilai otomatis, dan skornya langsung muncul begitu tes selesai. Semua hasil tersimpan rapi per peserta, jadi Anda tinggal melihatnya untuk menentukan kelas yang paling pas, tanpa koreksi manual.',
+        // Tiket
+        'Bagaimana cara menjual tiket event di bizbos?' => 'Buat halaman event, atur kategori dan kuota tiket, lalu bagikan link-nya. Pembeli membayar online lewat Virtual Account, QRIS, atau e-wallet, dan e-ticket ber-QR langsung terkirim ke email mereka. Di hari acara, panitia cukup scan QR dari HP untuk registrasi ulang, bahkan bisa mencetak ID card peserta.',
+        'Berapa biaya memakai fitur tiket?' => 'Tidak ada biaya langganan. Anda hanya membayar biaya layanan kecil untuk setiap tiket yang terjual. Untuk event gratis seperti ibadah, komunitas, atau acara kecil, sejumlah tiket pertama bisa dibagikan tanpa biaya sama sekali. Besarannya selalu tertulis di kartu paket Event (Ticket).',
+        // WhatsApp
+        'Apa saja yang bisa dilakukan fitur WhatsApp bizbos?' => 'Satu nomor WhatsApp bisa dipegang beberapa CS sekaligus dalam satu inbox, lengkap dengan label, catatan, dan pembagian chat. Anda juga bisa mengirim broadcast dan pesan terjadwal, memasang chatbot dan auto reply, sampai AI bot yang paham produk Anda, jadi pelanggan tetap terlayani walau di luar jam kerja.',
+        'Apakah saya harus ganti nomor atau memasang aplikasi khusus?' => 'Tidak perlu. Cukup hubungkan nomor WhatsApp yang sudah Anda pakai dengan scan QR, sama seperti membuka WhatsApp di laptop. Kontak dan pelanggan Anda tetap, dan semua chat bisa dibalas langsung dari dashboard bizbos, bersama tim.',
+        // Komplit
+        'Paket Komplit cocok untuk siapa?' => 'Untuk tempat kursus, bimbel, sanggar, atau lembaga yang ingin semuanya beres dari satu tempat. Paket Komplit berisi Jadwal, Invoice, dan WhatsApp sekaligus, ditambah Pages dan tiket event yang memang gratis dipakai. Pendaftaran, jadwal, absensi, sampai tagihan saling terhubung tanpa input ulang.',
+        'Apa saja yang bisa diatur di fitur Jadwal?' => 'Kelas bisa dibuat bulanan atau paket pertemuan, misalnya 15x, dengan jadwal yang bebas diatur. Pengajar mengabsen dari HP, cukup klik atau scan kartu QR murid. Tagihan les terbit otomatis ke Invoice, pengingat les dikirim lewat WhatsApp sehari sebelumnya, dan orang tua bisa memantau jadwal, kehadiran, serta tagihan anak dari portalnya sendiri. Honor pengajar dan rekap bulanan pun terhitung sendiri.',
+        // Invoice
+        'Bagaimana cara menagih pelanggan dengan Invoice?' => 'Buat tagihan satuan, atau sekaligus untuk banyak pelanggan per periode, misalnya iuran atau SPP bulanan. Pelanggan menerima link bayar dan bisa membayar lewat Virtual Account, QRIS, atau e-wallet. Status lunas tercatat otomatis, jadi Anda tidak perlu lagi mengecek transferan satu per satu.',
+        'Apakah pelanggan diingatkan kalau belum bayar?' => 'Ya, otomatis. Pengingat dikirim sebelum dan sesudah jatuh tempo lewat email, juga lewat WhatsApp kalau Anda memakai paket WhatsApp. Denda keterlambatan bisa Anda atur sendiri, pelanggan bisa melihat semua tagihannya di halaman Tagihan Saya, dan uang yang masuk terkumpul di Saldo untuk ditarik ke rekening Anda.',
+    ];
+
+    /** FAQ lama yang isinya sudah digantikan HOME (dinonaktifkan oleh migration yang sama, tetap tersimpan). */
+    public const REPLACED = [
+        'Apa saja yang bisa dibuat di Pages?',
+        'Bagaimana cara menagih pelanggan lewat Invoice?',
+        'Apakah fitur WhatsApp bisa dipakai banyak CS sekaligus?',
+        'Bisakah bizbos disambungkan ke website atau aplikasi saya?',
+    ];
+
     private const FAQS = [
         // Kenalan dengan bizbos
         'Apa itu bizbos?' => 'bizbos adalah satu aplikasi untuk mengurus bisnis Anda sehari-hari: bikin halaman jualan dan tiket event (Pages), atur jadwal kelas dan absensi (Jadwal), kirim tagihan dengan link bayar online (Invoice), sampai melayani pelanggan lewat WhatsApp bersama tim (WhatsApp). Semuanya dari satu akun, untuk satu atau banyak cabang usaha.',
