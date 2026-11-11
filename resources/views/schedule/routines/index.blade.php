@@ -88,7 +88,11 @@
                                     <div class="fw-semibold">{{ $item->dayLabel() }}</div>
                                     <div class="text-muted small">{{ $item->timeRange() }}</div>
                                 </td>
-                                <td>{{ $item->grade?->label() }}</td>
+                                {{-- Grade sebagai badge (seperti Privat/Grup), bidang › kategori di bawahnya. --}}
+                                <td class="small">
+                                    <span class="badge bg-info-subtle text-info">{{ $item->grade?->name ?? '-' }}</span>
+                                    <div class="text-body text-nowrap">{{ $item->grade?->category?->subject?->name }} › {{ $item->grade?->category?->name }}</div>
+                                </td>
                                 <td>{{ $item->teacher?->name ?? '-' }}</td>
                                 <td>{{ $item->room?->name ?? '-' }}</td>
                                 <td class="small">
