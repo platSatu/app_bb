@@ -50,6 +50,11 @@
                                     </span>
                                 </td>
                                 <td class="text-end text-nowrap">
+                                    @if (in_array($branch->id, $waBranches, true))
+                                        <a href="{{ route('settings.branches.edit', $branch) }}#notifikasi-wa" class="btn btn-sm rounded-pill btn-outline-success">
+                                            <i class="ri-whatsapp-line"></i> Notifikasi WA
+                                        </a>
+                                    @endif
                                     <a href="{{ route('settings.branches.edit', $branch) }}" class="btn btn-sm rounded-pill btn-outline-secondary">
                                         <i class="ri-edit-line"></i> Edit
                                     </a>

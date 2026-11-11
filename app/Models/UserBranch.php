@@ -15,8 +15,20 @@ class UserBranch extends Model
     public const STATUS_ACTIVE = 'active';
     public const STATUS_INACTIVE = 'inactive';
 
-    // user_id, company_id & slug diisi sistem, tidak pernah dari form.
+    /** Notifikasi WhatsApp yang bisa dinyalakan per branch (bawaan mati), isinya sama dengan email. */
+    public const WA_NOTIFY = [
+        'invoice' => ['Invoice', 'Tagihan baru, pengingat jatuh tempo & bukti lunas ke customer.'],
+        'ticket' => ['Tiket', 'E-ticket ke pembeli setelah pembayaran berhasil.'],
+        'schedule' => ['Jadwal', 'Pengingat les sehari sebelumnya (H-1) ke murid / orang tua.'],
+    ];
+
+    // user_id, company_id & slug diisi sistem, tidak pernah dari form. wa_notify diubah lewat form sakelar sendiri.
     protected $fillable = ['name', 'phone', 'handphone', 'address', 'city', 'description', 'status'];
+
+    protected function casts(): array
+    {
+        return ['wa_notify' => 'array'];
+    }
 
     protected static function booted(): void
     {
@@ -50,6 +62,12 @@ class UserBranch extends Model
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;
+    }
+
+    /** Sakelar notifikasi WhatsApp $kind nyala dan paket WhatsApp branch ini masih aktif. */
+    public function waNotifies(string $kind): bool
+    {
+        return ! empty($this->wa_notify[$kind]) && app(\App\Services\Subscription\AppAccess::class)->branchActive($this->getKey(), 'whatsapp');
     }
 
     public function scopeSearch(Builder $query, ?string $keyword): Builder

@@ -13,4 +13,5 @@ Route::middleware('auth')
         Route::put('company', [CompanyController::class, 'update'])->middleware('throttle:20,1')->name('company.update');
 
         Route::resource('branches', BranchController::class)->except('show');
+        Route::put('branches/{branch}/wa-notify', [BranchController::class, 'waNotify'])->middleware('throttle:20,1')->name('branches.wa-notify');
     });

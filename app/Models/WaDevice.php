@@ -50,6 +50,15 @@ class WaDevice extends Model
         return $this->hasOne(WaApiKey::class, 'device_id');
     }
 
+    /** [branch_id => device_id]: nomor terhubung (yang paling awal) di branch yang paket WhatsApp-nya aktif. */
+    public static function connectedByBranch(?string $branchId = null): array
+    {
+        return static::where('status', 'connected')
+            ->whereIn('branch_id', \App\Services\Subscription\AppAccess::activeBranches('whatsapp'))
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->orderBy('created_at')->get(['id', 'branch_id'])->unique('branch_id')->pluck('id', 'branch_id')->all();
+    }
+
     public function isConnected(): bool
     {
         return $this->status === 'connected';

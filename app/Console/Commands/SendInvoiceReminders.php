@@ -21,7 +21,7 @@ class SendInvoiceReminders extends Command
 
         Invoice::where('status', Invoice::STATUS_UNPAID)
             ->whereIn('branch_id', AppAccess::activeBranches('invoices'))
-            ->whereNotNull('customer_email')
+            ->where(fn ($q) => $q->whereNotNull('customer_email')->orWhereNotNull('customer_phone'))
             ->whereNotNull('category_id')
             ->whereBetween('due_date', [today(), today()->addDays(60)])
             ->with('category')
@@ -42,7 +42,7 @@ class SendInvoiceReminders extends Command
                 }
             });
 
-        $this->info("{$sent} email pengingat dikirim.");
+        $this->info("{$sent} pengingat dikirim (email/WhatsApp).");
 
         return self::SUCCESS;
     }

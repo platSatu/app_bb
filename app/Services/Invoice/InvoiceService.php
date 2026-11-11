@@ -2,6 +2,7 @@
 
 namespace App\Services\Invoice;
 
+use App\Jobs\SendWaNotification;
 use App\Jobs\SendInvoiceWebhook;
 use App\Mail\InvoiceMail;
 use App\Mail\InvoicePaidOwnerMail;
@@ -190,11 +191,20 @@ class InvoiceService
         $invoice->forceFill(['token' => $this->unique('token', fn () => Str::random(48))])->save();
     }
 
-    /** Email gagal tidak boleh menggagalkan proses utama. $kind: issued | reminder | paid. */
+    /**
+     * Kabari customer lewat email, plus WhatsApp kalau notifikasi Invoice branch dinyalakan (isi sama).
+     * Gagal kirim tidak boleh menggagalkan proses utama. $kind: issued | reminder | paid. True = minimal satu terkirim/antre.
+     */
     public function email(Invoice $invoice, string $kind): bool
     {
+        $whatsapp = SendWaNotification::invoice($invoice, $kind);
+
         if (! $invoice->customer_email) {
-            return false;
+            if ($whatsapp && $kind === 'issued') {
+                $invoice->forceFill(['emailed_at' => now()])->save();
+            }
+
+            return $whatsapp;
         }
 
         $log = new InvoiceEmailLog();
@@ -235,7 +245,7 @@ class InvoiceService
     private function emailBatch(InvoiceBatch $batch): void
     {
         if ($batch->category?->email_enabled) {
-            $batch->invoices()->whereNotNull('customer_email')->each(fn (Invoice $invoice) => $this->email($invoice, 'issued'));
+            $batch->invoices()->where(fn ($q) => $q->whereNotNull('customer_email')->orWhereNotNull('customer_phone'))->each(fn (Invoice $invoice) => $this->email($invoice, 'issued'));
         }
     }
 

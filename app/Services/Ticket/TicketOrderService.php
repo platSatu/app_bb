@@ -2,6 +2,7 @@
 
 namespace App\Services\Ticket;
 
+use App\Jobs\SendWaNotification;
 use App\Mail\TicketOrderPaid;
 use App\Models\PageCategory;
 use App\Models\PaymentCallback;
@@ -477,6 +478,7 @@ class TicketOrderService
 
         if ($result === 'paid') {
             $this->sendTickets($order->refresh());
+            SendWaNotification::tickets($order);
         }
 
         return $result;

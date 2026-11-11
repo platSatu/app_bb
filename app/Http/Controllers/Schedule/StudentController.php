@@ -10,7 +10,6 @@ use App\Models\UserBranch;
 use App\Models\WaDevice;
 use App\Services\Customer\CustomerService;
 use App\Services\Schedule\ScheduleRoutineService;
-use App\Services\Subscription\AppAccess;
 use App\Services\WhatsApp\WaGateway;
 use App\Support\Menu;
 use Illuminate\Database\Eloquent\Model;
@@ -77,11 +76,10 @@ class StudentController extends ScheduleResourceController
             : 'WhatsApp belum terkirim: '.($result['message'] ?? 'coba lagi sebentar lagi.'));
     }
 
-    /** [branch_id => device_id] nomor WhatsApp yang terhubung di branch dengan paket WhatsApp aktif. */
+    /** [branch_id => device_id] nomor WhatsApp yang terhubung di branch dengan paket WhatsApp aktif (sekali per request). */
     public static function waDevices(): array
     {
-        return once(fn () => WaDevice::where('status', 'connected')->whereIn('branch_id', AppAccess::activeBranches('whatsapp'))
-            ->orderBy('created_at')->get(['id', 'branch_id'])->unique('branch_id')->pluck('id', 'branch_id')->all());
+        return once(fn () => WaDevice::connectedByBranch());
     }
 
     protected function extraRules(Request $request, string $branchId, Model $item): array

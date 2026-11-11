@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\Branch\BranchRequest;
 use App\Models\UserBranch;
 use App\Models\UserCompany;
+use App\Models\WaDevice;
+use App\Services\Subscription\AppAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -28,7 +30,10 @@ class BranchController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        return view('settings.branch.index', compact('branches'));
+        // Branch dengan paket WhatsApp aktif mendapat tombol pintas ke sakelar notifikasi WhatsApp.
+        $waBranches = UserBranch::whereKey($branches->pluck('id'))->whereIn('id', AppAccess::activeBranches('whatsapp'))->pluck('id')->all();
+
+        return view('settings.branch.index', compact('branches', 'waBranches'));
     }
 
     public function create(Request $request): View|RedirectResponse
@@ -53,7 +58,25 @@ class BranchController extends Controller
 
     public function edit(Request $request, string $branch): View
     {
-        return view('settings.branch.edit', ['branch' => $this->ownedBranch($request, $branch)]);
+        $model = $this->ownedBranch($request, $branch);
+
+        return view('settings.branch.edit', [
+            'branch' => $model,
+            // Sakelar notifikasi WhatsApp hanya ditampilkan selama paket WhatsApp branch ini aktif.
+            'hasWhatsapp' => app(AppAccess::class)->branchActive($model->getKey(), 'whatsapp'),
+            'waConnected' => WaDevice::connectedByBranch($model->getKey()) !== [],
+        ]);
+    }
+
+    /** Simpan sakelar notifikasi WhatsApp (Invoice, Tiket, Jadwal). Ditolak kalau paket WhatsApp tidak aktif. */
+    public function waNotify(Request $request, string $branch): RedirectResponse
+    {
+        $model = $this->ownedBranch($request, $branch);
+        abort_unless(app(AppAccess::class)->branchActive($model->getKey(), 'whatsapp'), 403);
+
+        $model->forceFill(['wa_notify' => collect(UserBranch::WA_NOTIFY)->map(fn ($meta, $kind) => $request->boolean("wa_notify.{$kind}"))->all()])->save();
+
+        return back()->with('success', 'Pengaturan notifikasi WhatsApp '.$model->name.' tersimpan.');
     }
 
     public function update(BranchRequest $request, string $branch): RedirectResponse
