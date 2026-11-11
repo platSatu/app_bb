@@ -14,6 +14,9 @@
         .eticket-wrap { container-type: inline-size; max-width: 880px; margin: 0 auto; }
         .eticket { display: flex; aspect-ratio: 3 / 1.1; border-radius: 2cqw; overflow: hidden; background: #fff; box-shadow: 0 1.5cqw 4cqw rgba(16,24,40,.14); position: relative; }
         .et-main { flex: 0 0 74%; position: relative; color: #fff; background: linear-gradient(135deg, var(--tc), color-mix(in srgb, var(--tc) 45%, #1d1b2e)) center / cover no-repeat; }
+        /* Nama event miring tipis memenuhi bagian berwarna (seperti pola samar di boarding pass); tidak menutupi QR. */
+        .et-wm { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+        .et-wm div { position: absolute; left: -40%; width: 180%; top: var(--y); transform: rotate(-18deg); white-space: nowrap; font-size: 2.4cqw; font-weight: 300; letter-spacing: .45em; text-transform: uppercase; color: rgba(255,255,255,.09); }
         .et-content { position: absolute; inset: 0; padding: 3.2cqw 3.6cqw; display: flex; flex-direction: column; }
         .et-top { display: flex; align-items: center; gap: 1.2cqw; }
         .et-badge { background: #fff; color: var(--tc); font-weight: 700; font-size: 1.6cqw; padding: .45cqw 1.5cqw; border-radius: 99px; }
@@ -39,6 +42,11 @@
 <div class="eticket-wrap">
     <div class="eticket" style="--tc: {{ $color }}; --hole: {{ $hole ?? '#fbf9f9' }};">
         <div class="et-main" data-eticket-bg style="{{ $mainBg }}">
+            <div class="et-wm" aria-hidden="true">
+                @for ($row = 0; $row < 14; $row++)
+                    <div style="--y: {{ $row * 11 - 30 }}%; text-indent: {{ $row % 2 ? '-4em' : '0' }}">{{ str_repeat($eventName.'     ', 10) }}</div>
+                @endfor
+            </div>
             <div class="et-content">
                 <div class="et-top">
                     <span class="et-badge">{{ $category }}</span>

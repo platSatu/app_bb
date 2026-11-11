@@ -14,13 +14,14 @@
         table { border-collapse: collapse; }
         td { padding: 0; }
         .main { width: 647px; height: 318px; vertical-align: top; color: #fff; background-color: {{ $color }}; background-size: cover; background-position: center; }
-        .shade { height: 266px; padding: 26px 30px; background-color: {{ $background ? 'rgba(17,17,27,0.55)' : 'transparent' }}; }
+        .shade { height: 266px; padding: 26px 30px; background-color: {{ $background ? 'rgba(17,17,27,0.55)' : 'transparent' }}; background-size: 647px 318px; background-position: 0 0; }
         .badge { display: inline-block; background: #fff; color: {{ $color }}; font-weight: bold; font-size: 12px; padding: 3px 12px; border-radius: 10px; }
         .kicker { font-size: 10px; letter-spacing: 3px; margin-left: 8px; }
         .title { font-size: 30px; font-weight: bold; line-height: 1.1; margin-top: 70px; }
         .meta { font-size: 12px; margin-top: 6px; }
-        .info { margin-top: 18px; border-top: 1px solid rgba(255,255,255,0.4); padding-top: 12px; }
+        .info { width: 100%; margin-top: 18px; border-top: 1px solid rgba(255,255,255,0.4); padding-top: 12px; }
         .info td { padding: 0 34px 0 0; vertical-align: top; }
+        .info td:last-child { width: 100%; }
         .label { font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; }
         .value { font-size: 14px; font-weight: bold; }
         .stub { width: 230px; height: 318px; text-align: center; vertical-align: middle; border-left: 3px dashed {{ $color }}; background: #fff; }
@@ -33,7 +34,8 @@
     <table>
         <tr>
             <td class="main" @if ($background) style="background-image: url('{{ $background }}');" @endif>
-                <div class="shade">
+                {{-- $watermark: PNG transparan berisi nama event miring (PublicTicketController::watermark), di atas warna/foto latar. --}}
+                <div class="shade" @if ($watermark) style="background-image: url('{{ $watermark }}');" @endif>
                     <span class="badge">{{ $ticket->category_name }}</span><span class="kicker">E-TICKET</span>
                     <div class="title">{{ $page->name }}</div>
                     @if ($meta) <div class="meta">{{ $meta }}</div> @endif

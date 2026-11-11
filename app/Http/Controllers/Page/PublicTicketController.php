@@ -105,7 +105,56 @@ class PublicTicketController extends Controller
             'ticket' => $ticket,
             'qr' => $qr->dataUri($ticket->token),
             'background' => $background,
+            'watermark' => $this->watermark($page->name, $background ? null : ($page->setting('ticket.color') ?: '#e36666')),
         ])->setPaper([0, 0, 660, 242])->download('e-ticket-'.$ticket->number.'.pdf');
+    }
+
+    /**
+     * Latar bagian berwarna e-ticket PDF, dibuat sama dengan versi web (_eticket-card): gradasi warna tiket ke gelap
+     * (135°) + nama event miring & samar. dompdf tidak bisa gradasi maupun teks miring, jadi digambar sebagai PNG 2x ukuran
+     * bagian itu (647×318px) supaya tajam. $color null (event berfoto latar) = pola saja, transparan. Gagal = latar polos.
+     */
+    private function watermark(string $eventName, ?string $color): ?string
+    {
+        try {
+            [$w, $h] = [1294, 636];
+            $image = (new ImageManager(new Driver()))->create($w, $h);
+
+            // Gradasi seperti CSS linear-gradient(135deg, warna, color-mix(warna 45%, #1d1b2e)): garis miring dari kiri atas.
+            if ($color && preg_match('/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i', $color, $hex)) {
+                $from = array_map('hexdec', array_slice($hex, 1));
+                $to = array_map(fn ($c, $d) => $c * 0.45 + $d * 0.55, $from, [29, 27, 46]);
+
+                for ($k = 0; $k <= $w + $h; $k += 2) {
+                    $rgb = array_map(fn ($a, $b) => (int) round($a + ($b - $a) * $k / ($w + $h)), $from, $to);
+                    $image->drawLine(function ($line) use ($k, $rgb) {
+                        $line->from($k, 0);
+                        $line->to($k - 636, 636);
+                        $line->color(sprintf('rgb(%d, %d, %d)', ...$rgb));
+                        $line->width(3);
+                    });
+                }
+            }
+
+            // Huruf berjarak & kapital seperti versi web; baris naik ke kanan dengan jarak rata.
+            $line = str_repeat(implode(' ', mb_str_split(mb_strtoupper($eventName))).'        ', 6);
+
+            for ($row = 0; $row < 16; $row++) {
+                $image->text(($row % 2 ? '          ' : '').$line, -200, $row * 90, function ($font) {
+                    $font->file(base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf'));
+                    $font->size(26);
+                    $font->color('rgba(255, 255, 255, 0.10)');
+                    $font->angle(-18);
+                    $font->valign('top');
+                });
+            }
+
+            return 'data:image/png;base64,'.base64_encode((string) $image->toPng());
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
     }
 
     /** @return array{0: PageCategory, 1: Ticket} */
