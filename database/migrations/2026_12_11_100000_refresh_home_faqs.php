@@ -6,9 +6,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * FAQ beranda website: 10 pertanyaan baru (2 per layanan: Pages, Tiket, WhatsApp, Komplit, Invoice) dipasang
- * paling atas, karena website menampilkan 10 FAQ teratas. FAQ lain tetap aktif sebagai bahan jawaban live chat;
- * hanya yang isinya sudah digantikan (WebFaqSeeder::REPLACED) yang dinonaktifkan, datanya tetap ada.
+ * FAQ beranda website: 6 pertanyaan seputar tempat kursus (WebFaqSeeder::HOME) dipasang paling atas, karena
+ * website menampilkan 6 FAQ teratas. FAQ lain tidak diubah isinya dan tetap aktif sebagai bahan jawaban live chat.
  * Aman dijalankan ulang: pertanyaan yang sudah ada tidak dibuat dua kali.
  */
 return new class extends Migration
@@ -18,7 +17,7 @@ return new class extends Migration
         $questions = array_keys(WebFaqSeeder::HOME);
         $missing = array_values(array_diff($questions, DB::table('web_faqs')->whereIn('name', $questions)->pluck('name')->all()));
 
-        // Geser FAQ lain ke bawah supaya 10 FAQ baru menempati urutan teratas.
+        // Geser FAQ lain ke bawah supaya FAQ beranda menempati urutan teratas.
         DB::table('web_faqs')->whereNotIn('name', $questions)->increment('sort_order', count($questions));
 
         foreach ($questions as $i => $question) {
@@ -29,7 +28,6 @@ return new class extends Migration
             }
         }
 
-        DB::table('web_faqs')->whereIn('name', WebFaqSeeder::REPLACED)->update(['status' => 'inactive', 'updated_at' => now()]);
     }
 
     public function down(): void

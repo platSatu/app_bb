@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\WebFaq;
 use App\Support\Web\SortOrder;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * FAQ website (Superadmin > Website > FAQ), sekaligus sumber jawaban live chat (tanpa AI) dan
@@ -19,33 +20,16 @@ use Illuminate\Database\Seeder;
 class WebFaqSeeder extends Seeder
 {
     /**
-     * 10 FAQ teratas yang tampil di beranda website (2 per layanan), dipasang lewat migration
-     * 2026_12_11_100000_refresh_home_faqs. Bahasa sehari-hari, tanpa istilah teknis.
+     * 6 FAQ beranda website (khusus tempat kursus), dipasang lewat migration 2026_12_11_100000_refresh_home_faqs.
+     * Website menampilkan 6 FAQ teratas; FAQ lain tetap aktif sebagai bahan jawaban live chat.
      */
     public const HOME = [
-        // Pages
-        'Apa saja yang bisa saya buat di Pages?' => 'Banyak, dan semuanya gratis. Anda bisa membuat bio link, katalog online yang bisa langsung dibayar, landing page tanpa coding, sampai kuis dan tes online. Setiap orang yang mengisi otomatis tersimpan sebagai customer, jadi tidak ada calon pelanggan yang terlewat.',
-        'Bisakah saya membuat placement test dan melihat hasilnya?' => 'Bisa. Buat tes penempatan sendiri, lalu bagikan link-nya ke calon murid. Tesnya bisa gratis atau berbayar, jawaban dinilai otomatis, dan skornya langsung muncul begitu tes selesai. Semua hasil tersimpan rapi per peserta, jadi Anda tinggal melihatnya untuk menentukan kelas yang paling pas, tanpa koreksi manual.',
-        // Tiket
-        'Bagaimana cara menjual tiket event di bizbos?' => 'Buat halaman event, atur kategori dan kuota tiket, lalu bagikan link-nya. Pembeli membayar online lewat Virtual Account, QRIS, atau e-wallet, dan e-ticket ber-QR langsung terkirim ke email mereka. Di hari acara, panitia cukup scan QR dari HP untuk registrasi ulang, bahkan bisa mencetak ID card peserta.',
-        'Berapa biaya memakai fitur tiket?' => 'Tidak ada biaya langganan. Anda hanya membayar biaya layanan kecil untuk setiap tiket yang terjual. Untuk event gratis seperti ibadah, komunitas, atau acara kecil, sejumlah tiket pertama bisa dibagikan tanpa biaya sama sekali. Besarannya selalu tertulis di kartu paket Event (Ticket).',
-        // WhatsApp
-        'Apa saja yang bisa dilakukan fitur WhatsApp bizbos?' => 'Satu nomor WhatsApp bisa dipegang beberapa CS sekaligus dalam satu inbox, lengkap dengan label, catatan, dan pembagian chat. Anda juga bisa mengirim broadcast dan pesan terjadwal, memasang chatbot dan auto reply, sampai AI bot yang paham produk Anda, jadi pelanggan tetap terlayani walau di luar jam kerja.',
-        'Apakah saya harus ganti nomor atau memasang aplikasi khusus?' => 'Tidak perlu. Cukup hubungkan nomor WhatsApp yang sudah Anda pakai dengan scan QR, sama seperti membuka WhatsApp di laptop. Kontak dan pelanggan Anda tetap, dan semua chat bisa dibalas langsung dari dashboard bizbos, bersama tim.',
-        // Komplit
-        'Paket Komplit cocok untuk siapa?' => 'Untuk tempat kursus, bimbel, sanggar, atau lembaga yang ingin semuanya beres dari satu tempat. Paket Komplit berisi Jadwal, Invoice, dan WhatsApp sekaligus, ditambah Pages dan tiket event yang memang gratis dipakai. Pendaftaran, jadwal, absensi, sampai tagihan saling terhubung tanpa input ulang.',
-        'Apa saja yang bisa diatur di fitur Jadwal?' => 'Kelas bisa dibuat bulanan atau paket pertemuan, misalnya 15x, dengan jadwal yang bebas diatur. Pengajar mengabsen dari HP, cukup klik atau scan kartu QR murid. Tagihan les terbit otomatis ke Invoice, pengingat les dikirim lewat WhatsApp sehari sebelumnya, dan orang tua bisa memantau jadwal, kehadiran, serta tagihan anak dari portalnya sendiri. Honor pengajar dan rekap bulanan pun terhitung sendiri.',
-        // Invoice
-        'Bagaimana cara menagih pelanggan dengan Invoice?' => 'Buat tagihan satuan, atau sekaligus untuk banyak pelanggan per periode, misalnya iuran atau SPP bulanan. Pelanggan menerima link bayar dan bisa membayar lewat Virtual Account, QRIS, atau e-wallet. Status lunas tercatat otomatis, jadi Anda tidak perlu lagi mengecek transferan satu per satu.',
-        'Apakah pelanggan diingatkan kalau belum bayar?' => 'Ya, otomatis. Pengingat dikirim sebelum dan sesudah jatuh tempo lewat email, juga lewat WhatsApp kalau Anda memakai paket WhatsApp. Denda keterlambatan bisa Anda atur sendiri, pelanggan bisa melihat semua tagihannya di halaman Tagihan Saya, dan uang yang masuk terkumpul di Saldo untuk ditarik ke rekening Anda.',
-    ];
-
-    /** FAQ lama yang isinya sudah digantikan HOME (dinonaktifkan oleh migration yang sama, tetap tersimpan). */
-    public const REPLACED = [
-        'Apa saja yang bisa dibuat di Pages?',
-        'Bagaimana cara menagih pelanggan lewat Invoice?',
-        'Apakah fitur WhatsApp bisa dipakai banyak CS sekaligus?',
-        'Bisakah bizbos disambungkan ke website atau aplikasi saya?',
+        'bizbos cocok untuk tempat kursus seperti apa?' => 'Hampir semua jenis tempat belajar: les musik, bimbel dan les privat, kursus bahasa, coding dan robotik, renang dan olahraga, seni, vokal, tari, sampai sanggar dan lembaga pelatihan. Mau kelas privat atau grup, satu cabang atau banyak cabang, semuanya bisa diatur dari satu akun.',
+        'Apakah sulit dipakai? Saya kurang paham teknologi.' => 'Tidak sulit, kok. Anda cukup mengisi data kelas, pengajar, dan murid, lalu jadwal dan sesinya dibuat otomatis. Pengajar cukup memakai HP untuk absen, dan orang tua tinggal membuka link atau portalnya. Kalau ada yang membingungkan, tim kami siap membantu lewat WhatsApp.',
+        'Bagaimana alurnya, dari pendaftaran sampai murid membayar?' => 'Bagikan link pendaftaran, calon murid mengisi data, lalu bisa ikut placement test online supaya kelasnya pas. Setelah Anda setujui, murid masuk ke kelas bulanan atau paket pertemuan. Tagihan terbit otomatis dari jadwal, orang tua membayar lewat link, dan status lunasnya tercatat sendiri.',
+        'Bagaimana cara pengajar mengabsen murid?' => 'Langsung dari HP, lewat portal pengajar. Cukup pilih Hadir, Izin, atau Alpa, atau scan kartu QR murid supaya lebih cepat. Murid yang izin bisa dibuatkan sesi pengganti, dan honor pengajar ikut tercatat otomatis dari setiap absensi.',
+        'Apa saja yang bisa dilihat orang tua?' => 'Orang tua punya portal sendiri untuk melihat jadwal les, riwayat kehadiran, dan tagihan anak, sekaligus membayarnya dari sana. Mereka juga menerima pengingat les sehari sebelumnya dan kabar tagihan lewat WhatsApp, jadi Anda tidak perlu lagi mengabari satu per satu.',
+        'Berapa biayanya, dan bisa dicoba dulu?' => 'Bisa. Daftarnya gratis, dan tersedia paket Trial untuk mencoba Jadwal, Invoice, dan WhatsApp sebelum berlangganan. Untuk tempat kursus, paket Komplit paling pas karena semuanya sudah saling terhubung. Harga lengkapnya ada di halaman paket, dan kalau ingin dibantu memilih, chat kami saja ya.',
     ];
 
     private const FAQS = [
@@ -106,9 +90,10 @@ class WebFaqSeeder extends Seeder
         '137146448d7a9c9ed7535bc3ce5e27007fe66fa3',
     ];
 
+
     public function run(): void
     {
-        foreach (self::FAQS as $question => $answer) {
+        foreach ([...self::HOME, ...self::FAQS] as $question => $answer) {
             $faq = WebFaq::firstOrCreate(['name' => $question], [
                 'descriptions' => $answer,
                 'status' => 'active',
@@ -119,5 +104,23 @@ class WebFaqSeeder extends Seeder
                 $faq->update(['descriptions' => $answer]);
             }
         }
+
+        $this->putTopFirst();
+    }
+
+    /** Urutan: FAQ beranda (sesuai HOME), lalu FAQ lain dengan urutan relatif yang sama seperti sebelumnya. */
+    private function putTopFirst(): void
+    {
+        $faqs = WebFaq::orderBy('sort_order')->get();
+        [$top, $rest] = $faqs->partition(fn (WebFaq $f) => array_key_exists($f->name, self::HOME));
+        $ordered = $top->sortBy(fn (WebFaq $f) => array_search($f->name, array_keys(self::HOME), true))->concat($rest)->values();
+
+        DB::transaction(function () use ($ordered) {
+            foreach ($ordered as $i => $faq) {
+                if ($faq->sort_order !== $i + 1) {
+                    $faq->update(['sort_order' => $i + 1]);
+                }
+            }
+        });
     }
 }
