@@ -350,16 +350,25 @@
                 </form>
             </div>
 
+            {{-- Hapus banyak: kotak centang di tiap baris memakai form="bulk-delete". --}}
+            <form method="POST" action="{{ route('superadmin.tools.prospects.bulk-destroy') }}" id="bulk-delete" class="d-flex flex-wrap align-items-center gap-2 mb-2"
+                onsubmit="const n = document.querySelectorAll('.prospect-check:checked').length; if (! n) { alert('Centang dulu prospek yang mau dihapus.'); return false; } return confirm('Hapus ' + n + ' prospek terpilih? Data yang dihapus tidak bisa dikembalikan.');">
+                @csrf
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="ri-delete-bin-line"></i> Hapus terpilih</button>
+                <span class="small text-muted">Centang di kolom kiri; centang judul kolom untuk memilih semua di halaman ini.</span>
+            </form>
+
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0 prospect-table">
                     <thead class="table-light">
-                        <tr><th>Nama</th><th>Alamat</th><th>Kontak</th>
+                        <tr><th style="width: 1%"><input class="form-check-input" type="checkbox" title="Pilih semua di halaman ini" onclick="document.querySelectorAll('.prospect-check').forEach(c => c.checked = this.checked)"></th><th>Nama</th><th>Alamat</th><th>Kontak</th>
                             <th class="text-nowrap"><a href="{{ route('superadmin.tools.prospects.index', ['sort' => request('sort') === 'score' ? null : 'score'] + request()->except('sort', 'page')) }}" class="text-reset" title="Urutkan skor tertinggi">Skor <i class="ri-arrow-down-line"></i></a></th>
                             <th>Rating</th><th>Status</th><th class="text-end">Aksi</th></tr>
                     </thead>
                     <tbody>
                         @forelse ($prospects as $prospect)
                             <tr @class(['opacity-50' => $prospect->is_closed])>
+                                <td><input class="form-check-input prospect-check" type="checkbox" name="ids[]" value="{{ $prospect->id }}" form="bulk-delete"></td>
                                 <td style="min-width: 200px">
                                     <span class="fw-semibold">{{ $prospect->name }}</span>
                                     @if ($prospect->is_closed) <span class="badge bg-secondary ms-1">Tutup</span> @endif
@@ -370,7 +379,7 @@
                                     <span class="sub">{{ collect([$prospect->city, $prospect->province, $prospect->postal_code])->filter()->implode(', ') }}</span>
                                 </td>
                                 <td class="text-nowrap">
-                                    {{ $prospect->phone ?: '-' }}
+                                    {{ $prospect->phone ?: ($prospect->whatsapp ? '+'.$prospect->whatsapp : '-') }}
                                     @if ($prospect->email) <span class="sub">{{ $prospect->email }}</span> @endif
                                     @if ($prospect->opening_hours) <span class="sub"><i class="ri-time-line"></i> {{ $prospect->opening_hours }}</span> @endif
                                 </td>
@@ -406,10 +415,15 @@
                                         <a href="{{ $prospect->maps_url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary" title="Buka di Google Maps (lihat rating, ulasan, jam buka)"><i class="ri-map-pin-line"></i></a>
                                     @endif
                                     <button type="button" class="btn btn-sm btn-outline-dark" data-bs-toggle="collapse" data-bs-target="#edit-{{ $prospect->id }}" title="Ubah status & lengkapi data"><i class="ri-edit-line"></i></button>
+                                    <form method="POST" action="{{ route('superadmin.tools.prospects.destroy', $prospect) }}" class="d-inline" onsubmit="return confirm('Hapus prospek {{ e(addslashes($prospect->name)) }}?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus"><i class="ri-delete-bin-line"></i></button>
+                                    </form>
                                 </td>
                             </tr>
                             <tr class="collapse prospect-edit" id="edit-{{ $prospect->id }}">
-                                <td colspan="7">
+                                <td colspan="8">
                                     <form method="POST" action="{{ route('superadmin.tools.prospects.update', $prospect) }}" class="row g-2 align-items-end">
                                         @csrf
                                         @method('PUT')
@@ -462,7 +476,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="text-center text-muted py-4">Belum ada prospek. Simpan dari Tools › Open Places atau nyalakan Agent.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-4">Belum ada prospek. Simpan dari Tools › Open Places atau nyalakan Agent.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

@@ -100,11 +100,13 @@ class Prospect extends Model
                 }
 
                 $known[$email] = true;
-                $phone = preg_replace('/\D/', '', (string) ($row['phone'] ?? ''));
+                // 0812.., 62812.. atau 812.. (angka 0 di depan hilang di Excel) -> telepon 0812.., WA 62812..
+                $digits = preg_replace('/^(62|0)/', '', preg_replace('/\D/', '', (string) ($row['phone'] ?? '')));
+                $phone = strlen($digits) >= 8 ? mb_substr($digits, 0, 17) : '';
                 $insert[] = [
                     'id' => (string) \Illuminate\Support\Str::uuid7(), 'source' => 'import', 'segment' => ProspectAgentSetting::IMPORT_SEGMENT,
                     'name' => mb_substr(trim((string) ($row['name'] ?? '')) ?: strstr($email, '@', true), 0, 200), 'email' => $email,
-                    'whatsapp' => $phone !== '' ? mb_substr(preg_replace('/^0/', '62', $phone), 0, 20) : null,
+                    'phone' => $phone !== '' ? '0'.$phone : null, 'whatsapp' => $phone !== '' ? '62'.$phone : null,
                     'city' => mb_substr(trim((string) ($row['city'] ?? '')), 0, 150) ?: null,
                     'status' => 'new', 'created_by' => $userId, 'created_at' => now(), 'updated_at' => now(),
                 ];

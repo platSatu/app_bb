@@ -244,6 +244,7 @@ Route::middleware(['auth', 'superadmin'])
             Route::put('agent/send', 'updateSending')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:20,1'])->name('agent.send');
             Route::post('agent/templates/test', 'testTemplate')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:5,10'])->name('agent.templates.test');
             Route::get('import/template', 'importTemplate')->middleware('permission:superadmin.tools.prospects,view')->name('import.template');
+            Route::post('bulk-delete', 'bulkDestroy')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:20,1'])->name('bulk-destroy');
             Route::post('import', 'import')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:10,10'])->name('import');
             Route::get('outreach', 'outreach')->middleware('permission:superadmin.tools.prospects,view')->name('outreach');
             Route::post('outreach/bulk', 'bulkOutreach')->middleware(['permission:superadmin.tools.prospects,manage', 'throttle:30,1'])->name('outreach.bulk');

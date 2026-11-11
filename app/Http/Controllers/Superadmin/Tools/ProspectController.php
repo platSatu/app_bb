@@ -283,6 +283,15 @@ class ProspectController extends Controller
         return back()->with('success', "Prospek {$prospect->name} diperbarui.");
     }
 
+    /** Hapus banyak prospek sekaligus (dicentang di daftar). */
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['ids' => ['required', 'array', 'max:500'], 'ids.*' => ['uuid']], ['ids.required' => 'Centang dulu prospek yang mau dihapus.']);
+        $count = Prospect::whereIn('id', $data['ids'])->delete();
+
+        return back()->with('success', "{$count} prospek dihapus.");
+    }
+
     public function destroy(Prospect $prospect): RedirectResponse
     {
         $prospect->delete();
