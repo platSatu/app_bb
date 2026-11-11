@@ -32,6 +32,12 @@
                         <label class="form-check-label" for="allow_retry">Boleh mengerjakan berkali-kali</label>
                         <div class="form-text">Kalau dimatikan, satu nomor WhatsApp hanya bisa mengerjakan 1 kali.</div>
                     </div>
+                    <div class="form-check form-switch mb-4">
+                        <input type="hidden" name="navigation" value="0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="navigation" name="navigation" value="1" @checked(old('navigation', $page->setting('quiz.navigation', true)))>
+                        <label class="form-check-label" for="navigation">Navigasi nomor soal</label>
+                        <div class="form-text">Nyala: satu soal per layar dengan nomor soal di samping. Mati: semua soal tampil berurutan dalam satu halaman.</div>
+                    </div>
                     @if ($canManage)
                         <div class="d-flex justify-content-end"><button type="submit" class="btn btn-primary">Simpan</button></div>
                     @endif

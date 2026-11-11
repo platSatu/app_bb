@@ -1,7 +1,9 @@
 @extends('page.public.layout')
 
 @section('title', $page->name)
-@section('width', '1040px')
+{{-- Navigasi nomor soal (Pengaturan Quiz): nyala = satu soal per layar + nomor di samping; mati = semua soal berurutan. --}}
+@php($nav = (bool) $page->setting('quiz.navigation', true))
+@if ($nav) @section('width', '1040px') @endif
 
 @push('head')
     <style>
@@ -45,10 +47,10 @@
         </div>
 
         <div class="row g-3">
-            <div class="col-lg-8 order-2 order-lg-1">
+            <div class="{{ $nav ? 'col-lg-8 order-2 order-lg-1' : 'col-12' }}">
         @foreach ($questions as $question)
             @php($name = 'answers['.$question->id.']')
-            <div class="card quiz-card shadow-sm mb-3 {{ $loop->first ? '' : 'd-none' }}" data-question data-index="{{ $loop->index }}">
+            <div class="card quiz-card shadow-sm mb-3 {{ $nav && ! $loop->first ? 'd-none' : '' }}" data-question data-index="{{ $loop->index }}">
                 <div class="card-body p-4">
                     <div class="d-flex gap-3 mb-3">
                         <span class="q-number flex-shrink-0">{{ $loop->iteration }}</span>
@@ -74,6 +76,7 @@
                         @default
                             <input type="text" name="{{ $name }}" maxlength="255" class="form-control" placeholder="Jawaban Anda" autocomplete="off">
                     @endswitch
+                    @if ($nav)
                     <div class="d-flex justify-content-between align-items-center gap-2 mt-4 pt-3 border-top">
                         <button type="button" class="btn btn-light" data-go="{{ $loop->index - 1 }}" @disabled($loop->first)><i class="ri-arrow-left-s-line"></i> Sebelumnya</button>
                         <span class="small text-muted text-nowrap">{{ $loop->iteration }} / {{ $loop->count }}</span>
@@ -83,6 +86,7 @@
                             <button type="button" class="btn btn-brand" data-go="{{ $loop->index + 1 }}">Berikutnya <i class="ri-arrow-right-s-line"></i></button>
                         @endif
                     </div>
+                    @endif
                 </div>
             </div>
         @endforeach
@@ -96,6 +100,7 @@
                 </div>
             </div>
 
+            @if ($nav)
             <div class="col-lg-4 order-1 order-lg-2">
                 <div class="card quiz-card shadow-sm q-nav-card">
                     <div class="card-body p-3 p-lg-4">
@@ -114,6 +119,16 @@
                     </div>
                 </div>
             </div>
+            @else
+            <div class="col-12">
+                <div class="card quiz-card shadow-sm mb-5">
+                    <div class="card-body p-4 text-center">
+                        <p class="text-muted small mb-3" id="quiz-remaining"></p>
+                        <button type="submit" class="btn btn-brand px-5 py-2"><i class="ri-send-plane-line me-1"></i>Kirim Jawaban</button>
+                    </div>
+                </div>
+            </div>
+            @endif
         </div>
     </form>
 
@@ -139,9 +154,11 @@
                 }
 
                 // Tampilkan satu soal; nomor di samping ikut menandai soal yang sedang dibuka.
+                // Tanpa navigasi (semua soal tampil): cukup gulir ke soal yang dimaksud.
                 function show(index, scroll) {
                     if (index < 0 || index >= cards.length) return;
                     current = index;
+                    if (!navs.length) { if (scroll !== false) cards[index].scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
                     cards.forEach(function (card, i) { card.classList.toggle('d-none', i !== index); });
                     navs.forEach(function (nav, i) { nav.classList.toggle('is-current', i === index); });
                     if (scroll !== false && window.innerWidth < 992) cards[index].scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -152,8 +169,10 @@
                     cards.forEach(function (card, i) {
                         var done = isAnswered(card);
                         if (done) answered++;
-                        navs[i].classList.toggle('is-answered', done);
-                        if (done) navs[i].classList.remove('is-missing');
+                        if (navs[i]) {
+                            navs[i].classList.toggle('is-answered', done);
+                            if (done) navs[i].classList.remove('is-missing');
+                        }
                         card.querySelectorAll('.q-option').forEach(function (option) {
                             option.classList.toggle('is-checked', option.querySelector('input').checked);
                         });
@@ -181,7 +200,7 @@
                         var list = document.getElementById('quiz-check-list');
                         list.innerHTML = '';
                         empty.forEach(function (i) {
-                            navs[i].classList.add('is-missing');
+                            if (navs[i]) navs[i].classList.add('is-missing');
                             var b = document.createElement('button');
                             b.type = 'button'; b.className = 'btn btn-sm btn-outline-danger'; b.dataset.go = i; b.textContent = 'Soal ' + (i + 1);
                             list.appendChild(b);

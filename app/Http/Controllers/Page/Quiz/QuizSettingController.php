@@ -30,11 +30,13 @@ class QuizSettingController extends Controller
         $data = $request->validate([
             'time_limit' => ['nullable', 'integer', 'min:1', 'max:600'],
             'allow_retry' => ['boolean'],
+            'navigation' => ['boolean'],
         ], [], ['time_limit' => 'batas waktu']);
 
         $model->settings = [...($model->settings ?? []), 'quiz' => [
             'time_limit' => isset($data['time_limit']) ? (int) $data['time_limit'] : null,
             'allow_retry' => $request->boolean('allow_retry'),
+            'navigation' => $request->boolean('navigation'),
         ]];
         $model->save();
 
