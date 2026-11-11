@@ -36,7 +36,7 @@ class ScheduleAttendance extends Model
 
     protected function casts(): array
     {
-        return ['teacher_fee' => 'integer', 'owner_fee' => 'integer'];
+        return ['teacher_fee' => 'integer', 'owner_fee' => 'integer', 'scanned_at' => 'datetime'];
     }
 
     public function session(): BelongsTo

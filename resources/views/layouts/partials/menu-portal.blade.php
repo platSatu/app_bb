@@ -3,7 +3,7 @@
     $roles = auth()->user()->portalRoles();
     $sections = array_filter([
         'Student' => $roles['student'] ? [['portal.schedule', 'Jadwal Les', 'ri-calendar-event-line'], ['portal.attendance', 'Riwayat Kehadiran', 'ri-checkbox-circle-line']] : null,
-        'Pengajar' => $roles['teacher'] ? [['portal.teaching', 'Jadwal Mengajar', 'ri-presentation-line'], ['portal.absen', 'Absen Murid', 'ri-list-check-3']] : null,
+        'Pengajar' => $roles['teacher'] ? [['portal.teaching', 'Jadwal Mengajar', 'ri-presentation-line'], ['portal.scan', 'Scan Absen', 'ri-qr-scan-2-line'], ['portal.absen', 'Absen Murid', 'ri-list-check-3']] : null,
         'Tagihan' => $roles['payer'] ? [['bills.index', 'Tagihan Saya', 'ri-bill-line']] : null,
     ]);
 @endphp

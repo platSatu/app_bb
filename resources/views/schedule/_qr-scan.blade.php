@@ -1,13 +1,15 @@
 {{--
-    Absen pakai QR (admin & portal pengajar): scan kartu absen murid, pilihan Hadir murid itu langsung tercentang.
-    Pilihan manual tetap bisa dipakai; absen baru tersimpan setelah tombol simpan ditekan.
-    Butuh input radio Hadir dengan data-qr (isi QR murid) & data-name, dan baris pembungkus data-qr-row.
+    Absen pakai QR, dua cara:
+    - $scanUrl diisi (halaman Scan Absen pengajar): setiap scan langsung dikirim & dicek server, jam scan tercatat, sekali per murid.
+      Penghitung [data-scan-count="<id sesi>"] bertambah setiap scan berhasil.
+    - tanpa $scanUrl (detail sesi admin): pilihan Hadir murid langsung tercentang, tersimpan setelah tombol simpan ditekan.
+      Butuh input radio Hadir dengan data-qr (isi QR murid) & data-name, dan baris pembungkus data-qr-row.
 --}}
-<div class="border rounded-3 p-3 mb-3" id="qr-scan">
+<div class="border rounded-3 p-3 mb-3" id="qr-scan" @isset($scanUrl) data-scan-url="{{ $scanUrl }}" @endisset>
     <div class="d-flex flex-wrap align-items-center gap-3">
         <div class="flex-grow-1">
             <div class="fw-semibold"><i class="ri-qr-scan-2-line text-primary me-1"></i> Absen pakai QR</div>
-            <div class="small text-muted">Scan kartu absen murid, status Hadir terisi sendiri. Bisa juga pilih manual di bawah.</div>
+            <div class="small text-muted">{{ isset($scanUrl) ? 'Buka kamera sekali, lalu scan kartu murid satu per satu. Jam scan tercatat dan setiap murid cukup sekali.' : 'Scan kartu absen murid, status Hadir terisi sendiri. Bisa juga pilih manual di bawah.' }}</div>
         </div>
         <button type="button" class="btn btn-outline-primary" data-qr-toggle><i class="ri-camera-line me-1"></i><span>Buka kamera</span></button>
     </div>
@@ -24,7 +26,7 @@
             var box = document.getElementById('qr-scan');
             if (!box) return;
             var toggle = box.querySelector('[data-qr-toggle]'), panel = box.querySelector('[data-qr-panel]'), message = box.querySelector('[data-qr-message]');
-            var scanner = null, last = '', lastAt = 0;
+            var scanner = null, last = '', lastAt = 0, url = box.dataset.scanUrl;
 
             function say(text, tone) {
                 message.textContent = text;
@@ -43,6 +45,8 @@
                 if (code === last && Date.now() - lastAt < 3000) return;
                 last = code; lastAt = Date.now();
 
+                if (url) { send(code); return; }
+
                 var input = Array.prototype.find.call(document.querySelectorAll('input[data-qr]'), function (el) { return el.dataset.qr === code; });
                 if (!input) { say('QR ini bukan milik murid di sesi ini. Coba kartu yang lain ya.', 'danger'); return; }
 
@@ -55,6 +59,27 @@
                 if (navigator.vibrate) navigator.vibrate(80);
                 var left = Array.prototype.filter.call(document.querySelectorAll('input[data-qr]'), function (el) { return !el.checked; }).length;
                 say(input.dataset.name + ' hadir. ' + (left ? 'Lanjut scan murid berikutnya.' : 'Semua murid sudah tercatat hadir, tinggal simpan.'), 'success');
+            }
+
+            // Mode halaman scan: server yang memutuskan (QR sah, murid di sesi pengajar ini, belum pernah discan).
+            function send(code) {
+                say('Memeriksa...', 'muted');
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                    body: JSON.stringify({ code: code })
+                }).then(function (res) {
+                    return res.json().catch(function () { return {}; }).then(function (data) {
+                        if (!res.ok) {
+                            say(data.message || (res.status === 429 ? 'Scan terlalu cepat, tunggu sebentar ya.' : res.status === 419 ? 'Halaman sudah lama terbuka. Muat ulang dulu ya.' : 'Scan belum berhasil, coba lagi.'), 'danger');
+                            return;
+                        }
+                        var count = document.querySelector('[data-scan-count="' + data.session + '"]');
+                        if (count) count.textContent = Number(count.textContent) + 1;
+                        if (navigator.vibrate) navigator.vibrate(80);
+                        say(data.message + ' Lanjut scan murid berikutnya.', 'success');
+                    });
+                }).catch(function () { say('Koneksi terputus. Cek internet lalu scan lagi.', 'danger'); });
             }
 
             toggle.addEventListener('click', function () {

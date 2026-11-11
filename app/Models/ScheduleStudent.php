@@ -39,7 +39,22 @@ class ScheduleStudent extends Authenticatable
     /** Isi QR kartu absen: id murid + tanda tangan dari app key, jadi QR murid lain tidak bisa dibuat sendiri. */
     public function qrCode(): string
     {
-        return 'BBS.'.$this->getKey().'.'.substr(hash_hmac('sha256', 'schedule-card|'.$this->getKey(), (string) config('app.key')), 0, 16);
+        return 'BBS.'.$this->getKey().'.'.self::qrSignature($this->getKey());
+    }
+
+    /** Id murid dari isi QR; null kalau formatnya salah atau tanda tangannya tidak cocok (QR palsu). */
+    public static function idFromQr(string $code): ?string
+    {
+        if (! preg_match('/^BBS\.([0-9a-f-]{36})\.([0-9a-f]{16})$/', trim($code), $m)) {
+            return null;
+        }
+
+        return hash_equals(self::qrSignature($m[1]), $m[2]) ? $m[1] : null;
+    }
+
+    private static function qrSignature(string $id): string
+    {
+        return substr(hash_hmac('sha256', 'schedule-card|'.$id, (string) config('app.key')), 0, 16);
     }
 
     /** Link kartu absen yang bisa dibuka tanpa login (dikirim lewat email / WhatsApp). */

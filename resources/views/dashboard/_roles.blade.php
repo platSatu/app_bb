@@ -23,6 +23,9 @@
                         <h6 class="mb-0"><i class="ri-presentation-line text-primary me-1"></i> Mengajar Hari Ini</h6>
                         <a href="{{ route('portal.teaching') }}" class="small">Lihat minggu ini</a>
                     </div>
+                    @if ($portal['teaching']->where('status', 'scheduled')->isNotEmpty())
+                        <a href="{{ route('portal.scan') }}" class="btn btn-primary w-100 mb-3"><i class="ri-qr-scan-2-line me-1"></i>Scan Absen Murid</a>
+                    @endif
                     @if ($portal['toFill'])
                         <a href="{{ route('portal.absen') }}" class="alert alert-danger d-flex align-items-center gap-2 py-2 text-decoration-none">
                             <i class="ri-error-warning-line fs-5"></i>

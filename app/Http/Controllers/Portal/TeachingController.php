@@ -6,11 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Portal\Concerns\InPortal;
 use App\Models\ScheduleAttendance;
 use App\Models\ScheduleSession;
+use App\Models\ScheduleStudent;
 use App\Models\ScheduleTeacher;
 use App\Services\Schedule\ScheduleSessionService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use RuntimeException;
@@ -102,6 +105,55 @@ class TeachingController extends Controller
         }
 
         return redirect()->route('portal.absen')->with('success', 'Terima kasih, absen '.$model->grade?->name.' tanggal '.$model->start_at->translatedFormat('d M').' sudah tersimpan.');
+    }
+
+    /** Halaman scan: sekali buka kamera untuk semua murid di sesi pengajar ini yang sedang berlangsung hari ini. */
+    public function scan(Request $request): View
+    {
+        $ids = $this->activeTeacherIds($request);
+        abort_if($ids === [], 403);
+
+        return view('portal.teaching.scan', [
+            'sessions' => ScheduleSessionService::scannable($ids)->with([...self::SESSION_WITH, 'attendances.student:id,name'])->orderBy('start_at')->get(),
+            'later' => ScheduleSession::whereIn('teacher_id', $ids)->where('status', ScheduleSession::STATUS_SCHEDULED)
+                ->whereBetween('start_at', [now()->addMinutes(ScheduleSessionService::SCAN_EARLY_MINUTES), today()->endOfDay()])->orderBy('start_at')->first(),
+        ]);
+    }
+
+    /** Satu kali scan QR kartu murid. QR palsu atau murid di luar sesi pengajar ini ditolak & dicatat di log. */
+    public function checkIn(Request $request): JsonResponse
+    {
+        $ids = $this->activeTeacherIds($request);
+        $studentId = ScheduleStudent::idFromQr((string) $request->input('code'));
+
+        if ($ids === [] || ! $studentId) {
+            return $this->rejectScan($request, 'QR ini bukan kartu absen yang sah. Coba kartu yang lain ya.', $ids === [] ? 'bukan pengajar aktif' : 'QR tidak sah');
+        }
+
+        try {
+            $attendance = $this->sessions->checkIn($studentId, $ids, $request->user());
+        } catch (RuntimeException $e) {
+            return $e->getCode() === 403
+                ? $this->rejectScan($request, $e->getMessage(), 'murid di luar sesi pengajar', $studentId)
+                : response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'message' => $attendance->student?->name.' hadir, tercatat pukul '.$attendance->scanned_at->format('H:i').'.',
+            'session' => $attendance->session_id,
+        ]);
+    }
+
+    private function rejectScan(Request $request, string $message, string $reason, ?string $studentId = null): JsonResponse
+    {
+        Log::warning('[SCAN ABSEN] Ditolak: '.$reason, ['user' => $request->user()->getKey(), 'student' => $studentId, 'ip' => $request->ip()]);
+
+        return response()->json(['message' => $message], 403);
+    }
+
+    private function activeTeacherIds(Request $request): array
+    {
+        return $this->teachers($request->user())->where('status', ScheduleTeacher::STATUS_ACTIVE)->modelKeys();
     }
 
     /** Pengajar hanya mengisi sesi miliknya yang masih terjadwal & sudah dimulai. Koreksi setelah selesai lewat admin. */

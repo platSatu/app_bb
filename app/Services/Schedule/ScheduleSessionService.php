@@ -8,6 +8,7 @@ use App\Models\ScheduleTeacher;
 use App\Models\User;
 use App\Models\UserBranch;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -59,6 +60,51 @@ class ScheduleSessionService
             }
 
             $locked->forceFill(['status' => ScheduleSession::STATUS_DONE, 'completed_at' => now(), 'completed_by' => $actor?->getKey()])->save();
+        });
+    }
+
+    /** Scan QR dibuka mulai sekian menit sebelum sesi dimulai, sampai sesi berakhir. */
+    public const SCAN_EARLY_MINUTES = 30;
+
+    /** Sesi milik pengajar ini yang sedang bisa discan sekarang. */
+    public static function scannable(array $teacherIds): Builder
+    {
+        return ScheduleSession::whereIn('teacher_id', $teacherIds)
+            ->where('status', ScheduleSession::STATUS_SCHEDULED)
+            ->where('start_at', '<=', now()->addMinutes(self::SCAN_EARLY_MINUTES))
+            ->where('end_at', '>=', now());
+    }
+
+    /**
+     * Absen lewat scan kartu QR oleh pengajar sesi itu sendiri: murid ditandai Hadir, jam scan & pemindainya dicatat.
+     * Satu murid hanya bisa discan sekali per sesi. Kode 403 = murid tidak ada di sesi pengajar ini (dicatat di log).
+     */
+    public function checkIn(string $studentId, array $teacherIds, User $actor): ScheduleAttendance
+    {
+        return DB::transaction(function () use ($studentId, $teacherIds, $actor) {
+            $attendance = ScheduleAttendance::with('student:id,name')
+                ->where('student_id', $studentId)
+                ->whereIn('session_id', self::scannable($teacherIds)->select('id'))
+                ->lockForUpdate()
+                ->first();
+
+            if (! $attendance) {
+                throw new RuntimeException('Murid ini tidak terdaftar di sesi Anda yang sedang berlangsung.', 403);
+            }
+
+            $name = $attendance->student?->name ?? 'Murid ini';
+
+            if ($attendance->scanned_at) {
+                throw new RuntimeException("{$name} sudah absen pukul {$attendance->scanned_at->format('H:i')}.");
+            }
+
+            if ($attendance->makeup_session_id) {
+                throw new RuntimeException("{$name} sudah izin dan dibuatkan sesi pengganti, jadi tidak perlu discan.");
+            }
+
+            $attendance->forceFill(['status' => ScheduleAttendance::STATUS_PRESENT, 'scanned_at' => now(), 'scanned_by' => $actor->getKey()])->save();
+
+            return $attendance;
         });
     }
 

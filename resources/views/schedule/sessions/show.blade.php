@@ -74,6 +74,9 @@
                                         <tr data-qr-row>
                                             <td class="text-nowrap">
                                                 <div class="fw-semibold">{{ $attendance->student?->name }}</div>
+                                                @if ($attendance->scanned_at)
+                                                    <div class="small text-success"><i class="ri-qr-scan-2-line"></i> Scan pukul {{ $attendance->scanned_at->format('H:i') }}</div>
+                                                @endif
                                                 @if ($attendance->replaces)
                                                     <div class="text-muted small">Pengganti sesi {{ $attendance->replaces->session?->start_at->translatedFormat('d M Y') }}</div>
                                                 @endif

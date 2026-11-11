@@ -47,13 +47,16 @@
                     <form method="POST" action="{{ route('portal.absen.save', $session) }}">
                         @csrf
                         @method('PUT')
-                        @if ($canFill && $session->attendances->isNotEmpty())
-                            @include('schedule._qr-scan')
+                        @if ($session->status === 'scheduled' && $session->attendances->isNotEmpty() && $session->end_at->isFuture())
+                            <a href="{{ route('portal.scan') }}" class="btn btn-outline-primary w-100 mb-2"><i class="ri-qr-scan-2-line me-1"></i>Scan QR murid</a>
                         @endif
                         @forelse ($session->attendances as $attendance)
-                            <div class="py-3 px-2 rounded-3 {{ $loop->last ? '' : 'border-bottom' }}" data-qr-row>
+                            <div class="py-3 px-2 rounded-3 {{ $loop->last ? '' : 'border-bottom' }}">
                                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                                    <div class="fw-semibold flex-grow-1">{{ $attendance->student?->name }}</div>
+                                    <div class="flex-grow-1">
+                                        <div class="fw-semibold">{{ $attendance->student?->name }}</div>
+                                        @if ($attendance->scanned_at) <div class="small text-success"><i class="ri-qr-scan-2-line"></i> Scan pukul {{ $attendance->scanned_at->format('H:i') }}</div> @endif
+                                    </div>
                                     @unless ($canFill)
                                         <span class="badge {{ $attendance->statusBadge() }}">{{ $attendance->status === ScheduleAttendance::STATUS_ABSENT ? 'Tidak Hadir' : $attendance->statusLabel() }}</span>
                                     @endunless
@@ -63,8 +66,7 @@
                                         @foreach ($options as $status => [$label, $color, $icon])
                                             <div class="col-4">
                                                 <input type="radio" class="btn-check" name="statuses[{{ $attendance->student_id }}]" value="{{ $status }}" id="st-{{ $attendance->id }}-{{ $status }}"
-                                                    @checked(old('statuses.'.$attendance->student_id, $attendance->status) === $status) required
-                                                    @if ($status === ScheduleAttendance::STATUS_PRESENT && $attendance->student) data-qr="{{ $attendance->student->qrCode() }}" data-name="{{ $attendance->student->name }}" @endif>
+                                                    @checked(old('statuses.'.$attendance->student_id, $attendance->status) === $status) required>
                                                 <label class="btn btn-outline-{{ $color }} w-100" for="st-{{ $attendance->id }}-{{ $status }}"><i class="{{ $icon }}"></i> {{ $label }}</label>
                                             </div>
                                         @endforeach

@@ -30,6 +30,8 @@ Route::middleware('auth')->prefix('portal')->name('portal.')->group(function () 
 
     Route::get('mengajar', [TeachingController::class, 'index'])->name('teaching');
     Route::get('absen', [TeachingController::class, 'pending'])->name('absen');
+    Route::get('scan-absen', [TeachingController::class, 'scan'])->name('scan');
+    Route::post('scan-absen', [TeachingController::class, 'checkIn'])->middleware('throttle:60,1')->name('scan.store');
     Route::get('absen/{session}', [TeachingController::class, 'show'])->name('absen.show');
     Route::put('absen/{session}', [TeachingController::class, 'save'])->middleware('throttle:60,1')->name('absen.save');
 });
