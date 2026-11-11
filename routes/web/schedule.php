@@ -38,8 +38,9 @@ $routineWrite = function () {
     Route::post('routines/{routine}/duplicate', [RoutineController::class, 'duplicate'])->middleware('throttle:30,1')->name('routines.duplicate');
 };
 
-// Kirim kartu absen QR murid (email / WhatsApp branch).
+// Kirim kartu absen QR murid (email / WhatsApp branch) & buat tagihan les ke menu Invoice.
 $studentCard = function () {
+    Route::post('students/bill', [StudentController::class, 'bill'])->middleware('throttle:10,1')->name('students.bill');
     Route::post('students/{student}/card', [StudentController::class, 'sendCard'])->middleware('throttle:20,1')->name('students.card');
 };
 

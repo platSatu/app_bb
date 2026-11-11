@@ -19,6 +19,8 @@ class Invoice extends Model
     public const SOURCE_API = 'api';
     // Pendaftaran Google Form berbayar (WhatsApp > Third Party > Google Form).
     public const SOURCE_FORM = 'form';
+    // Tagihan les dari aplikasi Jadwal (menu Murid › Buat Tagihan).
+    public const SOURCE_SCHEDULE = 'schedule';
 
     public const STATUS_UNPAID = 'unpaid';
     public const STATUS_PAID = 'paid';
@@ -166,6 +168,7 @@ class Invoice extends Model
         return match ($this->source) {
             self::SOURCE_API => 'API',
             self::SOURCE_FORM => 'Google Form',
+            self::SOURCE_SCHEDULE => 'Dari Jadwal',
             default => 'Dashboard',
         };
     }

@@ -142,6 +142,48 @@ class InvoiceService
         });
     }
 
+    /**
+     * Tagihan dari aplikasi lain (mis. Jadwal) tanpa input manual: kategori & periode dicari menurut nama persis,
+     * dibuat kalau belum ada (pengaturan kategori yang sudah diatur admin tetap dipakai). $externalId mencegah tagihan
+     * yang sama terbit dua kali (null = sudah ada). $period: category, name, amount, due_date. Email dikirim setelah tersimpan.
+     */
+    public function issueInPeriod(UserBranch $branch, array $period, Customer $customer, int $amount, string $description, string $externalId, string $source, User $actor): ?Invoice
+    {
+        $invoice = DB::transaction(function () use ($branch, $period, $customer, $amount, $description, $externalId, $source, $actor) {
+            $branch = UserBranch::whereKey($branch->getKey())->lockForUpdate()->firstOrFail();
+
+            if (Invoice::where('branch_id', $branch->getKey())->where('external_id', $externalId)->where('status', '!=', Invoice::STATUS_CANCELLED)->exists()) {
+                return null;
+            }
+
+            $category = InvoiceCategory::where('branch_id', $branch->getKey())->where('name', $period['category'])->first();
+
+            if (! $category) {
+                $category = new InvoiceCategory(['name' => $period['category']]);
+                $category->forceFill(['branch_id' => $branch->getKey()])->save();
+                $category->refresh(); // nilai bawaan database (prefix, email, denda) ikut terbaca
+            }
+
+            $batch = $category->batches()->where('name', $period['name'])->where('status', InvoiceBatch::STATUS_ACTIVE)->first();
+
+            if (! $batch) {
+                $batch = new InvoiceBatch(['name' => $period['name'], 'amount' => $period['amount'], 'due_date' => $period['due_date'], 'use_late_fee' => true]);
+                $batch->forceFill(['branch_id' => $branch->getKey(), 'category_id' => $category->getKey(), 'status' => InvoiceBatch::STATUS_ACTIVE, 'created_by' => $actor->getKey()])->save();
+            }
+
+            $invoice = $this->createForCustomer($branch, $batch->setRelation('category', $category), $customer, $amount);
+            $invoice->forceFill(['source' => $source, 'external_id' => $externalId, 'description' => Str::limit($description, 250, '')])->save();
+
+            return $invoice;
+        });
+
+        if ($invoice && $invoice->category?->email_enabled) {
+            $this->email($invoice, 'issued');
+        }
+
+        return $invoice;
+    }
+
     /** Tagihan pendaftaran Google Form (satu per pendaftar). Lunas -> QR registrasi ulang dikirim lewat WhatsApp. */
     public function createForForm(UserBranch $branch, string $description, string $name, string $phone, int $amount): Invoice
     {

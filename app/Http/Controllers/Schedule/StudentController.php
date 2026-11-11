@@ -9,9 +9,11 @@ use App\Models\User;
 use App\Models\UserBranch;
 use App\Models\WaDevice;
 use App\Services\Customer\CustomerService;
+use App\Services\Schedule\ScheduleBillingService;
 use App\Services\Schedule\ScheduleRoutineService;
 use App\Services\WhatsApp\WaGateway;
 use App\Support\Menu;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -74,6 +76,24 @@ class StudentController extends ScheduleResourceController
         return back()->with($result['success'] ? 'success' : 'error', $result['success']
             ? "Kartu absen {$item->name} terkirim ke WhatsApp {$item->phone}."
             : 'WhatsApp belum terkirim: '.($result['message'] ?? 'coba lagi sebentar lagi.'));
+    }
+
+    /** Buat tagihan les murid yang dicentang untuk satu bulan; langsung masuk menu Invoice (lihat ScheduleBillingService). */
+    public function bill(Request $request, ScheduleBillingService $billing): RedirectResponse
+    {
+        $data = $request->validate([
+            'student_ids' => ['required', 'array', 'max:500'],
+            'student_ids.*' => ['string', 'distinct'],
+            'month' => ['required', 'date_format:Y-m'],
+        ], ['student_ids.required' => 'Centang dulu murid yang mau ditagih ya.'], ['month' => 'bulan']);
+
+        $students = ScheduleStudent::accessibleBy($request->user(), Menu::ABILITY_MANAGE)->whereKey($data['student_ids'])->orderBy('name')->get();
+        $result = $billing->bill($students, Carbon::createFromFormat('!Y-m', $data['month']), $request->user());
+        $notes = $result['notes'] ? ' Catatan: '.implode(' · ', array_slice($result['notes'], 0, 5)).(count($result['notes']) > 5 ? ' …' : '') : '';
+
+        return back()->with($result['created'] ? 'success' : 'info', $result['created']
+            ? "{$result['created']} tagihan dibuat dan dikirim ke murid/orang tua. Cek di menu Invoice.{$notes}"
+            : 'Belum ada tagihan baru yang dibuat.'.$notes);
     }
 
     /** [branch_id => device_id] nomor WhatsApp yang terhubung di branch dengan paket WhatsApp aktif (sekali per request). */

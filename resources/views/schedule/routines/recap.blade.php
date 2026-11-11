@@ -35,7 +35,7 @@
                 <span><span class="badge bg-light text-muted me-1">·</span>Belum diisi</span>
                 <span><span class="me-1">–</span>Tidak ikut sesi ini</span>
             </div>
-            <p class="small text-muted mb-4">Tagihan dihitung sesuai sesi yang diikuti: harga grade ÷ pertemuan sebulan × sesi diikuti (paling banyak harga sebulan).</p>
+            <p class="small text-muted mb-4">Tagihan bulanan dihitung sesuai sesi yang diikuti: harga grade ÷ pertemuan sebulan × sesi diikuti (paling banyak harga sebulan). Kelas paket ditagih harga penuh di bulan paket dimulai. Tagihan dibuat dari menu Murid › Buat Tagihan.</p>
 
             @forelse ($rows as $row)
                 @php($routine = $row['routine'])
@@ -43,7 +43,10 @@
                     <div class="d-flex flex-wrap justify-content-between gap-2 px-3 py-2 bg-light-subtle border-bottom">
                         <div>
                             <div class="fw-semibold">{{ $routine->grade?->label() }}</div>
-                            <div class="small text-muted">{{ $routine->dayLabel() }} {{ $routine->timeRange() }} · {{ $routine->teacher?->name ?? '-' }}</div>
+                            <div class="small text-muted">{{ $routine->isPackage() ? $routine->patternLabel() : $routine->dayLabel() }} {{ $routine->timeRange() }} · {{ $routine->teacher?->name ?? '-' }}</div>
+                            @if ($routine->isPackage())
+                                <span class="badge bg-warning-subtle text-warning mt-1">Paket · {{ $routine->done_count }} dari {{ $routine->grade?->meetings_per_month }} pertemuan selesai</span>
+                            @endif
                         </div>
                         <div class="small text-muted text-end">
                             {{ $row['students']->count() }} peserta · Honor {{ $rupiah($row['students']->sum('teacher_fee')) }}
@@ -56,7 +59,7 @@
                             <colgroup>
                                 <col style="width: 18%"><col style="width: 15%">
                                 @foreach ($row['sessions'] as $session) <col> @endforeach
-                                <col style="width: 8%"><col style="width: 7%"><col style="width: 12%"><col style="width: 12%">
+                                <col style="width: 7%"><col style="width: 6%"><col style="width: 11%"><col style="width: 10%"><col style="width: 11%">
                             </colgroup>
                             <thead>
                                 <tr>
@@ -69,6 +72,7 @@
                                     <th class="text-center">Diikuti</th>
                                     <th class="text-center">Hadir</th>
                                     <th class="text-end">Tagihan</th>
+                                    <th class="text-center">Bayar</th>
                                     <th class="text-end pe-3">Honor</th>
                                 </tr>
                             </thead>
@@ -93,6 +97,13 @@
                                         <td class="text-center">{{ $s['followed'] }}</td>
                                         <td class="text-center">{{ $s['present'] }}</td>
                                         <td class="text-end">{{ $rupiah($s['charge']) }}</td>
+                                        <td class="text-center">
+                                            @if ($s['bill'])
+                                                <span class="badge {{ $s['bill'] === \App\Models\Invoice::STATUS_PAID ? 'bg-success-subtle text-success' : ($s['bill'] === \App\Models\Invoice::STATUS_UNPAID ? 'bg-warning-subtle text-warning' : 'bg-light text-muted') }}">{{ \App\Models\Invoice::STATUS_LABELS[$s['bill']] ?? $s['bill'] }}</span>
+                                            @else
+                                                <span class="text-muted small">Belum ditagih</span>
+                                            @endif
+                                        </td>
                                         <td class="text-end pe-3">{{ $rupiah($s['teacher_fee']) }}</td>
                                     </tr>
                                 @endforeach

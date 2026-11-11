@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Schedule;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Schedule\Concerns\InScheduleArea;
+use App\Models\Invoice;
 use App\Models\ScheduleAttendance;
 use App\Models\ScheduleGrade;
 use App\Models\ScheduleRoom;
@@ -12,6 +13,7 @@ use App\Models\ScheduleSession;
 use App\Models\ScheduleStudent;
 use App\Models\ScheduleTeacher;
 use App\Models\UserBranch;
+use App\Services\Schedule\ScheduleBillingService;
 use App\Services\Schedule\ScheduleRoutineService;
 use App\Support\Menu;
 use App\Support\XlsxExport;
@@ -24,7 +26,7 @@ use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use RuntimeException;
 
-/** Jadwal rutin mingguan per bulan (lanjut bulan berikutnya lewat Duplikat). Branch selalu mengikuti grade yang dipilih. */
+/** Jadwal rutin: bulanan (lanjut lewat Duplikat) atau paket privat berpola. Branch selalu mengikuti grade yang dipilih. */
 class RoutineController extends Controller
 {
     use InScheduleArea;
@@ -49,7 +51,8 @@ class RoutineController extends Controller
             ->whereDate('starts_on', '<=', $month->copy()->endOfMonth())
             ->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', $month))
             ->with(['branch:id,name,company_id', 'branch.company:id,name', 'teacher:id,name', 'room:id,name', 'students:id,name', ...ScheduleRoutine::LABEL_WITH])
-            ->withCount(['sessions as upcoming_count' => fn ($q) => $q->where('status', ScheduleSession::STATUS_SCHEDULED)->where('start_at', '>', now())])
+            ->withCount(['sessions as upcoming_count' => fn ($q) => $q->where('status', ScheduleSession::STATUS_SCHEDULED)->where('start_at', '>', now()),
+                'sessions as done_count' => fn ($q) => $q->where('status', ScheduleSession::STATUS_DONE)])
             ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w
                 ->whereHas('teacher', fn ($t) => $t->where('name', 'like', "%{$search}%"))
                 ->orWhereHas('students', fn ($s) => $s->where('name', 'like', "%{$search}%"))
@@ -87,6 +90,7 @@ class RoutineController extends Controller
         $skipped = [];
 
         ScheduleRoutine::accessibleBy($request->user(), Menu::ABILITY_MANAGE)->active()->with(ScheduleRoutine::LABEL_WITH)
+            ->whereNull('pattern') // jadwal paket tidak diduplikat
             ->whereDate('starts_on', '>=', $month)->whereDate('starts_on', '<=', $month->copy()->endOfMonth())
             ->get()->each(function (ScheduleRoutine $routine) use (&$done, &$skipped) {
                 try {
@@ -103,8 +107,8 @@ class RoutineController extends Controller
     }
 
     /**
-     * Rekap bulanan per jadwal: peserta (masuk/keluar), kehadiran per tanggal, honor, dan tagihan prorata
-     * (harga grade ÷ pertemuan/bulan × sesi yang diikuti, maksimal harga sebulan). ?export=1 = Excel.
+     * Rekap bulanan per jadwal: peserta (masuk/keluar), kehadiran per tanggal, honor, dan tagihan. Bulanan = prorata
+     * (harga grade ÷ pertemuan/bulan × sesi yang diikuti, maksimal harga sebulan); paket = harga penuh di bulan mulainya. ?export=1 = Excel.
      */
     public function recap(Request $request): View|StreamedResponse
     {
@@ -113,18 +117,21 @@ class RoutineController extends Controller
 
         $routines = ScheduleRoutine::accessibleBy($request->user())
             // Grade ditulis lengkap (bukan LABEL_WITH) supaya kolom harga & pertemuan ikut termuat.
-            ->with(['teacher:id,name', 'grade:id,name,price,meetings_per_month,category_id', 'grade.category:id,name,subject_id', 'grade.category.subject:id,name',
+            ->withCount(['sessions as done_count' => fn ($q) => $q->where('status', ScheduleSession::STATUS_DONE)])
+            ->with(['teacher:id,name', 'grade:id,name,billing,price,meetings_per_month,category_id', 'grade.category:id,name,subject_id', 'grade.category.subject:id,name',
                 'participants' => fn ($q) => $q->orderBy('name'),
                 'sessions' => fn ($q) => $q->where('period', $period)->orderBy('start_at')->with('attendances:id,session_id,student_id,status,teacher_fee')])
             ->whereHas('sessions', fn ($q) => $q->where('period', $period))
             ->orderBy('day_of_week')->orderBy('start_time')->get();
 
-        $rows = $routines->map(function (ScheduleRoutine $routine) {
+        $rows = $routines->map(function (ScheduleRoutine $routine) use ($month) {
             $sessions = $routine->sessions->values();
             $price = (int) $routine->grade?->price;
             $meetings = max(1, (int) $routine->grade?->meetings_per_month);
+            // Paket: harga penuh, ditagih sekali di bulan mulainya.
+            $package = $routine->isPackage() ? ($routine->starts_on->isSameMonth($month) ? $price : 0) : null;
 
-            return ['routine' => $routine, 'sessions' => $sessions, 'students' => $routine->participants->map(function ($student) use ($sessions, $price, $meetings) {
+            return ['routine' => $routine, 'sessions' => $sessions, 'students' => $routine->participants->map(function ($student) use ($sessions, $price, $meetings, $package) {
                 $marks = $sessions->map(fn ($session) => $session->attendances->firstWhere('student_id', $student->id));
                 $followed = $sessions->filter(fn ($session, $i) => $marks[$i] && $session->status !== ScheduleSession::STATUS_CANCELLED)->count();
 
@@ -135,19 +142,25 @@ class RoutineController extends Controller
                     'marks' => $marks,
                     'present' => $marks->filter(fn ($a) => $a?->status === ScheduleAttendance::STATUS_PRESENT)->count(),
                     'followed' => $followed,
-                    'charge' => (int) min($price, round($price / $meetings * $followed)),
+                    'charge' => $package ?? (int) min($price, round($price / $meetings * $followed)),
                     'teacher_fee' => (int) $marks->sum(fn ($a) => $a?->teacher_fee),
                 ];
             })];
         });
 
+        // Status bayar dari tagihan yang dibuat lewat Murid › Buat Tagihan (tanda: external_id invoice).
+        $keys = $rows->flatMap(fn ($row) => $row['students']->map(fn ($s) => ScheduleBillingService::key($s['student']->id, $row['routine'], $month)));
+        $paid = Invoice::whereIn('external_id', $keys->all() ?: ['-'])->where('status', '!=', Invoice::STATUS_CANCELLED)->pluck('status', 'external_id');
+        $rows = $rows->map(fn ($row) => [...$row, 'students' => $row['students']->map(fn ($s) => [...$s,
+            'bill' => $paid[ScheduleBillingService::key($s['student']->id, $row['routine'], $month)] ?? null])]);
+
         if ($request->boolean('export')) {
             $date = fn ($value, $empty) => $value ? Carbon::parse($value)->format('d/m/Y') : $empty;
 
-            return XlsxExport::download('rekap-jadwal-'.$period, ['Jadwal', 'Pengajar', 'Murid', 'Masuk', 'Keluar', 'Sesi diikuti', 'Hadir', 'Tagihan (prorata)', 'Honor pengajar'],
+            return XlsxExport::download('rekap-jadwal-'.$period, ['Jadwal', 'Pengajar', 'Murid', 'Masuk', 'Keluar', 'Sesi diikuti', 'Hadir', 'Tagihan', 'Status bayar', 'Honor pengajar'],
                 $rows->flatMap(fn ($row) => $row['students']->map(fn ($s) => [
-                    $row['routine']->label(), $row['routine']->teacher?->name, $s['student']->name, $date($s['joined_on'], 'awal'), $date($s['left_on'], '-'),
-                    $s['followed'], $s['present'], $s['charge'], $s['teacher_fee'],
+                    $row['routine']->label().($row['routine']->isPackage() ? ' · Paket '.$row['routine']->done_count.'/'.$row['routine']->grade?->meetings_per_month : ''), $row['routine']->teacher?->name, $s['student']->name, $date($s['joined_on'], 'awal'), $date($s['left_on'], '-'),
+                    $s['followed'], $s['present'], $s['charge'], $s['bill'] ? (Invoice::STATUS_LABELS[$s['bill']] ?? $s['bill']) : 'Belum ditagih', $s['teacher_fee'],
                 ])));
         }
 
@@ -223,31 +236,47 @@ class RoutineController extends Controller
 
         $branchId = $grade->branch_id;
         $inBranch = fn (string $table) => Rule::exists($table, 'id')->where('branch_id', $branchId)->where('status', 'active');
+        $days = Rule::in(array_keys(ScheduleRoutine::DAYS));
+
+        // Bulanan: hari + bulan. Paket (privat): tanggal mulai + pola pertemuan.
+        $timing = $grade->isPackage() ? [
+            'pattern_type' => ['required', Rule::in(array_keys(ScheduleRoutine::PATTERN_LABELS))],
+            'starts_on' => ['exclude_if:pattern_type,manual', 'required', 'date'],
+            'pattern_days' => ['exclude_unless:pattern_type,weekly', 'required', 'array', 'min:1'],
+            'pattern_days.*' => ['integer', $days],
+            'pattern_every' => ['exclude_unless:pattern_type,interval', 'required', 'integer', 'min:1', 'max:60'],
+            'pattern_dates' => ['exclude_unless:pattern_type,manual', 'required', 'array', 'max:'.$grade->meetings_per_month],
+            'pattern_dates.*' => ['nullable', 'date'],
+        ] : [
+            'day_of_week' => ['required', 'integer', $days],
+            'month' => ['required', 'date_format:Y-m'],
+            'capacity' => ['required', 'integer', 'min:1', 'max:100'],
+        ];
 
         $data = $request->validate([
             'teacher_id' => ['required', 'string', $inBranch('schedule_teachers')],
             'room_id' => ['required', 'string', $inBranch('schedule_rooms')],
-            'day_of_week' => ['required', 'integer', Rule::in(array_keys(ScheduleRoutine::DAYS))],
             'start_time' => ['required', 'date_format:H:i'],
             'duration_minutes' => ['required', 'integer', 'min:15', 'max:600'],
-            'capacity' => ['required', 'integer', 'min:1', 'max:100'],
             'student_ids' => ['nullable', 'array'],
             'student_ids.*' => ['string', 'distinct', $inBranch('schedule_students')],
-            'month' => ['required', 'date_format:Y-m'],
             'status' => ['required', Rule::in(array_keys(ScheduleRoutine::STATUS_LABELS))],
             'notes' => ['nullable', 'string', 'max:1000'],
+            ...$timing,
         ], [
             'teacher_id.exists' => 'Pengajar tidak ditemukan atau sedang tidak aktif.',
             'room_id.exists' => 'Ruangan tidak ditemukan atau sedang tidak aktif.',
             'student_ids.*.exists' => 'Ada murid yang tidak ditemukan atau sedang tidak aktif.',
+            'pattern_days.required' => 'Pilih minimal satu hari pertemuan.',
+            'pattern_dates.required' => 'Isi tanggal-tanggal pertemuannya dulu.',
+            'pattern_dates.max' => 'Paket ini hanya :max pertemuan, jadi tanggalnya maksimal :max.',
         ], [
             'teacher_id' => 'pengajar', 'room_id' => 'ruangan', 'day_of_week' => 'hari', 'start_time' => 'jam mulai',
-            'duration_minutes' => 'durasi', 'capacity' => 'kapasitas', 'month' => 'bulan',
+            'duration_minutes' => 'durasi', 'capacity' => 'kapasitas', 'month' => 'bulan', 'starts_on' => 'tanggal mulai',
+            'pattern_type' => 'pola pertemuan', 'pattern_every' => 'jarak hari', 'pattern_dates.*' => 'tanggal pertemuan',
         ]);
 
-        // Satu jadwal = satu bulan penuh; bulan berikutnya lewat tombol Duplikat.
-        $start = Carbon::createFromFormat('!Y-m', $data['month']);
-        $data = [...collect($data)->except('month')->all(), 'starts_on' => $start->toDateString(), 'ends_on' => $start->copy()->endOfMonth()->toDateString()];
+        $data = [...collect($data)->except(['month', 'pattern_type', 'pattern_days', 'pattern_every', 'pattern_dates'])->all(), ...$this->timing($grade, $data)];
 
         if (! $grade->teachers()->whereKey($data['teacher_id'])->exists()) {
             throw ValidationException::withMessages(['teacher_id' => 'Pengajar ini belum ditandai mengajar grade '.$grade->name.'. Centang dulu di menu Pengajar.']);
@@ -262,6 +291,40 @@ class RoutineController extends Controller
         }
 
         return redirect()->route($this->routes($request).'.routines.index')->with('success', $message);
+    }
+
+    /**
+     * Waktu berlaku jadwal.
+     *  - Bulanan: satu bulan penuh (bulan berikutnya lewat Duplikat).
+     *  - Paket: privat (kapasitas 1), mulai tanggal pilihan, pola disimpan; akhirnya diisi otomatis = sesi terakhir.
+     */
+    private function timing(ScheduleGrade $grade, array $data): array
+    {
+        if (! $grade->isPackage()) {
+            $start = Carbon::createFromFormat('!Y-m', $data['month']);
+
+            return ['pattern' => null, 'starts_on' => $start->toDateString(), 'ends_on' => $start->copy()->endOfMonth()->toDateString()];
+        }
+
+        $pattern = match ($data['pattern_type']) {
+            'weekly' => ['type' => 'weekly', 'days' => collect($data['pattern_days'])->map(fn ($d) => (int) $d)->unique()->sort()->values()->all()],
+            'interval' => ['type' => 'interval', 'every' => (int) $data['pattern_every']],
+            'manual' => ['type' => 'manual', 'dates' => collect($data['pattern_dates'])->filter()->map(fn ($d) => Carbon::parse($d)->toDateString())->unique()->sort()->values()->all()],
+        };
+
+        if ($pattern['type'] === 'manual' && $pattern['dates'] === []) {
+            throw ValidationException::withMessages(['pattern_dates' => 'Isi tanggal-tanggal pertemuannya dulu.']);
+        }
+
+        $start = Carbon::parse($pattern['type'] === 'manual' ? $pattern['dates'][0] : $data['starts_on']);
+
+        return [
+            'pattern' => $pattern,
+            'starts_on' => $start->toDateString(),
+            'ends_on' => null,
+            'capacity' => 1,
+            'day_of_week' => $pattern['type'] === 'weekly' ? $pattern['days'][0] : $start->dayOfWeekIso,
+        ];
     }
 
     /** Pilihan form; superadmin hanya melihat data branch jadwal ini. */
