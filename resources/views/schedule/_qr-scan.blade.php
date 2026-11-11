@@ -1,7 +1,7 @@
 {{--
     Absen pakai QR, dua cara:
-    - $scanUrl diisi (halaman Scan Absen pengajar): setiap scan langsung dikirim & dicek server, jam scan tercatat, sekali per murid.
-      Penghitung [data-scan-count="<id sesi>"] bertambah setiap scan berhasil.
+    - $scanUrl diisi (halaman Scan Absen pengajar): setiap scan langsung dikirim & dicek server. QR tempat = absen pengajar
+      (halaman dimuat ulang), kartu murid = absen murid sekali per sesi. Penghitung [data-scan-count="<id sesi>"] bertambah.
     - tanpa $scanUrl (detail sesi admin): pilihan Hadir murid langsung tercentang, tersimpan setelah tombol simpan ditekan.
       Butuh input radio Hadir dengan data-qr (isi QR murid) & data-name, dan baris pembungkus data-qr-row.
 --}}
@@ -9,7 +9,7 @@
     <div class="d-flex flex-wrap align-items-center gap-3">
         <div class="flex-grow-1">
             <div class="fw-semibold"><i class="ri-qr-scan-2-line text-primary me-1"></i> Absen pakai QR</div>
-            <div class="small text-muted">{{ isset($scanUrl) ? 'Buka kamera sekali, lalu scan kartu murid satu per satu. Jam scan tercatat dan setiap murid cukup sekali.' : 'Scan kartu absen murid, status Hadir terisi sendiri. Bisa juga pilih manual di bawah.' }}</div>
+            <div class="small text-muted">{{ isset($scanUrl) ? 'Buka kamera sekali: scan QR tempat les untuk absen Anda, lalu kartu murid satu per satu.' : 'Scan kartu absen murid, status Hadir terisi sendiri. Bisa juga pilih manual di bawah.' }}</div>
         </div>
         <button type="button" class="btn btn-outline-primary" data-qr-toggle><i class="ri-camera-line me-1"></i><span>Buka kamera</span></button>
     </div>
@@ -72,6 +72,11 @@
                     return res.json().catch(function () { return {}; }).then(function (data) {
                         if (!res.ok) {
                             say(data.message || (res.status === 429 ? 'Scan terlalu cepat, tunggu sebentar ya.' : res.status === 419 ? 'Halaman sudah lama terbuka. Muat ulang dulu ya.' : 'Scan belum berhasil, coba lagi.'), 'danger');
+                            return;
+                        }
+                        if (data.reload) {
+                            say(data.message, 'success');
+                            setTimeout(function () { window.location.reload(); }, 1500);
                             return;
                         }
                         var count = document.querySelector('[data-scan-count="' + data.session + '"]');

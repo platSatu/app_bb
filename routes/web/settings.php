@@ -14,4 +14,5 @@ Route::middleware('auth')
 
         Route::resource('branches', BranchController::class)->except('show');
         Route::put('branches/{branch}/wa-notify', [BranchController::class, 'waNotify'])->middleware('throttle:20,1')->name('branches.wa-notify');
+        Route::put('branches/{branch}/place-qr', [BranchController::class, 'placeQr'])->middleware('throttle:10,1')->name('branches.place-qr');
     });

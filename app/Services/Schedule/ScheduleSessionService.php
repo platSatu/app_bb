@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\UserBranch;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -63,39 +64,78 @@ class ScheduleSessionService
         });
     }
 
-    /** Scan QR dibuka mulai sekian menit sebelum sesi dimulai, sampai sesi berakhir. */
-    public const SCAN_EARLY_MINUTES = 30;
+    /** Pengajar bisa absen (scan QR tempat) mulai sekian menit sebelum sesi dimulai sampai sesi berakhir. */
+    public const CHECK_IN_EARLY_MINUTES = 60;
 
-    /** Sesi milik pengajar ini yang sedang bisa discan sekarang. */
-    public static function scannable(array $teacherIds): Builder
+    /** Sesi pengajar hari ini yang tampil di halaman Scan Absen: belum berakhir, atau sudah absen tapi belum diselesaikan. */
+    public static function scanToday(array $teacherIds): Builder
     {
         return ScheduleSession::whereIn('teacher_id', $teacherIds)
             ->where('status', ScheduleSession::STATUS_SCHEDULED)
-            ->where('start_at', '<=', now()->addMinutes(self::SCAN_EARLY_MINUTES))
-            ->where('end_at', '>=', now());
+            ->whereBetween('start_at', [today(), today()->endOfDay()])
+            ->where(fn ($q) => $q->where('end_at', '>=', now())->orWhereNotNull('teacher_checked_in_at'));
     }
 
     /**
-     * Absen lewat scan kartu QR oleh pengajar sesi itu sendiri: murid ditandai Hadir, jam scan & pemindainya dicatat.
-     * Satu murid hanya bisa discan sekali per sesi. Kode 403 = murid tidak ada di sesi pengajar ini (dicatat di log).
+     * Absen pengajar: scan QR tempat les. Semua sesinya di branch itu yang sedang berlangsung / dimulai dalam
+     * CHECK_IN_EARLY_MINUTES menit ditandai hadir dengan jam scan. Setelah itu murid di sesi tersebut bisa discan.
+     *
+     * @return Collection<int, ScheduleSession>
+     */
+    public function teacherCheckIn(string $branchId, array $teacherIds): Collection
+    {
+        return DB::transaction(function () use ($branchId, $teacherIds) {
+            $window = ScheduleSession::whereIn('teacher_id', $teacherIds)->where('branch_id', $branchId)
+                ->where('status', ScheduleSession::STATUS_SCHEDULED)
+                ->where('start_at', '<=', now()->addMinutes(self::CHECK_IN_EARLY_MINUTES))
+                ->where('end_at', '>=', now())
+                ->orderBy('start_at')->lockForUpdate()->get();
+
+            $open = $window->whereNull('teacher_checked_in_at');
+
+            if ($open->isEmpty()) {
+                $done = $window->first();
+                throw new RuntimeException($done
+                    ? 'Anda sudah absen pukul '.$done->teacher_checked_in_at->format('H:i').'. Silakan lanjut scan kartu murid.'
+                    : 'Belum ada sesi Anda di tempat ini. Absen bisa dilakukan mulai '.self::CHECK_IN_EARLY_MINUTES.' menit sebelum sesi dimulai.');
+            }
+
+            $open->each(fn (ScheduleSession $session) => $session->forceFill(['teacher_checked_in_at' => now()])->save());
+
+            return $open->values();
+        });
+    }
+
+    /**
+     * Absen murid lewat scan kartu QR oleh pengajar sesi itu sendiri, setelah pengajarnya absen.
+     * Hanya sesi hari ini; satu murid hanya bisa discan sekali per sesi. Jam scan & pemindainya dicatat.
+     * Kode 403 = murid tidak ada di sesi pengajar ini hari ini (dicatat di log oleh pemanggil).
      */
     public function checkIn(string $studentId, array $teacherIds, User $actor): ScheduleAttendance
     {
         return DB::transaction(function () use ($studentId, $teacherIds, $actor) {
-            $attendance = ScheduleAttendance::with('student:id,name')
-                ->where('student_id', $studentId)
-                ->whereIn('session_id', self::scannable($teacherIds)->select('id'))
-                ->lockForUpdate()
-                ->first();
+            $today = ScheduleSession::whereIn('teacher_id', $teacherIds)->where('status', ScheduleSession::STATUS_SCHEDULED)
+                ->whereBetween('start_at', [today(), today()->endOfDay()]);
 
-            if (! $attendance) {
-                throw new RuntimeException('Murid ini tidak terdaftar di sesi Anda yang sedang berlangsung.', 403);
+            $candidates = ScheduleAttendance::with(['student:id,name', 'session:id,start_at,teacher_checked_in_at'])
+                ->where('student_id', $studentId)->whereIn('session_id', $today->select('id'))
+                ->lockForUpdate()->get()->sortBy('session.start_at');
+
+            if ($candidates->isEmpty()) {
+                throw new RuntimeException('Murid ini tidak terdaftar di sesi Anda hari ini.', 403);
             }
 
-            $name = $attendance->student?->name ?? 'Murid ini';
+            $name = $candidates->first()->student?->name ?? 'Murid ini';
+            $ready = $candidates->filter(fn ($a) => $a->session?->teacher_checked_in_at);
 
-            if ($attendance->scanned_at) {
-                throw new RuntimeException("{$name} sudah absen pukul {$attendance->scanned_at->format('H:i')}.");
+            if ($ready->isEmpty()) {
+                throw new RuntimeException("Absen Anda dulu ya: scan QR tempat les, baru scan kartu {$name}.");
+            }
+
+            $attendance = $ready->first(fn ($a) => ! $a->scanned_at);
+
+            if (! $attendance) {
+                throw new RuntimeException("{$name} sudah absen pukul {$ready->last()->scanned_at->format('H:i')}.");
             }
 
             if ($attendance->makeup_session_id) {
@@ -151,6 +191,8 @@ class ScheduleSessionService
                 'teacher_id' => $teacherId,
                 'room_id' => $roomId,
                 'moved_at' => now(),
+                // Ganti pengajar: pengajar baru harus absen sendiri.
+                'teacher_checked_in_at' => $teacherId === $locked->teacher_id ? $locked->teacher_checked_in_at : null,
             ])->save();
         });
     }

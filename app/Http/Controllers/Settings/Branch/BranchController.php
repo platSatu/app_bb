@@ -7,6 +7,7 @@ use App\Http\Requests\Settings\Branch\BranchRequest;
 use App\Models\UserBranch;
 use App\Models\UserCompany;
 use App\Models\WaDevice;
+use App\Services\Media\QrCodeGenerator;
 use App\Services\Subscription\AppAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -56,16 +57,31 @@ class BranchController extends Controller
             ->with('success', "Branch {$branch->name} berhasil ditambahkan.");
     }
 
-    public function edit(Request $request, string $branch): View
+    public function edit(Request $request, string $branch, QrCodeGenerator $qr): View
     {
         $model = $this->ownedBranch($request, $branch);
+        $hasSchedules = app(AppAccess::class)->branchActive($model->getKey(), 'schedules');
 
         return view('settings.branch.edit', [
             'branch' => $model,
             // Sakelar notifikasi WhatsApp hanya ditampilkan selama paket WhatsApp branch ini aktif.
             'hasWhatsapp' => app(AppAccess::class)->branchActive($model->getKey(), 'whatsapp'),
             'waConnected' => WaDevice::connectedByBranch($model->getKey()) !== [],
+            // QR tempat untuk absen pengajar, hanya selama paket Jadwal branch ini aktif.
+            'placeQr' => $hasSchedules ? $qr->dataUri($model->placeQr(), 10) : null,
         ]);
+    }
+
+    /** Ganti QR tempat: QR lama (yang tercetak / sempat difoto) langsung tidak berlaku. */
+    public function placeQr(Request $request, string $branch): RedirectResponse
+    {
+        $model = $this->ownedBranch($request, $branch);
+        abort_unless(app(AppAccess::class)->branchActive($model->getKey(), 'schedules'), 403);
+
+        $model->increment('place_qr_version');
+
+        return redirect()->to(route('settings.branches.edit', $model).'#qr-tempat')
+            ->with('success', 'QR tempat '.$model->name.' sudah diganti. Cetak QR baru dan tempel menggantikan yang lama ya.');
     }
 
     /** Simpan sakelar notifikasi WhatsApp (Invoice, Tiket, Jadwal). Ditolak kalau paket WhatsApp tidak aktif. */

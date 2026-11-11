@@ -32,7 +32,7 @@ class ScheduleSession extends Model
 
     protected function casts(): array
     {
-        return ['date' => 'date', 'start_at' => 'datetime', 'end_at' => 'datetime', 'moved_at' => 'datetime', 'completed_at' => 'datetime'];
+        return ['date' => 'date', 'start_at' => 'datetime', 'end_at' => 'datetime', 'moved_at' => 'datetime', 'completed_at' => 'datetime', 'teacher_checked_in_at' => 'datetime'];
     }
 
     public function routine(): BelongsTo

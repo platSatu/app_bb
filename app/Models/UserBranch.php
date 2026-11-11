@@ -27,7 +27,7 @@ class UserBranch extends Model
 
     protected function casts(): array
     {
-        return ['wa_notify' => 'array'];
+        return ['wa_notify' => 'array', 'place_qr_version' => 'integer'];
     }
 
     protected static function booted(): void
@@ -68,6 +68,30 @@ class UserBranch extends Model
     public function waNotifies(string $kind): bool
     {
         return ! empty($this->wa_notify[$kind]) && app(\App\Services\Subscription\AppAccess::class)->branchActive($this->getKey(), 'whatsapp');
+    }
+
+    /** Isi QR tempat les (ditempel di lokasi, discan pengajar untuk absen). Bertanda tangan & berversi: Ganti QR membuat yang lama tidak berlaku. */
+    public function placeQr(): string
+    {
+        $version = (int) ($this->place_qr_version ?: 1);
+
+        return 'BBP.'.$this->getKey().'.'.$version.'.'.self::placeSignature($this->getKey(), $version);
+    }
+
+    /** Id branch dari isi QR tempat; null kalau palsu atau sudah diganti. */
+    public static function idFromPlaceQr(string $code): ?string
+    {
+        if (! preg_match('/^BBP\.([0-9a-f-]{36})\.(\d{1,9})\.([0-9a-f]{16})$/', trim($code), $m)
+            || ! hash_equals(self::placeSignature($m[1], (int) $m[2]), $m[3])) {
+            return null;
+        }
+
+        return self::whereKey($m[1])->where('place_qr_version', (int) $m[2])->exists() ? $m[1] : null;
+    }
+
+    private static function placeSignature(string $id, int $version): string
+    {
+        return substr(hash_hmac('sha256', "schedule-place|{$id}|{$version}", (string) config('app.key')), 0, 16);
     }
 
     public function scopeSearch(Builder $query, ?string $keyword): Builder

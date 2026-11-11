@@ -27,7 +27,15 @@
                     <h5 class="mb-1">{{ $session->grade?->label() }}</h5>
                     <div class="text-muted mb-3">{{ $session->start_at->translatedFormat('l, d F Y') }} · {{ $session->timeRange() }}</div>
                     <dl class="row small mb-0">
-                        <dt class="col-5">Pengajar</dt><dd class="col-7">{{ $session->teacher?->name }}</dd>
+                        <dt class="col-5">Pengajar</dt>
+                        <dd class="col-7">
+                            {{ $session->teacher?->name }}
+                            @if ($session->teacher_checked_in_at)
+                                <div class="text-success"><i class="ri-user-follow-line"></i> Hadir {{ $session->teacher_checked_in_at->format('H:i') }}{{ $session->teacher_checked_in_at->gt($session->start_at) ? ', terlambat '.(int) $session->start_at->diffInMinutes($session->teacher_checked_in_at).' menit' : '' }}</div>
+                            @elseif ($session->status !== \App\Models\ScheduleSession::STATUS_CANCELLED && $started)
+                                <div class="text-muted">Belum absen scan</div>
+                            @endif
+                        </dd>
                         <dt class="col-5">Ruangan</dt><dd class="col-7">{{ $session->room?->name }}</dd>
                         <dt class="col-5">Jenis</dt><dd class="col-7">{{ $session->isMakeup() ? 'Sesi pengganti' : ($session->routine?->isGroup() ? 'Kelas grup' : 'Privat') }}</dd>
                         <dt class="col-5">Per murid</dt><dd class="col-7">{{ $rupiah($session->grade?->pricePerMeeting() ?? 0) }}</dd>

@@ -29,6 +29,10 @@
                         <dt class="col-5 fw-normal text-muted">Tempat</dt><dd class="col-7">{{ $session->branch?->name }}</dd>
                         <dt class="col-5 fw-normal text-muted">Ruang</dt><dd class="col-7">{{ $session->room?->name }}</dd>
                         <dt class="col-5 fw-normal text-muted">Jumlah murid</dt><dd class="col-7">{{ $session->attendances->count() }}</dd>
+                        <dt class="col-5 fw-normal text-muted">Absen Anda</dt>
+                        <dd class="col-7">
+                            @if ($session->teacher_checked_in_at) <span class="text-success">Hadir {{ $session->teacher_checked_in_at->format('H:i') }}</span> @else <span class="text-muted">Belum scan</span> @endif
+                        </dd>
                         @if ($session->notes) <dt class="col-5 fw-normal text-muted">Catatan</dt><dd class="col-7">{{ $session->notes }}</dd> @endif
                     </dl>
                 </div>
@@ -47,7 +51,7 @@
                     <form method="POST" action="{{ route('portal.absen.save', $session) }}">
                         @csrf
                         @method('PUT')
-                        @if ($session->status === 'scheduled' && $session->attendances->isNotEmpty() && $session->end_at->isFuture())
+                        @if ($session->status === 'scheduled' && $session->attendances->isNotEmpty() && $session->start_at->isToday())
                             <a href="{{ route('portal.scan') }}" class="btn btn-outline-primary w-100 mb-2"><i class="ri-qr-scan-2-line me-1"></i>Scan QR murid</a>
                         @endif
                         @forelse ($session->attendances as $attendance)

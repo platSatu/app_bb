@@ -14,6 +14,30 @@
         </div>
     </div>
 
+    {{-- QR tempat les untuk absen pengajar; hanya selama paket Jadwal branch aktif. --}}
+    @if ($placeQr)
+        <div class="card" id="qr-tempat">
+            <div class="card-body">
+                <div class="d-flex flex-wrap align-items-center gap-4">
+                    <img src="{{ $placeQr }}" alt="QR tempat {{ $branch->name }}" class="border rounded-3" style="width: 160px; height: 160px; image-rendering: pixelated">
+                    <div style="flex: 1 1 240px">
+                        <h5 class="mb-1"><i class="ri-qr-code-line text-primary me-1"></i> QR Absen Pengajar</h5>
+                        <p class="text-muted small mb-3">Cetak dan tempel QR ini di tempat les. Sebelum mengajar, pengajar scan QR ini dari menu Scan Absen, jam hadirnya langsung tercatat dan kartu murid baru bisa discan setelahnya.</p>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="{{ $placeQr }}" download="qr-absen-{{ \Illuminate\Support\Str::slug($branch->name) }}.png" class="btn btn-primary"><i class="ri-download-2-line me-1"></i>Unduh QR</a>
+                            <form method="POST" action="{{ route('settings.branches.place-qr', $branch) }}" onsubmit="return confirm('Ganti QR tempat? QR yang sudah tercetak tidak bisa dipakai lagi, jadi perlu dicetak ulang.')">
+                                @csrf
+                                @method('PUT')
+                                <button type="submit" class="btn btn-outline-secondary"><i class="ri-refresh-line me-1"></i>Ganti QR</button>
+                            </form>
+                        </div>
+                        <div class="small text-muted mt-2">Ganti QR kalau QR lama hilang atau dicurigai difoto untuk absen dari luar tempat les.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- Hanya tampil kalau paket WhatsApp branch aktif. Bawaan semua mati. --}}
     @if ($hasWhatsapp)
         <div class="card" id="notifikasi-wa">
