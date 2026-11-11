@@ -43,10 +43,30 @@ class Package extends Model
         return $this->isLifetime() ? 'Selamanya' : $this->duration.' hari';
     }
 
+    /**
+     * Deskripsi siap tampil. {biaya_tiket} & {tiket_gratis} diganti angka dari Biaya Layanan Tiket (superadmin),
+     * jadi kartu paket Event selalu sama dengan pengaturan tiket yang berlaku.
+     */
+    public function describe(): string
+    {
+        $text = (string) $this->description;
+
+        if (! str_contains($text, '{')) {
+            return $text;
+        }
+
+        $ticket = once(fn () => TicketSetting::current());
+
+        return strtr($text, [
+            '{biaya_tiket}' => rtrim(rtrim(number_format((float) $ticket->fee_percent, 2, ',', '.'), '0'), ',').'%',
+            '{tiket_gratis}' => number_format((int) $ticket->free_allowance, 0, ',', '.'),
+        ]);
+    }
+
     /** Deskripsi ditulis satu fitur per baris, ditampilkan sebagai list. */
     public function features(): array
     {
-        return array_values(array_filter(array_map('trim', preg_split('/\R/', (string) $this->description))));
+        return array_values(array_filter(array_map('trim', preg_split('/\R/', $this->describe()))));
     }
 
     /** Batas satu layanan (lihat App\Services\Subscription\PlanLimits). Kosong = tanpa batas. */

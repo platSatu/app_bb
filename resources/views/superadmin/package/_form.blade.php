@@ -127,7 +127,7 @@
         <label for="description" class="form-label">Fitur / Deskripsi</label>
         <textarea id="description" name="description" rows="6" class="form-control @error('description') is-invalid @enderror"
             placeholder="Tulis satu fitur per baris, mis.&#10;1 nomor WhatsApp&#10;Broadcast 1.000 pesan/bulan&#10;Auto reply">{{ old('description', $package->description) }}</textarea>
-        <div class="form-text">Satu baris = satu poin di daftar fitur.</div>
+        <div class="form-text">Satu baris = satu poin di daftar fitur. Tulis <code>{biaya_tiket}</code> atau <code>{tiket_gratis}</code> supaya angkanya otomatis mengikuti pengaturan Biaya Layanan Tiket.</div>
         @error('description') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
 </div>
