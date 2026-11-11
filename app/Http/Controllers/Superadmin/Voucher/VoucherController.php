@@ -24,7 +24,6 @@ class VoucherController extends Controller
             ->status($request->query('status'))
             ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w
                 ->where('code', 'like', "%{$search}%")
-                ->orWhere('note', 'like', "%{$search}%")
                 ->orWhereHas('owner', fn ($u) => $u->search($search))
                 ->orWhereHas('redeemer', fn ($u) => $u->search($search))))
             ->latest()
@@ -44,16 +43,15 @@ class VoucherController extends Controller
             'package_id' => ['required', Rule::exists('packages', 'id')->where('is_trial', false)],
             'count' => ['required', 'integer', 'between:1,50'],
             'valid_days' => ['required', 'integer', 'between:1,365'],
-            'note' => ['nullable', 'string', 'max:150'],
-        ], [], ['package_id' => 'paket', 'count' => 'jumlah kode', 'valid_days' => 'masa berlaku kode', 'note' => 'catatan']);
+        ], [], ['package_id' => 'paket', 'count' => 'jumlah kode', 'valid_days' => 'masa berlaku kode']);
 
         try {
-            $vouchers = $subscriptions->issue(Package::findOrFail($data['package_id']), $request->user(), $data['count'], $data['valid_days'], $data['note'] ?? null);
+            $vouchers = $subscriptions->issue(Package::findOrFail($data['package_id']), $request->user(), $data['count'], $data['valid_days']);
         } catch (RuntimeException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
 
-        Log::info('[VOUCHER] Kode gratis dibuat superadmin', ['user' => $request->user()->id, 'package' => $data['package_id'], 'count' => $vouchers->count(), 'note' => $data['note'] ?? null]);
+        Log::info('[VOUCHER] Kode gratis dibuat superadmin', ['user' => $request->user()->id, 'package' => $data['package_id'], 'count' => $vouchers->count()]);
 
         return redirect()->route('superadmin.vouchers.index')
             ->with('success', $vouchers->count().' kode voucher dibuat. Berikan kodenya ke tempat kursus; dipakai lewat Paket Saya › Redeem Voucher.')

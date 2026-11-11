@@ -30,7 +30,7 @@
                         <div class="col-12"><span class="fw-semibold">Buat kode voucher gratis</span>
                             <span class="small text-muted">— mis. untuk tempat kursus yang butuh masa coba lebih lama. Harga Rp 0, tidak memotong saldo siapa pun.</span></div>
                         @if ($errors->any()) <div class="col-12"><div class="alert alert-danger mb-0 py-2">{{ $errors->first() }}</div></div> @endif
-                        <div class="col-12 col-md-5">
+                        <div class="col-12 col-md-6">
                             <label class="form-label">Paket</label>
                             <select name="package_id" class="form-select" required>
                                 <option value="">Pilih paket...</option>
@@ -46,13 +46,9 @@
                             <label class="form-label">Jumlah kode</label>
                             <input type="number" name="count" class="form-control" min="1" max="50" required value="{{ old('count', 1) }}">
                         </div>
-                        <div class="col-6 col-md-2">
+                        <div class="col-6 col-md-4">
                             <label class="form-label">Kode berlaku (hari)</label>
                             <input type="number" name="valid_days" class="form-control" min="1" max="365" required value="{{ old('valid_days', 30) }}">
-                        </div>
-                        <div class="col-12 col-md-3">
-                            <label class="form-label">Catatan</label>
-                            <input type="text" name="note" class="form-control" maxlength="150" value="{{ old('note') }}" placeholder="mis. Kursus Musik Harmoni">
                         </div>
                         <div class="col-12">
                             <button type="submit" class="btn btn-primary"><i class="ri-add-line"></i> Buat kode</button>
@@ -64,7 +60,7 @@
             <form method="GET" class="row g-2 align-items-end mb-3">
                 <div class="col-12 col-md-5">
                     <label class="form-label small text-muted mb-1">Cari</label>
-                    <input type="text" name="search" class="form-control" maxlength="100" placeholder="Kode / catatan / nama / email pembeli atau pemakai" value="{{ request('search') }}">
+                    <input type="text" name="search" class="form-control" maxlength="100" placeholder="Kode / nama / email pembeli atau pemakai" value="{{ request('search') }}">
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="form-label small text-muted mb-1">Status</label>
@@ -99,7 +95,6 @@
                                 <td><code>{{ $voucher->code }}</code></td>
                                 <td>
                                     {{ $voucher->package?->name ?? '-' }}
-                                    @if ($voucher->note) <div class="text-muted small">{{ $voucher->note }}</div> @endif
                                 </td>
                                 <td>
                                     {{ $voucher->owner?->name ?? '-' }}

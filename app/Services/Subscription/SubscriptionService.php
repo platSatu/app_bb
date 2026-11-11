@@ -90,21 +90,20 @@ class SubscriptionService
      *
      * @return \Illuminate\Support\Collection<int, Voucher>
      */
-    public function issue(Package $package, User $admin, int $count, int $validDays, ?string $note): \Illuminate\Support\Collection
+    public function issue(Package $package, User $admin, int $count, int $validDays): \Illuminate\Support\Collection
     {
         // Paket trial hanya bisa dipakai pemiliknya (lihat redeem()), jadi tidak bisa dijadikan voucher untuk orang lain.
         if ($package->is_trial || empty($package->apps)) {
             throw new RuntimeException('Pilih paket non-trial yang sudah punya layanan.');
         }
 
-        return DB::transaction(fn () => collect(range(1, $count))->map(function () use ($package, $admin, $validDays, $note) {
+        return DB::transaction(fn () => collect(range(1, $count))->map(function () use ($package, $admin, $validDays) {
             $voucher = new Voucher();
             $voucher->forceFill([
                 'package_id' => $package->getKey(),
                 'user_id' => $admin->getKey(),
                 'code' => $this->newCode(),
                 'price' => 0,
-                'note' => $note,
                 'valid_from' => now(),
                 'valid_until' => now()->addDays($validDays),
             ])->save();
