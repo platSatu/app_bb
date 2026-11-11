@@ -12,8 +12,11 @@ use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
- * Jadwal rutin -> sesi per tanggal. Jatah per bulan = pertemuan/bulan di grade (mis. 4x),
- * dihitung per "period" bulan sehingga pertemuan ke-5 tidak dibuat dan sesi yang dipindah tetap terhitung.
+ * Jadwal rutin -> sesi per tanggal.
+ *  - Bulanan: jatah per bulan = pertemuan/bulan di grade (mis. 4x), dihitung per "period" bulan sehingga
+ *    pertemuan ke-5 tidak dibuat dan sesi yang dipindah tetap terhitung.
+ *  - Paket: tepat sejumlah pertemuan paket (mis. 15x) mengikuti pola (tiap minggu / tiap N hari / tanggal pilihan),
+ *    langsung dibuat semua. Sesi yang dibatalkan diganti di tanggal pola berikutnya, jadi jatah paket tetap utuh.
  * Semua perubahan dikunci per branch supaya dua admin yang menyimpan bersamaan tidak membuat jadwal bentrok.
  */
 class ScheduleRoutineService
@@ -36,17 +39,22 @@ class ScheduleRoutineService
                 throw new RuntimeException('Jam selesai melewati tengah malam. Majukan jam mulai atau kurangi durasinya.');
             }
 
+            if ($routine->isPackage() && count($studentIds) > 1) {
+                throw new RuntimeException('Kelas paket untuk 1 murid (privat). Pilih satu murid saja; murid lain dibuatkan jadwal paket sendiri.');
+            }
+
             if (count($studentIds) > $routine->capacity) {
                 throw new RuntimeException("Murid yang dipilih (".count($studentIds).") melebihi kapasitas {$routine->capacity}. Tambah kapasitas untuk kelas grup, atau kurangi murid.");
             }
 
-            if ($routine->isActive() && $message = $this->conflict->forRoutine($routine, $studentIds)) {
+            // Paket dicek bentrok per tanggal saat sesinya dibuat (polanya tidak selalu mingguan).
+            if ($routine->isActive() && ! $routine->isPackage() && $message = $this->conflict->forRoutine($routine, $studentIds)) {
                 throw new RuntimeException($message);
             }
 
             $routine->save();
             $removed = $this->syncParticipants($routine, $studentIds);
-            $this->refresh($routine, $removed);
+            $this->refresh($routine, $removed, strict: true);
 
             return $routine;
         });
@@ -58,6 +66,10 @@ class ScheduleRoutineService
      */
     public function duplicate(ScheduleRoutine $routine): ScheduleRoutine
     {
+        if ($routine->isPackage()) {
+            throw new RuntimeException('Jadwal paket '.$routine->label().' tidak diduplikat; buat jadwal paket baru kalau murid mengambil paket lagi.');
+        }
+
         $start = $routine->starts_on->copy()->addMonthNoOverflow()->startOfMonth();
 
         $exists = ScheduleRoutine::where('branch_id', $routine->branch_id)->where('grade_id', $routine->grade_id)
@@ -143,7 +155,7 @@ class ScheduleRoutineService
      * Sesi mendatang yang belum disentuh dibuat ulang mengikuti jadwal terbaru (jam, pengajar, ruangan, murid).
      * Sesi mendatang yang sudah sebagian diabsen/dipindah tetap ada: murid baru ditambahkan, murid yang keluar dilepas.
      */
-    private function refresh(ScheduleRoutine $routine, array $removed = []): void
+    private function refresh(ScheduleRoutine $routine, array $removed = [], bool $strict = false): void
     {
         $upcoming = fn () => $routine->sessions()->where('status', ScheduleSession::STATUS_SCHEDULED)->where('start_at', '>', now());
 
@@ -161,13 +173,18 @@ class ScheduleRoutineService
             }
         }
 
-        $this->generate($routine);
+        $this->generate($routine, $strict);
     }
 
-    private function generate(ScheduleRoutine $routine): int
+    /** $strict: tanggal paket yang bentrok ditolak dengan pesan (saat admin menyimpan); dari scheduler dilewati saja. */
+    private function generate(ScheduleRoutine $routine, bool $strict = false): int
     {
         if (! $routine->isActive()) {
             return 0;
+        }
+
+        if ($routine->isPackage()) {
+            return $this->generatePackage($routine, $strict);
         }
 
         $routine->loadMissing(['grade', 'students:id']);
@@ -203,6 +220,79 @@ class ScheduleRoutineService
         }
 
         return $created;
+    }
+
+    /**
+     * Paket: buat sesi sampai jumlahnya (di luar yang dibatalkan) = pertemuan paket, mengikuti pola mulai starts_on.
+     * Tanggal yang sudah lewat / sudah punya sesi dilewati. ends_on diisi tanggal sesi terakhir supaya filter bulan & rekap tepat.
+     */
+    private function generatePackage(ScheduleRoutine $routine, bool $strict): int
+    {
+        $routine->loadMissing(['grade', 'students:id']);
+        $studentIds = $routine->students->pluck('id')->all();
+        $have = $routine->sessions()->where('status', '!=', ScheduleSession::STATUS_CANCELLED)->count();
+        $taken = $routine->sessions()->pluck('date')->map(fn ($date) => Carbon::parse($date)->toDateString())->all();
+        $created = 0;
+
+        foreach ($this->packageDates($routine) as $day) {
+            if ($have >= $routine->grade->meetings_per_month) {
+                break;
+            }
+
+            $start = $day->copy()->setTimeFromTimeString($routine->start_time);
+
+            if ($start->lte(now()) || in_array($day->toDateString(), $taken, true)) {
+                continue;
+            }
+
+            $end = $start->copy()->addMinutes($routine->duration_minutes);
+
+            if ($message = $this->conflict->forSession($routine->branch_id, $start, $end, $routine->teacher_id, $routine->room_id, $studentIds)) {
+                if ($strict) {
+                    throw new RuntimeException('Pertemuan '.$start->translatedFormat('l, d M Y H:i').' bentrok. '.$message);
+                }
+
+                continue;
+            }
+
+            $this->createSession($routine, $start->format('Y-m'), $start, $end, $studentIds);
+            $have++;
+            $created++;
+        }
+
+        if ($strict && $have < $routine->grade->meetings_per_month) {
+            throw new RuntimeException(($routine->pattern['type'] ?? null) === 'manual'
+                ? 'Tanggal yang dipilih baru '.$have.' dari '.$routine->grade->meetings_per_month.' pertemuan. Tambahkan tanggalnya (tanggal yang sudah lewat tidak dihitung).'
+                : 'Pola ini baru menghasilkan '.$have.' dari '.$routine->grade->meetings_per_month.' pertemuan dalam 2 tahun. Majukan tanggal mulai, tambah hari, atau perkecil jarak harinya.');
+        }
+
+        $last = $routine->sessions()->where('status', '!=', ScheduleSession::STATUS_CANCELLED)->max('date');
+        $routine->forceFill(['ends_on' => $last])->saveQuietly();
+
+        return $created;
+    }
+
+    /** Tanggal calon pertemuan paket menurut polanya, mulai starts_on (maksimal 2 tahun ke depan). */
+    private function packageDates(ScheduleRoutine $routine): \Generator
+    {
+        $pattern = $routine->pattern;
+
+        if (($pattern['type'] ?? null) === 'manual') {
+            foreach (collect($pattern['dates'] ?? [])->sort()->values() as $date) {
+                yield Carbon::parse($date)->startOfDay();
+            }
+
+            return;
+        }
+
+        $step = ($pattern['type'] ?? null) === 'interval' ? max(1, (int) ($pattern['every'] ?? 1)) : 1;
+        $days = array_map('intval', $pattern['days'] ?? []);
+
+        for ($day = $routine->starts_on->copy()->startOfDay(), $limit = $day->copy()->addYears(2); $day->lte($limit); $day->addDays($step)) {
+            if ($step > 1 || in_array($day->dayOfWeekIso, $days, true)) {
+                yield $day->copy();
+            }
+        }
     }
 
     private function createSession(ScheduleRoutine $routine, string $period, CarbonInterface $start, CarbonInterface $end, array $studentIds): void
