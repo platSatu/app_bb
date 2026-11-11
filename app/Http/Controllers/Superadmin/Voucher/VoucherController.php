@@ -41,20 +41,18 @@ class VoucherController extends Controller
     {
         $data = $request->validate([
             'package_id' => ['required', Rule::exists('packages', 'id')->where('is_trial', false)],
-            'count' => ['required', 'integer', 'between:1,50'],
-            'valid_days' => ['required', 'integer', 'between:1,365'],
-        ], [], ['package_id' => 'paket', 'count' => 'jumlah kode', 'valid_days' => 'masa berlaku kode']);
+        ], [], ['package_id' => 'paket']);
 
         try {
-            $vouchers = $subscriptions->issue(Package::findOrFail($data['package_id']), $request->user(), $data['count'], $data['valid_days']);
+            $voucher = $subscriptions->issue(Package::findOrFail($data['package_id']), $request->user());
         } catch (RuntimeException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
 
-        Log::info('[VOUCHER] Kode gratis dibuat superadmin', ['user' => $request->user()->id, 'package' => $data['package_id'], 'count' => $vouchers->count()]);
+        Log::info('[VOUCHER] Kode gratis dibuat superadmin', ['user' => $request->user()->id, 'package' => $data['package_id'], 'voucher' => $voucher->id]);
 
         return redirect()->route('superadmin.vouchers.index')
-            ->with('success', $vouchers->count().' kode voucher dibuat. Berikan kodenya ke tempat kursus; dipakai lewat Paket Saya › Redeem Voucher.')
-            ->with('codes', $vouchers->pluck('code')->all());
+            ->with('success', "Kode voucher {$voucher->code} dibuat. Berikan ke tempat kursus; dipakai lewat Paket Saya › Redeem Voucher.")
+            ->with('codes', [$voucher->code]);
     }
 }

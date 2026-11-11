@@ -86,30 +86,27 @@ class SubscriptionService
 
     /**
      * Voucher gratis dari superadmin, mis. perpanjangan masa coba untuk tempat kursus. Harga 0 (tanpa potong saldo &
-     * tanpa komisi referral), pemilik = superadmin. Dipakai lewat Paket Saya › Redeem seperti voucher biasa.
-     *
-     * @return \Illuminate\Support\Collection<int, Voucher>
+     * tanpa komisi referral), pemilik = superadmin. Masa berlaku kode sama dengan voucher hasil beli (VOUCHER_VALID_DAYS).
+     * Dipakai lewat Paket Saya › Redeem seperti voucher biasa.
      */
-    public function issue(Package $package, User $admin, int $count, int $validDays): \Illuminate\Support\Collection
+    public function issue(Package $package, User $admin): Voucher
     {
         // Paket trial hanya bisa dipakai pemiliknya (lihat redeem()), jadi tidak bisa dijadikan voucher untuk orang lain.
         if ($package->is_trial || empty($package->apps)) {
             throw new RuntimeException('Pilih paket non-trial yang sudah punya layanan.');
         }
 
-        return DB::transaction(fn () => collect(range(1, $count))->map(function () use ($package, $admin, $validDays) {
-            $voucher = new Voucher();
-            $voucher->forceFill([
-                'package_id' => $package->getKey(),
-                'user_id' => $admin->getKey(),
-                'code' => $this->newCode(),
-                'price' => 0,
-                'valid_from' => now(),
-                'valid_until' => now()->addDays($validDays),
-            ])->save();
+        $voucher = new Voucher();
+        $voucher->forceFill([
+            'package_id' => $package->getKey(),
+            'user_id' => $admin->getKey(),
+            'code' => $this->newCode(),
+            'price' => 0,
+            'valid_from' => now(),
+            'valid_until' => now()->addDays(self::VOUCHER_VALID_DAYS),
+        ])->save();
 
-            return $voucher;
-        }));
+        return $voucher;
     }
 
     /** Pakai voucher untuk satu branch. Bisa dipanggil di dalam transaksi purchase(). */
