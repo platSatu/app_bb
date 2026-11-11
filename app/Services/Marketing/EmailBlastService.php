@@ -94,12 +94,15 @@ class EmailBlastService
         $pending = array_slice(array_values(array_diff($blast->recipients, array_keys($results))), 0, self::BATCH);
         $blast->forceFill(['status' => 'sending'])->save();
         $mailer = $pending ? $this->mailer($setting) : null;
+        // Isi sama untuk semua penerima: dibuat sekali per putaran (tampilan HTML + versi teks biasa).
+        $html = $pending ? $this->html($blast->subject, $blast->body, $setting->from_name ?: config('app.name')) : '';
+        $text = self::plainText($blast->body);
 
         foreach ($pending as $email) {
             try {
-                $mailer->html($this->html($blast->body), function (Message $message) use ($setting, $blast, $email) {
+                $mailer->html($html, function (Message $message) use ($setting, $blast, $email, $text) {
                     $message->from($setting->from_address, $setting->from_name ?: null)->to($email)->subject($blast->subject);
-                    $message->getSymfonyMessage()->text($blast->body);
+                    $message->getSymfonyMessage()->text($text);
                 });
                 $results[$email] = 'sent';
             } catch (Throwable $e) {
@@ -224,9 +227,68 @@ class EmailBlastService
         ])->connect();
     }
 
-    private function html(string $body): string
+    /** Tampilan email (resources/views/mail/blast.blade.php). Dipakai juga untuk tombol Pratinjau. */
+    public function html(string $subject, string $body, string $brand): string
     {
-        return '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #222">'.$this->linkify(nl2br(e($body))).'</div>';
+        [$blocks, $footer] = self::blocks($body);
+        $first = collect($blocks)->firstWhere(0, 'text');
+
+        return view('mail.blast', [
+            'subject' => $subject, 'brand' => $brand, 'blocks' => $blocks, 'footer' => $footer, 'logo' => \App\Models\WebSetting::current()->logo_url,
+            'preheader' => mb_substr(preg_replace('/\s+/', ' ', (string) ($first[1] ?? '')), 0, 120),
+            'linkify' => fn (string $html) => $this->linkify($html),
+        ])->render();
+    }
+
+    /**
+     * Teks email -> blok tampilan. Penanda, masing-masing satu baris sendiri:
+     *   # Judul besar
+     *   [tombol: Teks tombol | https://alamat]
+     *   [gambar: https://alamat-gambar.jpg]
+     * Baris kosong = paragraf baru. Bagian setelah baris "--" = catatan kecil di bawah (mis. link berhenti).
+     *
+     * @return array{0: array<int, array>, 1: string}
+     */
+    public static function blocks(string $body): array
+    {
+        [$main, $footer] = array_pad(preg_split('/\R--\R/', $body, 2), 2, '');
+        $blocks = [];
+        $paragraph = [];
+        $flush = function () use (&$blocks, &$paragraph) {
+            if (trim(implode("\n", $paragraph)) !== '') {
+                $blocks[] = ['text', trim(implode("\n", $paragraph))];
+            }
+            $paragraph = [];
+        };
+
+        foreach (preg_split('/\R/', $main) as $line) {
+            $trim = trim($line);
+
+            if (preg_match('/^#\s+(.+)$/u', $trim, $m)) {
+                $flush();
+                $blocks[] = ['heading', $m[1]];
+            } elseif (preg_match('/^\[tombol:\s*(.+?)\s*\|\s*(https?:\/\/[^\s\]]+)\s*\]$/iu', $trim, $m)) {
+                $flush();
+                $blocks[] = ['button', $m[1], $m[2]];
+            } elseif (preg_match('/^\[gambar:\s*(https:\/\/[^\s\]]+)\s*\]$/iu', $trim, $m)) {
+                $flush();
+                $blocks[] = ['image', $m[1]];
+            } elseif ($trim === '') {
+                $flush();
+            } else {
+                $paragraph[] = $line;
+            }
+        }
+
+        $flush();
+
+        return [$blocks, trim($footer)];
+    }
+
+    /** Versi teks biasa (untuk aplikasi email yang tidak menampilkan HTML): penanda diubah jadi teks yang wajar. */
+    public static function plainText(string $body): string
+    {
+        return preg_replace(['/^[ \t]*#[ \t]+(.+)$/mu', '/^[ \t]*\[tombol:[ \t]*(.+?)[ \t]*\|[ \t]*(\S+?)[ \t]*\][ \t]*$/imu', '/^[ \t]*\[gambar:[^\]\n]*\][ \t]*\R?/imu'], ['$1', '$1: $2', ''], $body);
     }
 
     /** Alamat http(s) di teks (sudah di-escape) jadi link yang bisa diklik. */

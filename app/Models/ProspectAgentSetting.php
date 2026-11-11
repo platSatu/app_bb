@@ -28,10 +28,10 @@ class ProspectAgentSetting extends Model
     /** Template email pembuka kalau segmen belum punya template sendiri. {nama} {kota} {segmen} diganti per prospek. */
     public const DEFAULT_TEMPLATE = [
         'subject' => 'Jadwal kelas & tagihan {nama} jadi lebih mudah',
-        'body' => "Halo {nama},\n\nPerkenalkan, kami dari bizbos, aplikasi untuk usaha {segmen} di Indonesia. Dengan bizbos Anda bisa "
-            ."mengatur jadwal kelas, menagih biaya bulanan lewat link bayar (QRIS, virtual account, e-wallet), dan mengirim pengingat "
-            ."otomatis lewat WhatsApp, semuanya dalam satu aplikasi.\n\nKalau berminat, kami bisa bantu demo singkat 15 menit secara "
-            ."online, gratis.\n\nSalam,\nTim bizbos\nhttps://app.bizbos.id",
+        'body' => "# Urus jadwal & tagihan murid tanpa repot\n\nHalo {nama},\n\nPerkenalkan, kami dari bizbos, aplikasi untuk usaha {segmen} di "
+            ."Indonesia. Dengan bizbos Anda bisa mengatur jadwal kelas, menagih biaya bulanan lewat link bayar (QRIS, virtual account, "
+            ."e-wallet), dan mengirim pengingat otomatis lewat WhatsApp, semuanya dalam satu aplikasi.\n\n[tombol: Coba bizbos gratis | https://app.bizbos.id]"
+            ."\n\nKalau berminat, cukup balas email ini. Kami bantu demo singkat 15 menit secara online, gratis.\n\nSalam hangat,\nTim bizbos",
     ];
 
     /** "Segmen" kontak hasil import Excel: punya template sendiri, tidak dipakai untuk mencari tempat. */
@@ -103,8 +103,9 @@ class ProspectAgentSetting extends Model
     /** Contoh awal untuk kontak import (pembeli tiket yang setuju menerima promo). Wajib disimpan dulu sebelum kirim otomatis. */
     public const DEFAULT_IMPORT_TEMPLATE = [
         'subject' => 'Halo {nama}, ada kabar baru untuk Anda',
-        'body' => "Halo {nama},\n\nTerima kasih sudah pernah membeli tiket bersama kami. Sesuai pilihan Anda untuk menerima info promo, "
-            ."kami ingin berbagi kabar terbaru:\n\n(Tulis isi promo di sini)\n\nSampai jumpa di acara berikutnya!\n\nSalam hangat,\nTim bizbos",
+        'body' => "# Ada kabar baru untuk Anda\n\nHalo {nama},\n\nTerima kasih sudah pernah membeli tiket bersama kami. Sesuai pilihan Anda "
+            ."untuk menerima info promo, kami ingin berbagi kabar terbaru:\n\n(Tulis isi promo di sini)\n\n[tombol: Lihat promo | https://app.bizbos.id]"
+            ."\n\nSampai jumpa di acara berikutnya!\n\nSalam hangat,\nTim bizbos",
     ];
 
     /** @return array{subject: string, body: string} */

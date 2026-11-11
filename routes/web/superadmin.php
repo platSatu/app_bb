@@ -260,6 +260,7 @@ Route::middleware(['auth', 'superadmin'])
                 Route::get('inbox/{uid}', 'message')->whereNumber('uid')->middleware('throttle:30,1')->name('message');
                 Route::get('sent/{blast}', 'show')->name('show');
                 Route::get('prospects', 'prospects')->middleware('throttle:60,1')->name('prospects');
+                Route::post('preview', 'preview')->middleware('throttle:30,1')->name('preview');
                 Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
                 Route::post('sent/{blast}/resume', 'resume')->middleware('throttle:10,1')->name('resume');
                 Route::put('settings', 'updateSettings')->middleware('throttle:10,1')->name('settings');

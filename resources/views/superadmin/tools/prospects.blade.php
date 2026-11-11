@@ -183,7 +183,8 @@
                             <div>
                                 <h6 class="mb-1">Template email</h6>
                                 <div class="small text-muted"><code>{nama}</code> <code>{kota}</code> <code>{segmen}</code> diganti otomatis; kalau AI aktif, AI menyesuaikan draf prospek
-                                    pencarian dari template ini. Di akhir email selalu ditambahkan link kecil untuk berhenti menerima email promo.</div>
+                                    pencarian dari template ini. Di akhir email selalu ditambahkan link kecil untuk berhenti menerima email promo.
+                                    Tampilan berdesain: <code># Judul besar</code> · <code>[tombol: Teks | https://...]</code> · <code>[gambar: https://...jpg]</code> (masing-masing satu baris).</div>
                             </div>
                             @if (\App\Models\AiProvider::active())
                                 <form method="POST" action="{{ route('superadmin.tools.prospects.agent.templates.ai') }}" onsubmit="this.querySelector('button').disabled = true;">

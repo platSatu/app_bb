@@ -144,7 +144,7 @@
 
             {{-- ===================== EMAIL BARU ===================== --}}
             @if ($tab === 'compose')
-                <form method="POST" action="{{ route('superadmin.tools.email-blast.store') }}" onsubmit="this.querySelector('button[type=submit]').disabled = true;">
+                <form method="POST" action="{{ route('superadmin.tools.email-blast.store') }}" onsubmit="if (event.submitter && event.submitter.id === 'send-btn') event.submitter.disabled = true;">
                     @csrf
                     <div class="mb-3">
                         <label class="form-label">Dari</label>
@@ -208,9 +208,14 @@
                     <div class="mb-3">
                         <label class="form-label">Isi email</label>
                         <textarea name="body" id="body" rows="12" class="form-control" required maxlength="20000">{{ old('body') }}</textarea>
-                        <div class="form-text">Teks biasa; baris baru ikut terkirim. Link (https://...) tetap bisa diklik di kebanyakan aplikasi email.</div>
+                        <div class="form-text">
+                            Ditampilkan sebagai email berdesain (logo, kartu, warna bizbos) & rapi di HP. Penanda, masing-masing di baris sendiri:
+                            <code># Judul besar</code> · <code>[tombol: Teks tombol | https://...]</code> · <code>[gambar: https://...jpg]</code>.
+                            Baris kosong = paragraf baru; link https://... otomatis bisa diklik. Cek dulu dengan <b>Pratinjau</b>.
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-primary" @disabled(! $setting->isConfigured())><i class="ri-send-plane-line"></i> Kirim</button>
+                    <button type="submit" id="send-btn" class="btn btn-primary" @disabled(! $setting->isConfigured())><i class="ri-send-plane-line"></i> Kirim</button>
+                    <button type="submit" class="btn btn-outline-secondary" formaction="{{ route('superadmin.tools.email-blast.preview') }}" formtarget="_blank" formnovalidate><i class="ri-eye-line"></i> Pratinjau</button>
                 </form>
             @endif
 

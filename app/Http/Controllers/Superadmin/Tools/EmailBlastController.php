@@ -97,6 +97,15 @@ class EmailBlastController extends Controller
             ->with('success', count($blast->recipients).' email diantrekan. Status per penerima tampil di halaman ini.');
     }
 
+    /** Pratinjau tampilan email dari isian form Email Baru (dibuka di tab baru, tidak mengirim apa pun). */
+    public function preview(Request $request): \Illuminate\Http\Response
+    {
+        $data = $request->validate(['subject' => ['nullable', 'string', 'max:200'], 'body' => ['required', 'string', 'max:20000']]);
+        $setting = EmailBlastSetting::current();
+
+        return response($this->service->html((string) ($data['subject'] ?? ''), $data['body'], $setting->from_name ?: config('app.name')));
+    }
+
     /** Daftar email dari Prospek untuk kolom "Kepada" (cari nama/email, filter segmen). Yang berhenti / tidak tertarik tidak ikut. */
     public function prospects(Request $request): JsonResponse
     {
