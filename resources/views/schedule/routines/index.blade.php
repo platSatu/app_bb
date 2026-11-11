@@ -109,7 +109,7 @@
                                     </td>
                                 @endif
                                 <td><span class="badge {{ $item->statusBadge() }}">{{ $item->statusLabel() }}</span></td>
-                                <td class="text-end">
+                                <td class="text-end text-nowrap">
                                     <div class="d-inline-flex flex-nowrap justify-content-end gap-2">
                                     <a href="{{ route($routes.'.sessions.index', ['routine' => $item->id, 'date_from' => today()->toDateString()]) }}" class="btn btn-sm rounded-pill btn-outline-success" style="min-width: 6.5rem">
                                         <i class="ri-checkbox-multiple-line"></i> Sesi ({{ $item->upcoming_count }})

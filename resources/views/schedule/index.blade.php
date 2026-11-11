@@ -117,7 +117,7 @@
                                     </td>
                                 @endif
                                 <td><span class="badge {{ $item->statusBadge() }}">{{ $item->statusLabel() }}</span></td>
-                                <td class="text-end">
+                                <td class="text-end text-nowrap">
                                     <div class="d-inline-flex flex-nowrap justify-content-end gap-2">
                                     @includeIf('schedule.'.$resource.'._actions')
                                     @if ($canManage)
