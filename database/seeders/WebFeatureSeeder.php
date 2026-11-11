@@ -33,7 +33,7 @@ class WebFeatureSeeder extends Seeder
         'schedule' => ['Jadwal Anti Bentrok', 'Jadwal kelas, pengajar, dan ruangan dicek otomatis supaya tidak tabrakan.'],
         'integration' => ['Integrasi API & Google Form', 'Sambungkan website atau Google Form Anda, pesan WhatsApp terkirim otomatis.'],
         // 11 Des 2026 (ditambahkan ke website lewat migration 2026_12_10_100000_add_attendance_placement_features).
-        'attendance' => ['Absensi Scan QR', 'Murid cukup menunjukkan kartu QR, pengajar scan dari HP, kehadiran langsung tercatat. Orang tua pun ikut tenang karena kabarnya sampai lewat WhatsApp.'],
+        'attendance' => ['Absensi Scan QR', 'Pengajar absen dengan scan QR di tempat les, lalu scan kartu QR murid dari HP. Jam hadir keduanya tercatat rapi, dan orang tua ikut tenang karena kabarnya sampai lewat WhatsApp.'],
         'placement' => ['Placement Test & Hasil', 'Calon murid ikut tes penempatan online, bisa gratis atau berbayar. Skornya keluar otomatis, jadi Anda tahu kelas mana yang paling pas untuknya.'],
     ];
 
