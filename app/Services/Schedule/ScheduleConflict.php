@@ -15,6 +15,7 @@ class ScheduleConflict
             ->with(['teacher:id,name', 'room:id,name', 'students:id,name', ...ScheduleRoutine::LABEL_WITH])
             ->where('branch_id', $routine->branch_id)
             ->where('status', ScheduleRoutine::STATUS_ACTIVE)
+            ->whereNull('pattern') // jadwal paket dicek per tanggal sesinya
             ->when($routine->exists, fn ($q) => $q->whereKeyNot($routine->getKey()))
             ->where('day_of_week', $routine->day_of_week)
             ->where('start_time', '<', $routine->end_time)

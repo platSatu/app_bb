@@ -10,8 +10,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
- * Harga paket per bulan (mis. Rp 500.000 untuk 4 pertemuan). Pertemuan ke-5 dalam sebulan tidak dibuat.
- * Honor dihitung per murid per pertemuan: harga / pertemuan x persen pengajar, sisanya owner.
+ * Dua jenis harga:
+ *  - Bulanan: harga per bulan untuk sejumlah pertemuan (mis. Rp 500.000 / 4x). Pertemuan ke-5 dalam sebulan tidak dibuat.
+ *  - Paket: harga total untuk sejumlah pertemuan (mis. Rp 3.000.000 / 15x), privat, pola pertemuan diatur di jadwal.
+ * meetings_per_month = jumlah pertemuan (per bulan / per paket). Honor per murid per pertemuan: harga / pertemuan x persen pengajar.
  */
 class ScheduleGrade extends Model
 {
@@ -19,7 +21,13 @@ class ScheduleGrade extends Model
 
     public const LABEL_WITH = ['category:id,name,subject_id', 'category.subject:id,name'];
 
-    protected $fillable = ['name', 'description', 'price', 'meetings_per_month', 'duration_minutes', 'teacher_percent', 'status'];
+    public const BILLING_MONTHLY = 'monthly';
+
+    public const BILLING_PACKAGE = 'package';
+
+    public const BILLING_LABELS = [self::BILLING_MONTHLY => 'Bulanan', self::BILLING_PACKAGE => 'Paket'];
+
+    protected $fillable = ['name', 'description', 'billing', 'price', 'meetings_per_month', 'duration_minutes', 'teacher_percent', 'status'];
 
     protected function casts(): array
     {
@@ -39,6 +47,12 @@ class ScheduleGrade extends Model
     public function label(): string
     {
         return $this->category?->subject?->name.' › '.$this->category?->name.' › '.$this->name;
+    }
+
+    /** Paket: harga total untuk sejumlah pertemuan, jadwalnya privat dengan pola sendiri (tidak per bulan). */
+    public function isPackage(): bool
+    {
+        return $this->billing === self::BILLING_PACKAGE;
     }
 
     public function pricePerMeeting(): int

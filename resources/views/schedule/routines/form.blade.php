@@ -11,7 +11,7 @@
     <div class="card">
         <div class="card-header">
             <h5 class="mb-0">{{ $item->exists ? 'Edit Jadwal Rutin' : 'Buat Jadwal Rutin' }}</h5>
-            <div class="text-muted small">Sesi dibuat otomatis tiap minggu sesuai jumlah pertemuan per bulan di grade. Pengajar, ruangan, dan murid yang bentrok jamnya akan ditolak.</div>
+            <div class="text-muted small">Sesi dibuat otomatis: grade bulanan tiap minggu sesuai pertemuan per bulan, grade paket sesuai jumlah pertemuan & pola yang dipilih. Pengajar, ruangan, dan murid yang bentrok jamnya akan ditolak.</div>
         </div>
         <div class="card-body">
             <form method="POST" action="{{ $item->exists ? route($routes.'.routines.update', $item) : route($routes.'.routines.store') }}" id="routine-form">
@@ -25,9 +25,10 @@
                             <option value="">-- Pilih grade --</option>
                             @foreach ($grades as $grade)
                                 <option value="{{ $grade->id }}" data-branch="{{ $grade->branch_id }}" data-room="{{ $grade->category?->subject?->room_id }}"
+                                    data-package="{{ $grade->isPackage() ? 1 : 0 }}" data-meetings="{{ $grade->meetings_per_month }}"
                                     data-duration="{{ $grade->duration_minutes }}" data-teachers="{{ $grade->teachers->pluck('id')->join(',') }}"
                                     @selected(old('grade_id', $item->grade_id) === $grade->id)>
-                                    {{ $grade->label() }}{{ $grades->pluck('branch_id')->unique()->count() > 1 ? ' — '.$grade->branch?->name : '' }}{{ $inactive($grade) }}
+                                    {{ $grade->label() }}{{ $grade->isPackage() ? ' · Paket '.$grade->meetings_per_month.'x' : '' }}{{ $grades->pluck('branch_id')->unique()->count() > 1 ? ' — '.$grade->branch?->name : '' }}{{ $inactive($grade) }}
                                 </option>
                             @endforeach
                         </select>
@@ -57,7 +58,7 @@
                         @error('room_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
-                    <div class="col-md-3">
+                    <div class="col-md-3" data-monthly>
                         <label for="day_of_week" class="form-label">Hari</label>
                         <select id="day_of_week" name="day_of_week" class="form-select @error('day_of_week') is-invalid @enderror" required>
                             @foreach (\App\Models\ScheduleRoutine::DAYS as $value => $label)
@@ -79,7 +80,7 @@
                         @error('duration_minutes') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
-                    <div class="col-md-4">
+                    <div class="col-md-4" data-monthly>
                         <label for="capacity" class="form-label">Kapasitas Murid</label>
                         <input type="number" id="capacity" name="capacity" min="1" max="100" class="form-control @error('capacity') is-invalid @enderror" value="{{ old('capacity', $item->capacity) }}" required>
                         <div class="form-text">1 = privat. Lebih dari 1 = kelas grup.</div>
@@ -87,7 +88,7 @@
                     </div>
 
                     {{-- Satu jadwal = satu bulan. Bulan berikutnya: tombol Duplikat di daftar jadwal (murid aktif ikut tersalin). --}}
-                    <div class="col-md-4">
+                    <div class="col-md-4" data-monthly>
                         <label for="month" class="form-label">Bulan</label>
                         <input type="month" id="month" name="month" class="form-control @error('month') is-invalid @enderror" value="{{ old('month', $item->starts_on?->format('Y-m')) }}" required>
                         <div class="form-text">Berlaku tgl 1 sampai akhir bulan. Murid yang ditambah/dikeluarkan di tengah bulan tercatat tanggalnya.</div>
@@ -96,6 +97,55 @@
                             <div class="alert alert-warning small mt-2 mb-0">Jadwal lama ini berlaku {{ $item->starts_on->translatedFormat('d M Y') }} – {{ $item->ends_on?->translatedFormat('d M Y') ?? 'seterusnya' }}.
                                 Saat disimpan, jadwal menjadi bulanan sesuai bulan di atas; sesi bulan berikutnya yang belum berjalan dibuat lewat Duplikat.</div>
                         @endif
+                    </div>
+
+                    {{-- Paket (privat): tanggal mulai + pola. Sesi dibuat sejumlah pertemuan paket, lalu jadwal selesai sendiri. --}}
+                    @php($pattern = old('pattern_type') ? ['type' => old('pattern_type'), 'days' => old('pattern_days', []), 'every' => old('pattern_every'), 'dates' => old('pattern_dates', [])] : ($item->pattern ?? ['type' => 'weekly']))
+                    <div class="col-12" data-package>
+                        <div class="border rounded-3 p-3">
+                            <div class="fw-semibold mb-1"><i class="ri-calendar-check-line text-primary me-1"></i> Pola Pertemuan Paket</div>
+                            <div class="small text-muted mb-3">Kelas paket untuk 1 murid. Sistem membuat <strong data-meetings-text></strong> pertemuan sesuai pola, lalu jadwal selesai sendiri. Pertemuan yang dibatalkan diganti di tanggal berikutnya.</div>
+
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                @foreach (\App\Models\ScheduleRoutine::PATTERN_LABELS as $value => $label)
+                                    <input type="radio" class="btn-check" name="pattern_type" value="{{ $value }}" id="pattern-{{ $value }}" @checked(($pattern['type'] ?? 'weekly') === $value)>
+                                    <label class="btn btn-outline-primary rounded-pill px-3" for="pattern-{{ $value }}">{{ $label }}</label>
+                                @endforeach
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-4" data-pattern="weekly interval">
+                                    <label for="starts_on" class="form-label">Mulai Tanggal</label>
+                                    <input type="date" id="starts_on" name="starts_on" class="form-control @error('starts_on') is-invalid @enderror" value="{{ old('starts_on', $item->starts_on?->format('Y-m-d') ?? today()->format('Y-m-d')) }}">
+                                    @error('starts_on') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
+                                <div class="col-md-8" data-pattern="weekly">
+                                    <label class="form-label d-block">Hari Pertemuan</label>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        @foreach (\App\Models\ScheduleRoutine::DAYS as $value => $label)
+                                            <input type="checkbox" class="btn-check" name="pattern_days[]" value="{{ $value }}" id="pday-{{ $value }}" @checked(in_array($value, array_map('intval', $pattern['days'] ?? []), true))>
+                                            <label class="btn btn-sm btn-outline-secondary rounded-pill px-3" for="pday-{{ $value }}">{{ $label }}</label>
+                                        @endforeach
+                                    </div>
+                                    @error('pattern_days') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                </div>
+                                <div class="col-md-4" data-pattern="interval">
+                                    <label for="pattern_every" class="form-label">Setiap</label>
+                                    <div class="input-group">
+                                        <input type="number" id="pattern_every" name="pattern_every" min="1" max="60" class="form-control @error('pattern_every') is-invalid @enderror" value="{{ $pattern['every'] ?? 3 }}">
+                                        <span class="input-group-text">hari sekali</span>
+                                        @error('pattern_every') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+                                </div>
+                                <div class="col-12" data-pattern="manual">
+                                    <label class="form-label">Tanggal Pertemuan</label>
+                                    <div class="row g-2" data-dates data-values="{{ json_encode(array_values($pattern['dates'] ?? [])) }}"></div>
+                                    <div class="form-text">Isi tanggal sebanyak jumlah pertemuan paket. Tanggal yang sudah lewat tidak dibuatkan sesi baru.</div>
+                                    @error('pattern_dates') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                    @error('pattern_dates.*') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="col-12">
@@ -187,18 +237,57 @@
 
             const updateCount = () => {
                 const checked = form.querySelectorAll('[name="student_ids[]"]:checked').length;
-                const max = Number(capacity.value) || 1;
+                const max = grade.selectedOptions[0]?.dataset.package === '1' ? 1 : (Number(capacity.value) || 1);
                 count.textContent = `(${checked}/${max} dipilih${checked > max ? ' — melebihi kapasitas' : ''})`;
                 count.classList.toggle('text-danger', checked > max);
             };
 
-            grade.addEventListener('change', () => applyGrade(false));
+            // Grade paket: bagian Pola tampil, Hari/Kapasitas/Bulan disembunyikan (input yang tersembunyi tidak ikut terkirim).
+            const applyBilling = () => {
+                const selected = grade.selectedOptions[0];
+                const pkg = selected?.dataset.package === '1';
+                const meetings = Number(selected?.dataset.meetings) || 0;
+                const type = form.querySelector('[name=pattern_type]:checked')?.value || 'weekly';
+                const toggle = (el, show) => {
+                    el.classList.toggle('d-none', !show);
+                    el.querySelectorAll('input, select').forEach(input => input.disabled = !show);
+                };
+                form.querySelectorAll('[data-monthly]').forEach(el => toggle(el, !pkg));
+                form.querySelectorAll('[data-package]').forEach(el => toggle(el, pkg));
+                if (pkg) {
+                    form.querySelector('[data-meetings-text]').textContent = meetings + 'x';
+                    form.querySelectorAll('[data-pattern]').forEach(el => toggle(el, el.dataset.pattern.split(' ').includes(type)));
+                    buildDates(meetings);
+                    capacity.value = 1;
+                }
+                updateCount();
+            };
+
+            const dates = form.querySelector('[data-dates]');
+            const buildDates = (meetings) => {
+                const values = [...dates.querySelectorAll('input')].map(input => input.value);
+                const saved = values.length ? values : JSON.parse(dates.dataset.values || '[]');
+                if (dates.children.length === meetings) return;
+                dates.innerHTML = '';
+                for (let i = 0; i < meetings; i++) {
+                    const col = document.createElement('div');
+                    col.className = 'col-6 col-md-3';
+                    col.innerHTML = `<div class="input-group input-group-sm"><span class="input-group-text">${i + 1}</span><input type="date" name="pattern_dates[]" class="form-control"></div>`;
+                    col.querySelector('input').value = saved[i] || '';
+                    col.querySelector('input').disabled = !form.querySelector('#pattern-manual').checked;
+                    dates.appendChild(col);
+                }
+            };
+
+            grade.addEventListener('change', () => { applyGrade(false); applyBilling(); });
+            form.querySelectorAll('[name=pattern_type]').forEach(radio => radio.addEventListener('change', applyBilling));
             capacity.addEventListener('input', updateCount);
             form.addEventListener('change', event => event.target.name === 'student_ids[]' && updateCount());
             search.addEventListener('input', () => students.forEach(box => {
                 box.style.display = box.dataset.name.includes(search.value.toLowerCase()) ? '' : 'none';
             }));
             applyGrade(true);
+            applyBilling();
         })();
     </script>
 @endpush

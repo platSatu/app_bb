@@ -73,6 +73,11 @@ class ScheduleSessionService
 
             $locked->forceFill(['status' => ScheduleSession::STATUS_CANCELLED, 'cancel_reason' => $reason])->save();
         });
+
+        // Paket: pertemuan yang dibatalkan langsung diganti di tanggal pola berikutnya, jatah paket tetap utuh.
+        if ($session->routine?->isPackage()) {
+            app(ScheduleRoutineService::class)->extend($session->routine);
+        }
     }
 
     /** Pindah tanggal/jam/pengajar/ruangan satu sesi saja. Jatah bulannya tetap (period tidak berubah). */
