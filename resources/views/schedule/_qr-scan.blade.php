@@ -1,15 +1,17 @@
 {{--
-    Absen pakai QR, dua cara:
+    Pemindai QR pakai kamera HP (html5-qrcode), tiga cara:
     - $scanUrl diisi (halaman Scan Absen pengajar): setiap scan langsung dikirim & dicek server. QR tempat = absen pengajar
       (halaman dimuat ulang), kartu murid = absen murid sekali per sesi. Penghitung [data-scan-count="<id sesi>"] bertambah.
     - tanpa $scanUrl (detail sesi admin): pilihan Hadir murid langsung tercentang, tersimpan setelah tombol simpan ditekan.
       Butuh input radio Hadir dengan data-qr (isi QR murid) & data-name, dan baris pembungkus data-qr-row.
+    - $onScan diisi (mis. halaman petugas scan tiket): isi QR diteruskan ke fungsi JS window[$onScan](kode), halaman yang memproses.
+    $title & $hint opsional untuk mengganti judul & keterangan.
 --}}
-<div class="border rounded-3 p-3 mb-3" id="qr-scan" @isset($scanUrl) data-scan-url="{{ $scanUrl }}" @endisset>
+<div class="border rounded-3 p-3 mb-3" id="qr-scan" @isset($scanUrl) data-scan-url="{{ $scanUrl }}" @endisset @isset($onScan) data-on-scan="{{ $onScan }}" @endisset>
     <div class="d-flex flex-wrap align-items-center gap-3">
         <div class="flex-grow-1">
-            <div class="fw-semibold"><i class="ri-qr-scan-2-line text-primary me-1"></i> Absen pakai QR</div>
-            <div class="small text-muted">{{ isset($scanUrl) ? 'Buka kamera sekali: scan QR tempat les untuk absen Anda, lalu kartu murid satu per satu.' : 'Scan kartu absen murid, status Hadir terisi sendiri. Bisa juga pilih manual di bawah.' }}</div>
+            <div class="fw-semibold"><i class="ri-qr-scan-2-line text-primary me-1"></i> {{ $title ?? 'Absen pakai QR' }}</div>
+            <div class="small text-muted">{{ $hint ?? (isset($scanUrl) ? 'Buka kamera sekali: scan QR tempat les untuk absen Anda, lalu kartu murid satu per satu.' : 'Scan kartu absen murid, status Hadir terisi sendiri. Bisa juga pilih manual di bawah.') }}</div>
         </div>
         <button type="button" class="btn btn-outline-primary" data-qr-toggle><i class="ri-camera-line me-1"></i><span>Buka kamera</span></button>
     </div>
@@ -45,6 +47,7 @@
                 if (code === last && Date.now() - lastAt < 3000) return;
                 last = code; lastAt = Date.now();
 
+                if (box.dataset.onScan && typeof window[box.dataset.onScan] === 'function') { window[box.dataset.onScan](code); return; }
                 if (url) { send(code); return; }
 
                 var input = Array.prototype.find.call(document.querySelectorAll('input[data-qr]'), function (el) { return el.dataset.qr === code; });

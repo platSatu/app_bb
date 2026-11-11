@@ -51,6 +51,8 @@
         </div>
     </div>
 
+    {{-- Di HP kotak scan tampil paling atas (kamera langsung terjangkau); di layar besar tetap di bawah. --}}
+    <div class="d-flex flex-column">
     <div class="row g-4 mb-4">
         <div class="col-lg-4">
             <div class="card scan-card scan-box">
@@ -60,7 +62,7 @@
                         <span class="result-icon mb-2"><i id="result-icon"></i></span>
                         <div id="result-message" class="fs-5 fw-bold mt-2"></div>
                         <div id="result-detail" class="mt-2 small"></div>
-                        <button type="button" id="confirm-button" class="btn btn-success px-4 mt-3 d-none"><i class="ri-check-line me-1"></i>Konfirmasi Hadir</button>
+                        <button type="button" id="confirm-button" class="btn btn-success px-4 mt-3 d-none"><i class="ri-check-line me-1"></i>Konfirmasi Hadir <span class="opacity-75 small">(Enter)</span></button>
                         @if ($cardEnabled)
                             <div id="card-actions" class="d-none mt-3 pt-3 border-top">
                                 <div class="small text-muted mb-2" id="card-hint"></div>
@@ -104,13 +106,14 @@
         </div>
     </div>
 
-    <div class="card scan-card">
+    <div class="card scan-card order-first order-lg-last mb-4 mb-lg-0">
         <div class="card-body p-4 p-md-5">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
                 <h2 class="h5 fw-bold mb-0">Registrasi Ulang</h2>
                 <span class="small text-muted d-inline-flex align-items-center gap-2"><span class="live-dot"></span>Siap menerima scan</span>
             </div>
-            <p class="small text-muted mb-3">Arahkan alat scan ke QR e-ticket atau QR ID card, langsung terkirim otomatis tanpa tekan Enter. QR rusak? Ketik kode booking 6 angka.</p>
+            <p class="small text-muted mb-3">Arahkan alat scan atau kamera HP ke QR e-ticket atau QR ID card, langsung terkirim otomatis tanpa tekan Enter. QR rusak? Ketik kode booking 6 angka.</p>
+            @include('schedule._qr-scan', ['onScan' => 'scanFromCamera', 'title' => 'Scan pakai kamera HP', 'hint' => 'Buka kamera sekali, lalu arahkan ke QR tiket satu per satu. Hasilnya muncul besar di layar.'])
             <form id="scan-form" autocomplete="off">
                 <div class="scan-input-wrap">
                     <i class="ri-qr-code-line"></i>
@@ -119,13 +122,19 @@
             </form>
         </div>
     </div>
+    </div>
 
     <iframe id="print-frame" title="Cetak ID card" style="position: absolute; width: 0; height: 0; border: 0; visibility: hidden;"></iframe>
 
     @push('scripts')
+        <script src="{{ asset('be/assets/libs/sweetalert2/sweetalert2.all.min.js') }}?v=11.26.3"></script>
         <script>
             (function () {
                 var input = document.getElementById('scan-input');
+                // Di HP (layar sentuh) kotak ketik tidak difokuskan otomatis, supaya keyboard tidak terus muncul saat memakai kamera.
+                var touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+                function focusInput() { if (!touch) input.focus(); }
+                if (touch) input.blur();
                 var result = document.getElementById('result');
                 var confirmButton = document.getElementById('confirm-button');
                 var styles = {
@@ -208,7 +217,47 @@
                     if (data.stats) renderStats(data.stats);
                     addHistory(data);
                     if (data.status !== 'confirm') beep(data.status === 'ok');
+                    if (navigator.vibrate) navigator.vibrate(data.status === 'ok' ? 120 : [250, 120, 250]);
+                    popup(data);
                 }
+
+                // Hasil scan dalam pop-up besar supaya jelas terlihat di lapangan. Berhasil tertutup sendiri 2 detik,
+                // peringatan 4 detik; perlu konfirmasi menunggu petugas memilih. Ketuk di mana saja untuk menutup.
+                var popupStyle = {
+                    ok: ['success', 2000], already: ['warning', 4000], not_found: ['error', 4000], error: ['error', 4000], confirm: ['question', null]
+                };
+                function popup(data) {
+                    if (!window.Swal) return;
+                    var style = popupStyle[data.status] || popupStyle.error, asking = data.status === 'confirm';
+                    var body = el('div');
+                    if (data.ticket) {
+                        body.appendChild(el('div', 'fs-3 fw-bold text-body', data.ticket.name));
+                        body.appendChild(el('div', 'text-muted mt-1', data.ticket.category + ' · Kode booking ' + data.ticket.booking_code));
+                    }
+                    Swal.fire({
+                        icon: style[0], title: data.message, html: body,
+                        timer: style[1] || undefined, timerProgressBar: !!style[1],
+                        showConfirmButton: asking, showCancelButton: asking,
+                        confirmButtonText: 'Konfirmasi Hadir', cancelButtonText: 'Batal',
+                        confirmButtonColor: '#198754', focusConfirm: false, returnFocus: false, heightAuto: false,
+                        // Alat scan tetap bisa langsung mengetik ke kotak scan selama pop-up tampil (Enter = Konfirmasi Hadir).
+                        didOpen: focusInput,
+                        didClose: focusInput
+                    }).then(function (answer) {
+                        if (asking && answer.isConfirmed && pendingCode) send(pendingCode, true);
+                    });
+                }
+
+                // Kamera HP: kode yang sama tidak dikirim ulang selama masih di depan kamera (8 detik),
+                // dan diabaikan selama hasil sebelumnya masih tampil.
+                var lastCamera = '', lastCameraAt = 0;
+                window.scanFromCamera = function (code) {
+                    code = String(code).trim();
+                    if (!code || busy || (window.Swal && Swal.isVisible())) return;
+                    if (code === lastCamera && Date.now() - lastCameraAt < 8000) return;
+                    lastCamera = code; lastCameraAt = Date.now();
+                    send(code, false);
+                };
 
                 function send(code, confirmed) {
                     if (busy) return;
@@ -229,7 +278,7 @@
                     }).finally(function () {
                         busy = false;
                         input.value = '';
-                        input.focus();
+                        focusInput();
                     });
                 }
 
@@ -277,11 +326,13 @@
                 document.getElementById('scan-form').addEventListener('submit', function (event) {
                     event.preventDefault();
                     var code = input.value.trim();
+                    // Kolom kosong + ada yang menunggu konfirmasi: Enter di keyboard = Konfirmasi Hadir (tanpa mouse).
                     if (code) send(code, false);
+                    else if (pendingCode) send(pendingCode, true);
                 });
                 confirmButton.addEventListener('click', function () { if (pendingCode) send(pendingCode, true); });
                 // Scanner USB/Bluetooth "mengetik" ke kotak input; fokus selalu dikembalikan.
-                document.addEventListener('click', function (event) { if (event.target !== confirmButton && !event.target.closest('form[method=POST]') && !event.target.closest('#card-actions')) input.focus(); });
+                document.addEventListener('click', function (event) { if (event.target !== confirmButton && !event.target.closest('form[method=POST]') && !event.target.closest('#card-actions') && !event.target.closest('#qr-scan') && !event.target.closest('.swal2-container')) focusInput(); });
             })();
         </script>
         <script src="{{ asset('be/assets/js/scan-autosubmit.js') }}"></script>
