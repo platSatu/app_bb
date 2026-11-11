@@ -8,7 +8,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\File;
 
 /**
- * 12 fitur unggulan untuk section Fitur di website (Superadmin > Web > Fitur), urut sesuai pola bento grid
+ * Fitur unggulan untuk section Fitur di website (Superadmin > Web > Fitur), urut sesuai pola bento grid
  * fe-konexa (kotak pertama paling besar). Thumbnail PNG transparan ada di database/seeders/assets/features.
  * Jalankan: php artisan db:seed --class=WebFeatureSeeder
  * Aman dijalankan ulang: fitur yang namanya sudah ada tidak ditimpa; gambarnya hanya diisi kalau masih kosong.
@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\File;
  */
 class WebFeatureSeeder extends Seeder
 {
-    private const FEATURES = [
+    public const FEATURES = [
         'dashboard' => ['Semua Bisnis dalam Satu Dashboard', 'Pages, jadwal, tagihan, dan WhatsApp dikelola dari satu akun untuk semua cabang Anda.'],
         'inbox' => ['Inbox WhatsApp untuk Tim', 'Satu nomor WhatsApp dipegang banyak CS sekaligus, lengkap dengan label, catatan, dan pembagian chat.'],
         'chatbot' => ['Chatbot & Auto Reply', 'Pelanggan tetap dijawab 24 jam lewat chatbot, auto reply, dan quick reply.'],
@@ -32,6 +32,9 @@ class WebFeatureSeeder extends Seeder
         'catalog' => ['Katalog Online', 'Pembeli pilih produk dan bayar online, pesanan langsung masuk.'],
         'schedule' => ['Jadwal Anti Bentrok', 'Jadwal kelas, pengajar, dan ruangan dicek otomatis supaya tidak tabrakan.'],
         'integration' => ['Integrasi API & Google Form', 'Sambungkan website atau Google Form Anda, pesan WhatsApp terkirim otomatis.'],
+        // 11 Des 2026 (ditambahkan ke website lewat migration 2026_12_10_100000_add_attendance_placement_features).
+        'attendance' => ['Absensi Scan QR', 'Murid cukup menunjukkan kartu QR, pengajar scan dari HP, kehadiran langsung tercatat. Orang tua pun ikut tenang karena kabarnya sampai lewat WhatsApp.'],
+        'placement' => ['Placement Test & Hasil', 'Calon murid ikut tes penempatan online, bisa gratis atau berbayar. Skornya keluar otomatis, jadi Anda tahu kelas mana yang paling pas untuknya.'],
     ];
 
     /** key gambar => [kata yang harus ada di judul, deskripsi baru (null = deskripsi lama dipertahankan)] */
