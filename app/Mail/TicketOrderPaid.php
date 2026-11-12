@@ -15,6 +15,11 @@ class TicketOrderPaid extends Mailable
 {
     use Queueable;
 
+    // Server email sering menolak sementara saat ribuan e-ticket terkirim bersamaan: dicoba lagi 1 & 5 menit kemudian.
+    public int $tries = 3;
+
+    public array $backoff = [60, 300];
+
     private ?TicketOrder $order = null;
 
     // Hanya id yang masuk antrean; data dibaca ulang saat email dikirim.

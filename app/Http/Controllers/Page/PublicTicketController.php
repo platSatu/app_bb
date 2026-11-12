@@ -68,10 +68,12 @@ class PublicTicketController extends Controller
     }
 
     /** Halaman pesanan untuk pembeli: status bayar + daftar e-ticket. Ini juga returnUrl dari Duitku. */
-    public function order(string $slug, string $token): View
+    public function order(TicketOrderService $orders, string $slug, string $token): View
     {
         $page = $this->page($slug);
         $order = TicketOrder::where('page_id', $page->getKey())->where('access_token', $token)->with(['items', 'tickets'])->firstOrFail();
+        // Masih "menunggu" padahal pembeli sudah kembali dari Duitku: cek status di belakang layar (cadangan callback).
+        $orders->reconcileLater($order);
 
         return view('page.public.ticket-order', compact('page', 'order'));
     }

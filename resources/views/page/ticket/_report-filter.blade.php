@@ -1,4 +1,4 @@
-{{-- Tab + filter + tombol Export. $tabs [key => label], $statuses|null, $categoryOptions [id => nama]|null, $searchPlaceholder|null. --}}
+{{-- Tab + filter + tombol Export. $tabs [key => label], $statuses|null, $categoryOptions [id => nama]|null, $searchPlaceholder|null, $noFilter (tab tanpa filter, mis. Pantau Live). --}}
 @if (count($tabs) > 1)
 <ul class="nav nav-pills gap-2 mb-3">
     @foreach ($tabs as $key => $label)
@@ -14,6 +14,7 @@
     <div class="alert alert-danger py-2 small">{{ $errors->first() }}</div>
 @endif
 
+@unless ($noFilter ?? false)
 <form method="GET" class="row g-2 align-items-end mb-3">
     <input type="hidden" name="tab" value="{{ $filters['tab'] }}">
     @if ($searchPlaceholder ?? null)
@@ -62,3 +63,4 @@
         <a href="{{ request()->fullUrlWithQuery(['export' => 1, 'page' => null]) }}" class="btn btn-sm btn-success w-100"><i class="ri-file-excel-2-line me-1"></i>Export Excel</a>
     </div>
 </form>
+@endunless

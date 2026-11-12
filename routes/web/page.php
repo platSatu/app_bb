@@ -185,9 +185,10 @@ Route::middleware('public.app:pages')->group(function () {
         ->where('slug', '[a-z0-9-]+')
         ->middleware('throttle:10,1')
         ->name('page.quiz.submit');
+    // 30/menit per IP: pengguna seluler banyak yang berbagi IP operator (CGNAT); bot ditahan Turnstile & honeypot.
     Route::post('page/{slug}/tickets', [PublicTicketController::class, 'checkout'])
         ->where('slug', '[a-z0-9-]+')
-        ->middleware('throttle:10,1')
+        ->middleware('throttle:30,1')
         ->name('page.tickets.checkout');
 });
 

@@ -26,7 +26,7 @@ class TicketOrder extends Model
         self::STATUS_REFUND_NEEDED => 'Perlu Refund',
     ];
 
-    private const STATUS_BADGES = [
+    public const STATUS_BADGES = [
         self::STATUS_PENDING => 'bg-warning-subtle text-warning',
         self::STATUS_PAID => 'bg-success-subtle text-success',
         self::STATUS_EXPIRED => 'bg-secondary-subtle text-secondary',

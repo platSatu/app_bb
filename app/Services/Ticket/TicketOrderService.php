@@ -24,6 +24,7 @@ use App\Services\Wallet\WalletService;
 use Illuminate\Database\DetectsConcurrencyErrors;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -152,6 +153,29 @@ class TicketOrderService
         $log->update(['result' => $this->markPaid($order, $payload['paymentCode'] ?? null, $payload['reference'] ?? null)]);
 
         return [200, 'OK'];
+    }
+
+    /**
+     * Cadangan kalau callback Duitku tidak sampai: pembeli yang membuka halaman pesanannya (returnUrl) memicu cek status ke
+     * Duitku di antrean (tidak menahan halaman). Paling cepat 1 menit setelah pesanan dibuat & paling sering 5 menit sekali
+     * per pesanan, supaya saat war tiket server Duitku tidak dibanjiri. Sudah dibayar = diproses lunas lewat markPaid (idempoten).
+     */
+    public function reconcileLater(TicketOrder $order): void
+    {
+        if ($order->isPending() && $order->total > 0 && $order->created_at->lt(now()->subMinute())
+            && Cache::add('ticket-order:reconcile:'.$order->getKey(), true, now()->addMinutes(5))) {
+            $id = $order->getKey();
+            dispatch(fn () => app(self::class)->reconcile($id));
+        }
+    }
+
+    public function reconcile(string $orderId): void
+    {
+        $order = TicketOrder::find($orderId);
+
+        if ($order?->isPending() && DuitkuClient::make(forCallback: true)->unpaidReason($order->reference, $order->total) === null) {
+            $this->markPaid($order, PaymentCallback::methodFor($order->reference), null);
+        }
     }
 
     /** Order pending lewat batas: dicek dulu ke Duitku. Ternyata dibayar = diproses lunas; belum = kuota dilepas. */

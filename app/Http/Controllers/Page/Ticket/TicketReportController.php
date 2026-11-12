@@ -7,6 +7,7 @@ use App\Http\Controllers\Page\Concerns\ResolvesPage;
 use App\Models\PageCategory;
 use App\Models\PageType;
 use App\Models\PaymentCallback;
+use App\Models\Ticket;
 use App\Models\TicketCategory;
 use App\Models\TicketEmailLog;
 use App\Models\TicketOrder;
@@ -14,6 +15,7 @@ use App\Models\TicketOrderItem;
 use App\Models\TicketStockLog;
 use App\Support\XlsxExport;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -49,11 +51,17 @@ class TicketReportController extends Controller
         ]);
     }
 
-    /** Seluruh page: tab Pembayaran (callback Duitku), Email, Stok. */
-    public function index(Request $request, string $page): View|StreamedResponse
+    /** Seluruh page: tab Pembayaran (callback Duitku), Email, Stok, dan Pantau Live (?poll=1 = data JSON untuk diperbarui tiap beberapa detik). */
+    public function index(Request $request, string $page): View|StreamedResponse|JsonResponse
     {
         $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET);
-        $filters = $this->filters($request, ['payments', 'emails', 'stock']);
+        $filters = $this->filters($request, ['payments', 'emails', 'stock', 'live']);
+
+        if ($filters['tab'] === 'live') {
+            return $request->boolean('poll')
+                ? response()->json($this->live($model))
+                : view('page.ticket.report', ['page' => $model, 'filters' => $filters, 'live' => $this->live($model), 'routes' => $this->routes($request)]);
+        }
 
         $query = match ($filters['tab']) {
             'emails' => $this->emailQuery($model, $filters),
@@ -81,6 +89,43 @@ class TicketReportController extends Controller
             'categories' => $model->ticketCategories()->get(['id', 'name'])->pluck('name', 'id'),
             'routes' => $this->routes($request),
         ]);
+    }
+
+    /**
+     * Pantau Live: stok per kategori, uang masuk, alur terbaru (stok & callback), email, dan cek konsistensi.
+     * Konsisten = "terjual" sama dengan jumlah e-ticket yang terbit, dan "ditahan" sama dengan jumlah tiket di pesanan yang
+     * masih menunggu bayar. Selisih berarti ada pemotongan/pelepasan stok yang tidak wajar dan perlu ditelusuri di Riwayat Stok.
+     * Semua query memakai indeks per page & berupa ringkasan (bukan baris per pesanan), jadi tetap ringan saat war tiket.
+     */
+    private function live(PageCategory $page): array
+    {
+        $pageId = $page->getKey();
+        $issued = Ticket::where('page_id', $pageId)->whereNotNull('category_id')->selectRaw('category_id, COUNT(*) as n')->groupBy('category_id')->pluck('n', 'category_id');
+        $waiting = TicketOrderItem::join('ticket_orders', 'ticket_orders.id', '=', 'ticket_order_items.order_id')
+            ->where('ticket_orders.page_id', $pageId)->where('ticket_orders.status', TicketOrder::STATUS_PENDING)
+            ->selectRaw('ticket_order_items.category_id, SUM(ticket_order_items.quantity) as n')->groupBy('ticket_order_items.category_id')->pluck('n', 'category_id');
+
+        $categories = $page->ticketCategories()->get(['id', 'name', 'quota', 'sold', 'reserved'])->map(fn (TicketCategory $c) => [
+            'name' => $c->name, 'quota' => $c->quota, 'sold' => $c->sold, 'reserved' => $c->reserved, 'remaining' => max(0, $c->quota - $c->sold - $c->reserved),
+            'issued' => (int) ($issued[$c->getKey()] ?? 0), 'waiting' => (int) ($waiting[$c->getKey()] ?? 0),
+            'ok' => $c->sold === (int) ($issued[$c->getKey()] ?? 0) && $c->reserved === (int) ($waiting[$c->getKey()] ?? 0),
+        ])->values();
+
+        $orders = TicketOrder::where('page_id', $pageId)
+            ->selectRaw('status, COUNT(*) as orders, COALESCE(SUM(total), 0) as total, COALESCE(SUM(total - fee), 0) as net, SUM(CASE WHEN paid_at >= ? THEN 1 ELSE 0 END) as recent', [now()->subMinutes(5)])
+            ->groupBy('status')->get()->keyBy('status')
+            ->map(fn ($row) => ['orders' => (int) $row->orders, 'total' => (int) $row->total, 'net' => (int) $row->net, 'recent' => (int) $row->recent]);
+
+        return [
+            'at' => now()->format('H:i:s'),
+            'categories' => $categories,
+            'orders' => collect(TicketOrder::STATUS_LABELS)->map(fn ($label, $status) => ['label' => $label, 'badge' => TicketOrder::STATUS_BADGES[$status] ?? '', ...($orders[$status] ?? ['orders' => 0, 'total' => 0, 'net' => 0, 'recent' => 0])]),
+            'stock' => TicketStockLog::where('page_id', $pageId)->with(['category:id,name', 'order:id,reference'])->latest('created_at')->orderByDesc('id')->limit(12)->get()
+                ->map(fn (TicketStockLog $log) => ['at' => $log->created_at->format('H:i:s'), 'action' => $log->actionLabel(), 'changes' => $log->changes(), 'category' => $log->category?->name, 'order' => $log->order?->reference]),
+            'callbacks' => PaymentCallback::where('provider', 'duitku')->whereIn('merchant_order_id', TicketOrder::where('page_id', $pageId)->select('reference'))->latest()->limit(8)->get()
+                ->map(fn (PaymentCallback $log) => ['at' => $log->created_at->format('H:i:s'), 'order' => $log->merchant_order_id, 'amount' => $log->amount(), 'result' => $log->resultLabel(), 'badge' => $log->resultBadge()]),
+            'emails' => TicketEmailLog::where('page_id', $pageId)->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status')->map(fn ($n) => (int) $n),
+        ];
     }
 
     private function filters(Request $request, array $tabs): array

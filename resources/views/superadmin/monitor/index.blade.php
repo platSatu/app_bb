@@ -51,6 +51,20 @@
                         </div>
                     @endforeach
                     <div class="small text-muted mt-2">Yang ternyata sudah dibayar tetap dilunasi; yang belum dibayar ditandai kedaluwarsa.</div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                        <div>Callback bermasalah <span class="small text-muted">· 24 jam</span></div>
+                        <span class="badge {{ $badCallbackTotal ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success' }}">{{ $badCallbackTotal ?: 'Aman' }}</span>
+                    </div>
+                    @foreach ($badCallbacks as $callback)
+                        <div class="small d-flex justify-content-between gap-2 py-1">
+                            <span class="text-truncate"><span class="fw-semibold">{{ $callback->merchant_order_id ?: '-' }}</span> · {{ $callback->resultLabel() }}</span>
+                            <span class="text-muted text-nowrap">{{ $callback->created_at->diffForHumans() }}</span>
+                        </div>
+                    @endforeach
+                    @if ($badCallbackTotal)
+                        <div class="small text-muted mt-1">"Belum lunas saat dicek" & "error" dikirim ulang Duitku dan dicek lagi otomatis. Nominal tidak cocok / tanda tangan tidak valid perlu dicek manual.</div>
+                    @endif
                 </div>
             </div>
         </div>

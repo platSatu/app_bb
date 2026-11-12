@@ -7,6 +7,7 @@ use App\Models\Deposit;
 use App\Models\Disbursement;
 use App\Models\InvoiceCheckout;
 use App\Models\InvoicePayment;
+use App\Models\PaymentCallback;
 use App\Models\TicketOrder;
 use App\Models\WalletWithdrawal;
 use Illuminate\Http\RedirectResponse;
@@ -65,6 +66,12 @@ class MonitorController extends Controller
             'failedTotal' => DB::table('failed_jobs')->count(),
             'heartbeat' => $heartbeat ? Carbon::parse($heartbeat) : null,
             'payments' => $this->stuckPayments(),
+            // Callback 24 jam terakhir yang tidak berhasil diproses (error / ditolak). Callback ganda ("sudah diproses") bukan masalah.
+            'badCallbacks' => PaymentCallback::where('created_at', '>=', now()->subDay())
+                ->whereIn('result', ['error', 'not_confirmed', 'amount_mismatch', 'invalid_signature', 'not_found'])
+                ->latest()->limit(10)->get(['merchant_order_id', 'result', 'message', 'created_at']),
+            'badCallbackTotal' => PaymentCallback::where('created_at', '>=', now()->subDay())
+                ->whereIn('result', ['error', 'not_confirmed', 'amount_mismatch', 'invalid_signature', 'not_found'])->count(),
             'transfers' => [
                 ['label' => 'Tarik saldo user', 'count' => WalletWithdrawal::whereIn('status', [WalletWithdrawal::STATUS_PROCESSING, WalletWithdrawal::STATUS_NEEDS_REVIEW])->count(), 'route' => 'superadmin.withdrawals.index'],
                 ['label' => 'Disbursement owner', 'count' => Disbursement::whereIn('status', [Disbursement::STATUS_PROCESSING, Disbursement::STATUS_NEEDS_REVIEW])->count(), 'route' => 'superadmin.payouts.index'],

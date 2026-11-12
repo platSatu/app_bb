@@ -13,7 +13,8 @@
         </div>
         <div class="card-body p-3 p-md-4">
             @include('page.ticket._report-filter', [
-                'tabs' => ['payments' => 'Pembayaran (Duitku)', 'emails' => 'Email E-ticket', 'stock' => 'Riwayat Stok'],
+                'tabs' => ['live' => 'Pantau Live', 'payments' => 'Pembayaran (Duitku)', 'emails' => 'Email E-ticket', 'stock' => 'Riwayat Stok'],
+                'noFilter' => $filters['tab'] === 'live',
                 'statuses' => match ($filters['tab']) {
                     'emails' => \App\Models\TicketEmailLog::STATUS_LABELS,
                     'stock' => \App\Models\TicketStockLog::ACTION_LABELS,
@@ -28,6 +29,10 @@
             ])
 
             @switch($filters['tab'])
+                @case('live')
+                    @include('page.ticket._live')
+                    @break
+
                 @case('stock')
                     @include('page.ticket._stock-table', ['showCategory' => true])
                     @break
@@ -90,7 +95,7 @@
                         </table>
                     </div>
             @endswitch
-            <div class="mt-3">{{ $rows->links() }}</div>
+            @isset($rows) <div class="mt-3">{{ $rows->links() }}</div> @endisset
         </div>
     </div>
 @endsection
