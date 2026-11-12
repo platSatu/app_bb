@@ -10,6 +10,7 @@ use App\Models\TicketSession;
 use App\Services\Ticket\TicketAttendanceService;
 use App\Services\Ticket\TicketCardService;
 use App\Services\Ticket\TicketCheckinService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -81,7 +82,7 @@ class TicketScanController extends Controller
             return $this->loggedOut();
         }
 
-        $data = $request->validate(['code' => ['required', 'string', 'max:64'], 'confirm' => ['boolean'], 'session_id' => ['nullable', 'uuid']]);
+        $data = $request->validate(['code' => ['required', 'string', 'max:64'], 'confirm' => ['boolean'], 'session_id' => ['nullable', 'uuid'], 'lite' => ['boolean']]);
 
         if ($scanner->isType(TicketScanner::TYPE_ATTENDANCE)) {
             $result = $attendance->scan($scanner->page, $scanner, $data['session_id'] ?? null, $data['code'], $request->boolean('confirm'));
@@ -93,7 +94,46 @@ class TicketScanController extends Controller
         abort_unless($scanner->isType(TicketScanner::TYPE_CHECKIN), 404);
         $result = $checkins->scan($scanner->page, $scanner, $data['code'], $request->boolean('confirm'));
 
-        return response()->json([...$result, 'stats' => $checkins->stats($scanner->page)]);
+        // lite: mode lapangan menghitung statistik sendiri di perangkat, server tidak perlu menghitung ulang tiap scan.
+        return response()->json($request->boolean('lite') ? $result : [...$result, 'stats' => $checkins->stats($scanner->page)]);
+    }
+
+    /** Mode lapangan: data tiket untuk dicek di perangkat petugas (?since= hanya yang berubah). */
+    public function tickets(Request $request, TicketCheckinService $checkins, string $token): JsonResponse
+    {
+        $scanner = $this->scanner($token);
+
+        if (! $this->authorized($request, $scanner)) {
+            return $this->loggedOut();
+        }
+
+        abort_unless($scanner->isType(TicketScanner::TYPE_CHECKIN), 404);
+        $since = $request->validate(['since' => ['nullable', 'date']])['since'] ?? null;
+
+        return response()->json($checkins->fieldData($scanner->page, $since ? Carbon::parse($since) : null));
+    }
+
+    /** Mode lapangan: kiriman antrean scan dari perangkat, diproses satu per satu dengan aturan yang sama seperti scan biasa. */
+    public function sync(Request $request, TicketCheckinService $checkins, string $token): JsonResponse
+    {
+        $scanner = $this->scanner($token);
+
+        if (! $this->authorized($request, $scanner)) {
+            return $this->loggedOut();
+        }
+
+        abort_unless($scanner->isType(TicketScanner::TYPE_CHECKIN), 404);
+        $items = $request->validate([
+            'items' => ['required', 'array', 'max:50'],
+            'items.*.code' => ['required', 'string', 'max:64'],
+            'items.*.at' => ['required', 'date'],
+            'items.*.confirm' => ['boolean'],
+        ])['items'];
+
+        $page = $scanner->page;
+        $results = array_map(fn ($item) => $checkins->scan($page, $scanner, $item['code'], (bool) ($item['confirm'] ?? false), Carbon::parse($item['at'])), $items);
+
+        return response()->json(['results' => $results]);
     }
 
     /**

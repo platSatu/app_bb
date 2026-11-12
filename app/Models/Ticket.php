@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Ticket extends Model
 {
@@ -44,6 +45,19 @@ class Ticket extends Model
     public function attendances(): HasMany
     {
         return $this->hasMany(TicketSessionAttendance::class, 'ticket_id');
+    }
+
+    /**
+     * Isi QR baru (e-ticket atau ID card): 48 karakter acak, dipastikan belum dipakai tiket mana pun, baik sebagai
+     * QR e-ticket maupun QR ID card, jadi satu QR selalu menunjuk tepat satu tiket. Kolom token & card_token juga unik di database.
+     */
+    public static function newQrToken(): string
+    {
+        do {
+            $token = Str::random(48);
+        } while (self::where('token', $token)->orWhere('card_token', $token)->exists());
+
+        return $token;
     }
 
     public function isCheckedIn(): bool

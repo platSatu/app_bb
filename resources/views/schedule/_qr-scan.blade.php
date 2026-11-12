@@ -22,7 +22,8 @@
 </div>
 
 @push('scripts')
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" integrity="sha384-c9d8RFSL+u3exBOJ4Yp3HUJXS4znl9f+z66d1y54ig+ea249SpqR+w1wyvXz/lk+" crossorigin="anonymous"></script>
+    {{-- Disimpan di server sendiri (bukan CDN) supaya kamera tetap bisa dibuka saat internet ke luar sedang macet. --}}
+    <script src="{{ asset('be/assets/libs/html5-qrcode/html5-qrcode.min.js') }}?v=2.3.8"></script>
     <script>
         (function () {
             var box = document.getElementById('qr-scan');

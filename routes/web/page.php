@@ -208,7 +208,12 @@ Route::middleware('throttle:60,1')->prefix('e-ticket/{slug}')->where(['slug' => 
 Route::prefix('scan/{token}')->middleware('public.app:pages')->where(['token' => '[A-Za-z0-9]{48}'])->name('scan.')->group(function () {
     Route::get('/', [TicketScanController::class, 'show'])->middleware('throttle:60,1')->name('show');
     Route::post('login', [TicketScanController::class, 'login'])->middleware('throttle:20,1')->name('login');
-    Route::post('check', [TicketScanController::class, 'check'])->middleware('throttle:240,1')->name('check');
+    // Batas per alamat IP: banyak gate di satu Wi-Fi lokasi berbagi IP yang sama, jadi batasnya dibuat longgar
+    // (sudah dilindungi token + PIN). Kalau tetap kena batas, halaman scan beralih ke data di HP.
+    Route::post('check', [TicketScanController::class, 'check'])->middleware('throttle:900,1')->name('check');
+    // Mode lapangan: data tiket di perangkat petugas + kiriman antrean scan saat jaringan pulih.
+    Route::get('tickets', [TicketScanController::class, 'tickets'])->middleware('throttle:120,1')->name('tickets');
+    Route::post('sync', [TicketScanController::class, 'sync'])->middleware('throttle:300,1')->name('sync');
     Route::post('redeem', [TicketScanController::class, 'redeem'])->middleware('throttle:120,1')->name('redeem');
     Route::post('card', [TicketScanController::class, 'card'])->middleware('throttle:60,1')->name('card');
     Route::post('logout', [TicketScanController::class, 'logout'])->name('logout');

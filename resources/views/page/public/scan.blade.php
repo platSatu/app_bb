@@ -20,6 +20,8 @@
         .gate-badge { background: color-mix(in srgb, var(--brand) 12%, #fff); color: var(--brand); border-radius: 999px; padding: .2rem .75rem; font-size: .8125rem; font-weight: 600; }
         .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 0 rgba(34,197,94,.6); animation: live 1.8s infinite; }
         @keyframes live { 70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
+        .live-dot.is-wait { background: #f59e0b; animation: none; }
+        .live-dot.is-off { background: #dc3545; animation: none; }
         /* 3 kotak sejajar dengan tinggi sama; isi yang terus bertambah digulir di dalam kotaknya. */
         .scan-box { display: flex; flex-direction: column; height: 100%; max-height: 440px; }
         @media (min-width: 992px) { .scan-box { height: 400px; max-height: none; } }
@@ -44,7 +46,7 @@
                     <span class="gate-badge"><i class="ri-user-location-line me-1"></i>Petugas {{ $scanner->name }}</span>
                 </div>
             </div>
-            <form method="POST" action="{{ route('scan.logout', request()->route('token')) }}">
+            <form method="POST" action="{{ route('scan.logout', request()->route('token')) }}" id="logout-form">
                 @csrf
                 <button type="submit" class="btn btn-sm btn-light"><i class="ri-logout-box-r-line"></i> Keluar</button>
             </form>
@@ -110,9 +112,10 @@
         <div class="card-body p-4 p-md-5">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
                 <h2 class="h5 fw-bold mb-0">Registrasi Ulang</h2>
-                <span class="small text-muted d-inline-flex align-items-center gap-2"><span class="live-dot"></span>Siap menerima scan</span>
+                {{-- Status mode lapangan: data tiket di HP & antrean scan yang belum terkirim. --}}
+                <span class="small text-muted d-inline-flex align-items-center gap-2" role="status" aria-live="polite"><span class="live-dot is-wait" id="field-dot"></span><span id="field-text">Menyiapkan data tiket…</span></span>
             </div>
-            <p class="small text-muted mb-3">Arahkan alat scan atau kamera HP ke QR e-ticket atau QR ID card, langsung terkirim otomatis tanpa tekan Enter. QR rusak? Ketik kode booking 6 angka.</p>
+            <p class="small text-muted mb-3">Arahkan alat scan atau kamera HP ke QR e-ticket atau QR ID card, langsung terkirim otomatis tanpa tekan Enter. QR rusak? Ketik kode booking 6 angka. Sinyal macet atau putus? Scan tetap jalan, hasilnya terkirim sendiri saat sinyal kembali.</p>
             @include('schedule._qr-scan', ['onScan' => 'scanFromCamera', 'title' => 'Scan pakai kamera HP', 'hint' => 'Buka kamera sekali, lalu arahkan ke QR tiket satu per satu. Hasilnya muncul besar di layar.'])
             <form id="scan-form" autocomplete="off">
                 <div class="scan-input-wrap">
@@ -259,28 +262,285 @@
                     send(code, false);
                 };
 
+                var csrf = function () { return document.querySelector('meta[name=csrf-token]').content; };
+                var urls = {
+                    check: {{ \Illuminate\Support\Js::from(route('scan.check', request()->route('token'))) }},
+                    tickets: {{ \Illuminate\Support\Js::from(route('scan.tickets', request()->route('token'))) }},
+                    sync: {{ \Illuminate\Support\Js::from(route('scan.sync', request()->route('token'))) }}
+                };
+
+                // Permintaan ke server dengan batas waktu: di jaringan event yang macet, lebih baik cepat menyerah lalu coba lagi.
+                function request(url, body, ms) {
+                    var ctrl = window.AbortController ? new AbortController() : null, timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, ms || 8000);
+                    return fetch(url, {
+                        method: body ? 'POST' : 'GET', signal: ctrl ? ctrl.signal : undefined,
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf() },
+                        body: body ? JSON.stringify(body) : undefined
+                    }).then(function (response) {
+                        if (response.status === 401 || response.status === 419) throw 'login';
+                        if (!response.ok) throw 'http';
+                        return response.json();
+                    }).finally(function () { clearTimeout(timer); });
+                }
+
+                /*
+                 * Mode lapangan (jaringan event sering macet/putus, puluhan ribu tiket, banyak gate):
+                 * - Sinyal lancar: scan dicek server dulu (maks. 1,5 detik) supaya tiket yang sama tidak bisa lolos di dua gate.
+                 * - Lambat/putus: scan diputuskan di HP dari data tiket yang sudah diunduh, lalu masuk antrean yang dikirim di belakang layar.
+                 *   Server memeriksa ulang dengan aturan & kunci yang sama; tiket yang ternyata sudah masuk di gate lain diberi tahu ke petugas.
+                 * Data tiket (besar) disimpan di IndexedDB; antrean (kecil, paling penting) di localStorage dan disimpan setiap scan.
+                 * QR di data HP hanya berupa hash, jadi tidak bisa dipakai membuat tiket.
+                 * Baris tiket: [hash QR e-ticket, hash QR ID card, kode booking, nama, kategori, jam masuk, petugas, punya ID card].
+                 */
+                var me = {{ \Illuminate\Support\Js::from($scanner->name) }}, storeKey = 'bb-scan:' + {{ \Illuminate\Support\Js::from($scanner->getKey()) }};
+                var field = {
+                    supported: !!(window.crypto && crypto.subtle && window.TextEncoder),
+                    data: null, queue: read(storeKey + ':queue') || [], index: {},
+                    ready: false, online: true, slowUntil: 0, needPin: false, sending: false, refreshing: false
+                };
+
+                function read(key) { try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; } }
+                function saveQueue() { try { localStorage.setItem(storeKey + ':queue', JSON.stringify(field.queue)); } catch (e) {} }
+
+                // IndexedDB sederhana (satu kunci = seluruh data tiket). Tidak tersedia? Data tetap dipakai selama halaman terbuka.
+                function idb(mode, work) {
+                    return new Promise(function (resolve, reject) {
+                        if (!window.indexedDB) return reject('none');
+                        var open = indexedDB.open('bb-scan', 1);
+                        open.onupgradeneeded = function () { open.result.createObjectStore('kv'); };
+                        open.onerror = function () { reject(open.error); };
+                        open.onsuccess = function () {
+                            var request = work(open.result.transaction('kv', mode).objectStore('kv'));
+                            request.onsuccess = function () { resolve(request.result); };
+                            request.onerror = function () { reject(request.error); };
+                        };
+                    });
+                }
+                function saveData() { return idb('readwrite', function (store) { return store.put(field.data, storeKey); }).catch(function () {}); }
+
+                function sha(text) {
+                    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function (buffer) {
+                        return Array.prototype.map.call(new Uint8Array(buffer), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('').slice(0, 16);
+                    });
+                }
+
+                // Scan di antrean (belum sampai server) ditandai di data tiket, supaya tetap terhitung setelah halaman dibuka ulang.
+                function applyQueue() {
+                    field.queue.forEach(function (item) {
+                        findTicket(item.code).then(function (hit) {
+                            if (hit && hit !== 'invalid' && !hit.row[5]) { hit.row[5] = item.at; hit.row[6] = me; }
+                        });
+                    });
+                }
+
+                function reindex() {
+                    field.index = {};
+                    Object.keys(field.data.tickets).forEach(function (number) {
+                        var row = field.data.tickets[number];
+                        field.index[row[0]] = number;
+                        if (row[1]) field.index[row[1]] = number;
+                        field.index['b' + row[2]] = number;
+                    });
+                }
+
+                var months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                function when(iso) {
+                    var d = new Date(iso), pad = function (n) { return ('0' + n).slice(-2); };
+                    return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ', ' + pad(d.getDate()) + ' ' + months[d.getMonth()];
+                }
+
+                function summary(number, row) {
+                    return { name: row[3], category: row[4], booking_code: row[2], number: number, has_card: !!row[7] };
+                }
+
+                function localStats() {
+                    var categories = {}, stats = { total: 0, checked_in: 0, categories: [] };
+                    Object.keys(field.data.tickets).forEach(function (number) {
+                        var row = field.data.tickets[number], c = categories[row[4]] || (categories[row[4]] = { name: row[4], total: 0, checked_in: 0 });
+                        stats.total++; c.total++;
+                        if (row[5]) { stats.checked_in++; c.checked_in++; }
+                    });
+                    stats.categories = Object.keys(categories).sort().map(function (name) { return categories[name]; });
+                    return stats;
+                }
+
+                // Cari tiket di data HP. QR (48 karakter) dicocokkan lewat hash; kode booking & no. tiket apa adanya.
+                function findTicket(code) {
+                    var wrap = function (number, byQr) { return number ? { number: number, row: field.data.tickets[number], byQr: byQr } : null; };
+                    if (/^[A-Za-z0-9]{48}$/.test(code)) return sha(field.data.salt + code).then(function (hash) { return wrap(field.index[hash], true); });
+                    if (/^\d{6}$/.test(code)) return Promise.resolve(wrap(field.index['b' + code], false));
+                    if (/^BB\d{8}$/i.test(code)) return Promise.resolve(wrap(field.data.tickets[code.toUpperCase()] ? code.toUpperCase() : null, false));
+                    return Promise.resolve('invalid');
+                }
+
+                function localScan(code, confirmed) {
+                    return findTicket(code).then(function (hit) {
+                        if (hit === 'invalid') return show({ status: 'not_found', message: 'Kode tidak dikenali. Scan QR, atau ketik kode booking 6 angka.' });
+                        // Tidak ada di data HP (mis. tiket baru terjual): tanya server langsung.
+                        if (!hit) return serverScan(code, confirmed, 'Tiket tidak ada di data HP dan server belum terjangkau. Minta peserta menunggu sebentar, lalu scan lagi.');
+                        var row = hit.row, ticket = summary(hit.number, row);
+                        if (row[5]) return show({ status: 'already', message: 'Tiket ini sudah discan pukul ' + when(row[5]) + (row[6] ? ' oleh ' + row[6] : '') + '.', ticket: ticket });
+                        if (!hit.byQr && !confirmed) {
+                            pendingCode = code;
+                            return show({ status: 'confirm', message: 'Cocokkan nama dengan pemegang tiket, lalu konfirmasi.', ticket: ticket });
+                        }
+                        var at = new Date().toISOString();
+                        pendingCode = null;
+                        row[5] = at; row[6] = me;
+                        field.queue.push({ code: code, at: at, confirm: !hit.byQr }); saveQueue();
+                        status();
+                        show({ status: 'ok', message: 'Selamat datang, ' + row[3] + '!', ticket: ticket, stats: localStats() });
+                        setTimeout(flush, 50);
+                    });
+                }
+
+                // Cek ke server (sumber kebenaran). Hasil "berhasil" ikut ditandai di data HP.
+                function serverCheck(code, confirmed, ms) {
+                    return request(urls.check, { code: code, confirm: confirmed, lite: field.ready }, ms).then(function (data) {
+                        pendingCode = data.status === 'confirm' ? code : null;
+                        var row = data.ticket && field.data && field.data.tickets[data.ticket.number];
+                        if (row && (data.status === 'ok' || data.status === 'already') && !row[5]) { row[5] = new Date().toISOString(); row[6] = data.status === 'ok' ? me : null; }
+                        field.online = true;
+                        show(data);
+                    });
+                }
+
+                // Langsung ke server saja: sebelum data tiket siap, atau tiket yang belum ada di data HP.
+                function serverScan(code, confirmed, offlineMessage) {
+                    return serverCheck(code, confirmed, 8000).catch(function (error) {
+                        if (error === 'login') { field.needPin = true; status(); }
+                        show({ status: 'error', message: error === 'login' ? 'Sesi berakhir. Tekan "Masukkan PIN lagi" di atas.' : (offlineMessage || 'Koneksi terputus. Coba scan lagi.') });
+                    });
+                }
+
+                // Sinyal lancar: server dulu (maks. 1,5 detik). Lambat/putus/kena batas: data HP, dan selama 30 detik ke depan
+                // langsung pakai data HP supaya antrean tidak tertahan menunggu jaringan yang sedang macet.
+                function fastScan(code, confirmed) {
+                    return serverCheck(code, confirmed, 1500).catch(function (error) {
+                        if (error === 'login') { field.needPin = true; status(); }
+                        else { field.slowUntil = Date.now() + 30000; field.online = false; status(); }
+                        return localScan(code, confirmed);
+                    });
+                }
+
                 function send(code, confirmed) {
                     if (busy) return;
                     busy = true;
-                    fetch({{ \Illuminate\Support\Js::from(route('scan.check', request()->route('token'))) }}, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content },
-                        body: JSON.stringify({ code: code, confirm: confirmed })
-                    }).then(function (response) {
-                        if (response.status === 401 || response.status === 419) { location.reload(); return null; }
-                        return response.json();
-                    }).then(function (data) {
-                        if (!data) return;
-                        pendingCode = data.status === 'confirm' ? code : null;
-                        show(data);
-                    }).catch(function () {
-                        show({ status: 'error', message: 'Koneksi terputus. Coba scan lagi.' });
-                    }).finally(function () {
+                    if (!confirmed) pendingCode = null;
+                    var job = !field.ready ? serverScan(code, confirmed)
+                        : (field.online && !field.needPin && Date.now() > field.slowUntil ? fastScan(code, confirmed) : localScan(code, confirmed));
+                    job.finally(function () {
                         busy = false;
                         input.value = '';
                         focusInput();
                     });
                 }
+
+                // Kirim antrean (maks. 50 per kiriman). Gagal = dicoba lagi otomatis; antrean tetap tersimpan walau halaman tertutup.
+                function flush() {
+                    if (field.sending || field.needPin || !field.queue.length) return;
+                    field.sending = true;
+                    var batch = field.queue.slice(0, 50);
+                    request(urls.sync, { items: batch }, 15000).then(function (data) {
+                        field.queue.splice(0, batch.length); saveQueue();
+                        field.online = true;
+                        // Diloloskan HP, ternyata server menolak (mis. sudah masuk di gate lain sebelumnya): beri tahu petugas.
+                        data.results.forEach(function (res) {
+                            if (res.status !== 'ok') notice({ status: 'already', message: 'Dicek ulang server: ' + res.message, ticket: res.ticket });
+                        });
+                    }).catch(function (error) {
+                        if (error === 'login') field.needPin = true;
+                        field.online = false;
+                    }).finally(function () {
+                        field.sending = false;
+                        status();
+                        if (field.queue.length && field.online && !field.needPin) setTimeout(flush, 300);
+                    });
+                }
+
+                // Hasil "dicek ulang" dari server: masuk riwayat; pop-up hanya kalau tidak sedang menampilkan hasil scan lain.
+                function notice(data) {
+                    addHistory(data);
+                    beep(false);
+                    if (window.Swal && !Swal.isVisible()) popup(data);
+                }
+
+                // Unduh data tiket: lengkap (pertama kali / tiap 15 menit) atau hanya yang berubah sejak terakhir.
+                function refresh() {
+                    if (!field.supported || field.refreshing || field.needPin) return;
+                    // Unduh lengkap hanya pertama kali & tiap 1 jam (tiket yang dihapus/dibatalkan); selebihnya hanya yang berubah.
+                    var full = !field.data || !field.data.full_at || Date.now() - new Date(field.data.full_at).getTime() > 60 * 60 * 1000;
+                    field.refreshing = true;
+                    request(urls.tickets + (full ? '' : '?since=' + encodeURIComponent(field.data.synced)), null, full ? 60000 : 15000).then(function (data) {
+                        // Kunci data berubah (jarang): ambil ulang lengkap.
+                        if (!data.full && field.data.salt !== data.salt) { field.data.full_at = null; return; }
+                        var old = field.data && field.data.salt === data.salt ? field.data.tickets : {};
+                        var tickets = data.full ? {} : Object.assign({}, old);
+                        Object.keys(data.tickets).forEach(function (number) {
+                            var row = data.tickets[number], mine = old[number];
+                            // Scan di HP ini yang belum sampai server tetap dipertahankan.
+                            if (mine && mine[5] && !row[5]) { row[5] = mine[5]; row[6] = mine[6]; }
+                            tickets[number] = row;
+                        });
+                        field.data = { salt: data.salt, synced: data.server_time, full_at: data.full ? data.server_time : field.data.full_at, tickets: tickets };
+                        reindex(); saveData();
+                        field.ready = true; field.online = true;
+                        renderStats(localStats());
+                    }).catch(function (error) {
+                        if (error === 'login') field.needPin = true;
+                        field.online = false;
+                    }).finally(function () {
+                        field.refreshing = false;
+                        status();
+                    });
+                }
+
+                var dot = document.getElementById('field-dot'), statusText = document.getElementById('field-text');
+                function status() {
+                    var waiting = field.queue.length, count = field.ready ? Object.keys(field.data.tickets).length : 0;
+                    statusText.textContent = '';
+                    if (field.needPin) {
+                        dot.className = 'live-dot is-off';
+                        statusText.appendChild(document.createTextNode('Sesi berakhir' + (waiting ? ', ' + waiting + ' scan menunggu. ' : '. ')));
+                        var again = el('a', 'fw-semibold', 'Masukkan PIN lagi'); again.href = location.href;
+                        statusText.appendChild(again);
+                    } else if (!field.ready) {
+                        dot.className = 'live-dot is-wait';
+                        statusText.textContent = field.supported ? 'Menyiapkan data tiket…' : 'Mode online (browser ini tidak mendukung mode lapangan)';
+                    } else if (waiting) {
+                        dot.className = 'live-dot is-wait';
+                        statusText.textContent = waiting + ' scan belum terkirim · ' + (field.online ? 'mengirim…' : 'menunggu sinyal');
+                    } else {
+                        dot.className = 'live-dot' + (field.online ? '' : ' is-wait');
+                        statusText.textContent = 'Siap · ' + count.toLocaleString('id-ID') + ' tiket di HP' + (field.online ? '' : ' · offline, scan tetap jalan');
+                    }
+                }
+
+                // Data tiket dari kunjungan sebelumnya langsung dipakai, lalu diperbarui di belakang layar.
+                status();
+                (field.supported ? idb('readonly', function (store) { return store.get(storeKey); }) : Promise.reject('none')).then(function (data) {
+                    if (data && data.tickets && !field.ready) {
+                        field.data = data; reindex(); applyQueue(); field.ready = true;
+                        renderStats(localStats()); status();
+                    }
+                }).catch(function () {}).finally(refresh);
+                var ticks = 0;
+                setInterval(function () { flush(); if (++ticks % 4 === 0) refresh(); }, 5000);
+                window.addEventListener('online', function () { field.online = true; flush(); refresh(); });
+
+                // Jangan sampai antrean hilang: keluar ditahan selama masih ada scan yang belum terkirim.
+                document.getElementById('logout-form').addEventListener('submit', function (event) {
+                    if (field.queue.length) {
+                        event.preventDefault();
+                        if (window.Swal) Swal.fire({ icon: 'warning', title: 'Masih ada ' + field.queue.length + ' scan belum terkirim', text: 'Tunggu sinyal sampai semuanya terkirim, baru keluar. Kalau keluar sekarang, data scan ini hilang.', heightAuto: false });
+                        return;
+                    }
+                    try { localStorage.removeItem(storeKey + ':queue'); } catch (e) {}
+                    idb('readwrite', function (store) { return store.delete(storeKey); }).catch(function () {});
+                });
+                window.addEventListener('beforeunload', function (event) {
+                    if (field.queue.length && !field.online) { event.preventDefault(); event.returnValue = ''; }
+                });
 
                 // Cetak / cetak ulang ID card oleh petugas (hanya untuk peserta yang sudah hadir).
                 var cardBox = document.getElementById('card-actions'), cardNumber = null;

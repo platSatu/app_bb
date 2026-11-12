@@ -510,20 +510,33 @@ class TicketOrderService
         });
     }
 
+    /**
+     * Kode booking, no. tiket & QR dicek dulu belum dipakai; kolomnya juga unik di database. Kalau dua pembayaran di detik
+     * yang sama kebetulan mendapat kode yang sama, database menolak salah satunya dan kode baru dibuat (maks. 3 kali).
+     */
     private function issueTicket(TicketOrder $order, TicketOrderItem $item, int $sequence): void
     {
-        $ticket = new Ticket();
-        $ticket->forceFill([
-            'order_id' => $order->getKey(),
-            'page_id' => $order->page_id,
-            'category_id' => $item->category_id,
-            'category_name' => $item->name,
-            'holder_name' => $order->name,
-            'booking_code' => $this->uniqueValue(Ticket::class, 'booking_code', fn () => (string) random_int(100000, 999999), ['page_id' => $order->page_id]),
-            'number' => $this->uniqueValue(Ticket::class, 'number', fn () => 'BB'.random_int(10000000, 99999999)),
-            'token' => Str::random(48),
-            'sequence' => $sequence,
-        ])->save();
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                (new Ticket())->forceFill([
+                    'order_id' => $order->getKey(),
+                    'page_id' => $order->page_id,
+                    'category_id' => $item->category_id,
+                    'category_name' => $item->name,
+                    'holder_name' => $order->name,
+                    'booking_code' => $this->uniqueValue(Ticket::class, 'booking_code', fn () => (string) random_int(100000, 999999), ['page_id' => $order->page_id]),
+                    'number' => $this->uniqueValue(Ticket::class, 'number', fn () => 'BB'.random_int(10000000, 99999999)),
+                    'token' => Ticket::newQrToken(),
+                    'sequence' => $sequence,
+                ])->save();
+
+                return;
+            } catch (UniqueConstraintViolationException $e) {
+                if ($attempt >= 3) {
+                    throw $e;
+                }
+            }
+        }
     }
 
     /** Pending, atau kedaluwarsa/gagal tapi ternyata dibayar (dicek ulang ke Duitku; kuota dicek ulang di markPaid). */

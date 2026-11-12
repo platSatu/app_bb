@@ -8,7 +8,6 @@ use App\Models\TicketCardLog;
 use App\Models\TicketScanner;
 use App\Services\Media\QrCodeGenerator;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * E-ticket -> ID card.
@@ -190,7 +189,7 @@ class TicketCardService
         ];
 
         if (! $ticket->card_token || $action === TicketCardLog::ACTION_REPLACE) {
-            $changes['card_token'] = $this->newToken();
+            $changes['card_token'] = Ticket::newQrToken();
         }
 
         if ($checkIn && ! $ticket->isCheckedIn()) {
@@ -209,15 +208,6 @@ class TicketCardService
             'scanner_id' => $scanner?->getKey(),
             'actor_id' => $actorId,
         ])->save();
-    }
-
-    private function newToken(): string
-    {
-        do {
-            $token = Str::random(48);
-        } while (Ticket::where('card_token', $token)->orWhere('token', $token)->exists());
-
-        return $token;
     }
 
     private function alreadyMessage(Ticket $ticket): string
