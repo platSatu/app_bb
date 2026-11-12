@@ -12,6 +12,7 @@ use App\Support\XlsxExport;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -35,7 +36,8 @@ class ProspectController extends Controller
             // Angka di tab status mengikuti filter cari/segmen/kota yang sedang dipakai.
             'counts' => $this->filtered($request, false)->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status'),
             'cities' => Prospect::query()->whereNotNull('city')->distinct()->orderBy('city')->pluck('city'),
-            'segments' => Prospect::query()->whereNotNull('segment')->distinct()->orderBy('segment')->pluck('segment'),
+            // [segmen => jumlah prospek]: untuk filter & hapus per segmen.
+            'segments' => Prospect::query()->whereNotNull('segment')->selectRaw('segment, COUNT(*) AS total')->groupBy('segment')->orderBy('segment')->pluck('total', 'segment'),
         ]);
     }
 
@@ -284,9 +286,23 @@ class ProspectController extends Controller
         return back()->with('success', "Prospek {$prospect->name} diperbarui.");
     }
 
-    /** Hapus banyak prospek sekaligus (dicentang di daftar). */
+    /**
+     * Hapus banyak prospek sekaligus: yang dicentang di daftar, atau SEMUA prospek dalam satu segmen (mis. hasil impor yang
+     * salah). Hapus segmen wajib diketik "HAPUS" dan dicatat di log, karena tidak bisa dikembalikan.
+     */
     public function bulkDestroy(Request $request): RedirectResponse
     {
+        if ($request->filled('segment')) {
+            $data = $request->validate(
+                ['segment' => ['required', 'string', 'max:100'], 'confirm' => ['required', 'in:HAPUS']],
+                ['confirm.required' => 'Ketik HAPUS untuk menghapus seluruh segmen.', 'confirm.in' => 'Ketik HAPUS (huruf besar) untuk menghapus seluruh segmen.'],
+            );
+            $count = Prospect::where('segment', $data['segment'])->delete();
+            Log::info('[PROSPEK] Satu segmen dihapus', ['segment' => $data['segment'], 'jumlah' => $count, 'user' => $request->user()->getKey()]);
+
+            return redirect()->route('superadmin.tools.prospects.index')->with('success', "{$count} prospek di segmen {$data['segment']} dihapus.");
+        }
+
         $data = $request->validate(['ids' => ['required', 'array', 'max:500'], 'ids.*' => ['uuid']], ['ids.required' => 'Centang dulu prospek yang mau dihapus.']);
         $count = Prospect::whereIn('id', $data['ids'])->delete();
 

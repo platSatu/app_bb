@@ -316,8 +316,8 @@
                     <label class="form-label small text-muted mb-1">Segmen</label>
                     <select name="segment" class="form-select" onchange="this.form.submit()">
                         <option value="">Semua</option>
-                        @foreach ($segments as $segment)
-                            <option value="{{ $segment }}" @selected(request('segment') === $segment)>{{ $segment }}</option>
+                        @foreach ($segments as $segment => $total)
+                            <option value="{{ $segment }}" @selected(request('segment') === $segment)>{{ $segment }} ({{ number_format($total, 0, ',', '.') }})</option>
                         @endforeach
                     </select>
                 </div>
@@ -363,6 +363,23 @@
                 <button type="submit" class="btn btn-sm btn-outline-danger"><i class="ri-delete-bin-line"></i> Hapus terpilih</button>
                 <span class="small text-muted">Centang di kolom kiri; centang judul kolom untuk memilih semua di halaman ini.</span>
             </form>
+
+            {{-- Hapus seluruh segmen (mis. impor yang salah): jumlah ditampilkan & wajib ketik HAPUS. --}}
+            @if ($segments->isNotEmpty())
+                <form method="POST" action="{{ route('superadmin.tools.prospects.bulk-destroy') }}" class="d-flex flex-wrap align-items-center gap-2 mb-3"
+                    onsubmit="const o = this.segment.selectedOptions[0]; if (! this.segment.value) { alert('Pilih dulu segmen yang mau dihapus.'); return false; } const t = prompt('Semua ' + o.dataset.total + ' prospek di segmen &quot;' + this.segment.value + '&quot; akan dihapus dan tidak bisa dikembalikan.\n\nKetik HAPUS untuk melanjutkan:'); if (t !== 'HAPUS') { if (t !== null) alert('Dibatalkan: ketik HAPUS dengan huruf besar.'); return false; } this.confirm.value = t; return true;">
+                    @csrf
+                    <input type="hidden" name="confirm">
+                    <select name="segment" class="form-select form-select-sm w-auto">
+                        <option value="">Pilih segmen…</option>
+                        @foreach ($segments as $segment => $total)
+                            <option value="{{ $segment }}" data-total="{{ number_format($total, 0, ',', '.') }}" @selected(request('segment') === $segment)>{{ $segment }} ({{ number_format($total, 0, ',', '.') }} prospek)</option>
+                        @endforeach
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-danger"><i class="ri-delete-bin-2-line"></i> Hapus semua di segmen</button>
+                    @error('confirm') <span class="small text-danger">{{ $message }}</span> @enderror
+                </form>
+            @endif
 
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0 prospect-table">
