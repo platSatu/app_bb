@@ -8,12 +8,25 @@ use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Login dibatasi dua lapis supaya password tidak bisa ditebak terus-menerus:
+ *  - per akun + IP: 5 kali salah -> tunggu 15 menit;
+ *  - per akun dari IP mana pun: 20 kali salah -> tunggu 30 menit (menahan tebakan beramai-ramai dari banyak IP).
+ * Setiap penguncian dicatat di log. Akun yang dikunci tetap bisa masuk lewat Google atau atur ulang password.
+ */
 class LoginRequest extends FormRequest
 {
+    private const LIMITS = [
+        // [kunci, maks. salah, lama kunci (detik)]
+        'ip' => [5, 900],
+        'account' => [20, 1800],
+    ];
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -46,7 +59,8 @@ class LoginRequest extends FormRequest
         $this->ensureIsNotRateLimited();
 
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
-            RateLimiter::hit($this->throttleKey());
+            RateLimiter::hit($this->throttleKey(), self::LIMITS['ip'][1]);
+            RateLimiter::hit($this->accountKey(), self::LIMITS['account'][1]);
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
@@ -54,6 +68,7 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
+        RateLimiter::clear($this->accountKey());
 
         if (! Auth::user()->isActive()) {
             Auth::guard('web')->logout();
@@ -69,13 +84,22 @@ class LoginRequest extends FormRequest
      */
     public function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+        $key = match (true) {
+            RateLimiter::tooManyAttempts($this->throttleKey(), self::LIMITS['ip'][0]) => $this->throttleKey(),
+            RateLimiter::tooManyAttempts($this->accountKey(), self::LIMITS['account'][0]) => $this->accountKey(),
+            default => null,
+        };
+
+        if (! $key) {
             return;
         }
 
         event(new Lockout($this));
+        Log::warning('[LOGIN] Terlalu banyak password salah, login ditahan sementara', [
+            'email' => Str::mask(Str::lower($this->string('email')), '*', 2, -6), 'ip' => $this->ip(), 'scope' => $key === $this->accountKey() ? 'akun' : 'akun+ip',
+        ]);
 
-        $seconds = RateLimiter::availableIn($this->throttleKey());
+        $seconds = RateLimiter::availableIn($key);
 
         throw ValidationException::withMessages([
             'email' => trans('auth.throttle', [
@@ -91,5 +115,10 @@ class LoginRequest extends FormRequest
     public function throttleKey(): string
     {
         return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+    }
+
+    private function accountKey(): string
+    {
+        return 'login-account:'.sha1(Str::lower($this->string('email')));
     }
 }
