@@ -10,6 +10,7 @@ use App\Models\UserBranch;
 use App\Services\Contact\ContactBookService;
 use App\Services\Customer\CustomerAccount;
 use App\Services\Customer\CustomerService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -18,7 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
-/** Phone Book > Customers: customer WhatsApp per branch, bisa tambah, ubah, hapus, atur group, impor Excel/CSV, dan dijadikan user. */
+/** Phone Book > Customers: customer WhatsApp per branch, bisa tambah, ubah, hapus (satu / banyak), atur group, impor Excel/CSV, dan dijadikan user. */
 class ContactController extends Controller
 {
     use InWhatsAppArea;
@@ -30,10 +31,8 @@ class ContactController extends Controller
         }
 
         $groups = ContactGroup::where('branch_id', $branch->id)->orderBy('name')->get(['id', 'name']);
-        $customers = Customer::where('branch_id', $branch->id)->forApp('whatsapp')
+        $customers = $this->filtered($branch, $request)
             ->with('groups:id,name')
-            ->search($request->query('search'))
-            ->when($request->query('group'), fn ($q, $id) => $q->whereHas('groups', fn ($g) => $g->whereKey($id)))
             ->latest('last_seen_at')
             ->paginate(25)
             ->withQueryString();
@@ -81,6 +80,28 @@ class ContactController extends Controller
         return back()->with('success', "{$model->displayName()} dihapus dari Phone Book.");
     }
 
+    /** Hapus banyak kontak: yang dicentang, atau semua yang cocok dengan filter (cari / group) di branch ini (all=1). */
+    public function destroyMany(Request $request): RedirectResponse
+    {
+        $branch = $this->branchFromInput($request);
+        $data = $request->validate([
+            'all' => ['nullable', 'boolean'],
+            'ids' => ['required_unless:all,1', 'array', 'max:1000'],
+            'ids.*' => ['uuid'],
+        ], ['ids.required_unless' => 'Pilih kontak yang mau dihapus dulu.']);
+
+        $query = $request->boolean('all')
+            ? $this->filtered($branch, $request)
+            : Customer::where('branch_id', $branch->id)->forApp('whatsapp')->whereKey($data['ids']);
+
+        $deleted = 0;
+        $query->select('id')->chunkById(500, function ($rows) use (&$deleted) {
+            $deleted += Customer::whereKey($rows->modelKeys())->delete();
+        });
+
+        return back()->with('success', number_format($deleted, 0, ',', '.').' kontak dihapus dari Phone Book.');
+    }
+
     public function account(Request $request, string $customer, CustomerAccount $accounts): RedirectResponse
     {
         return $this->grantAccount($this->owned($request, $customer), $accounts);
@@ -120,6 +141,14 @@ class ContactController extends Controller
     public function template(ContactBookService $book): StreamedResponse
     {
         return $book->template('contoh-customers-whatsapp.xlsx');
+    }
+
+    /** Kontak WhatsApp satu branch sesuai filter halaman (?search, ?group): daftar & hapus semua yang cocok. */
+    private function filtered(UserBranch $branch, Request $request): Builder
+    {
+        return Customer::where('branch_id', $branch->id)->forApp('whatsapp')
+            ->search($request->query('search'))
+            ->when($request->query('group'), fn ($q, $id) => $q->whereHas('groups', fn ($g) => $g->whereKey($id)));
     }
 
     private function owned(Request $request, string $id): Customer

@@ -85,6 +85,7 @@ Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function
         Route::post('import', 'import')->middleware('throttle:5,1')->name('import');
         Route::get('contoh-excel', 'template')->name('template');
         Route::put('{customer}', 'update')->whereUuid('customer')->name('update');
+        Route::delete('/', 'destroyMany')->middleware('throttle:20,1')->name('destroy-many');
         Route::delete('{customer}', 'destroy')->whereUuid('customer')->name('destroy');
         Route::post('{customer}/akun', 'account')->whereUuid('customer')->middleware('throttle:20,1')->name('account');
     });

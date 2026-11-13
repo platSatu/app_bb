@@ -36,14 +36,24 @@
                 </div>
             </form>
 
+            @if ($customers->isNotEmpty())
+                {{-- Hapus banyak: centang baris, atau pilih semua yang cocok dengan filter (mis. satu group). --}}
+                @include('contact.customer._bulk-delete', [
+                    'action' => route('whatsapp.contacts.destroy-many', ['branch_id' => $branch->id] + request()->only(['search', 'group'])),
+                    'noun' => 'kontak',
+                    'confirm' => 'Hapus :count kontak dari Phone Book? Kontak juga keluar dari semua group-nya. Tidak bisa dibatalkan.',
+                ])
+            @endif
+
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
-                        <tr><th>Nama</th><th>WhatsApp</th><th>Email</th><th>Group</th><th>Sumber</th><th class="text-end">Aksi</th></tr>
+                        <tr>@if ($customers->isNotEmpty())<th style="width: 32px"><input type="checkbox" class="form-check-input" data-bulk-page title="Pilih semua di halaman ini"></th>@endif<th>Nama</th><th>WhatsApp</th><th>Email</th><th>Group</th><th>Sumber</th><th class="text-end">Aksi</th></tr>
                     </thead>
                     <tbody>
                         @forelse ($customers as $customer)
                             <tr>
+                                <td><input type="checkbox" class="form-check-input" name="ids[]" value="{{ $customer->id }}" form="bulk-delete-form" data-bulk-row aria-label="Pilih {{ $customer->displayName() }}"></td>
                                 <td class="fw-semibold">{{ $customer->name ?: '-' }}</td>
                                 <td class="text-nowrap">{{ $customer->phone ? '+'.$customer->phone : '-' }}</td>
                                 <td>{{ $customer->email ?: '-' }}</td>
