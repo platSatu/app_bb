@@ -14,17 +14,23 @@ use Illuminate\Support\Str;
  * Satu pesan masuk dijawab paling banyak satu pihak, dicek berurutan:
  *   1. STOP/BERHENTI         -> diam (go_bizbos mencatat opt-out)
  *   2. dipegang manusia      -> diam (di-assign, dijeda, atau admin baru membalas)
- *   3. sedang di chatbot flow -> flow melanjutkan
- *   4. kata kunci flow       -> flow dimulai
- *   5. auto reply cocok      -> auto reply
- *   6. AI bot aktif          -> AI menjawab
+ *   3. batas balasan tercapai -> diserahkan ke admin (satu pesan), bot dijeda
+ *   4. sedang di chatbot flow -> flow melanjutkan
+ *   5. kata kunci flow       -> flow dimulai
+ *   6. auto reply cocok      -> auto reply
+ *   7. AI bot aktif          -> AI menjawab
  */
 class BotRouter
 {
     use BotText;
 
     public const HUMAN_HOLD_MINUTES = 30;
-    private const MAX_REPLIES = 5;      // per chat per 10 menit, mencegah bot saling balas
+    // Batas balasan dipakai untuk memutus bot yang saling balas, bukan untuk membatasi orang:
+    // menu bertingkat wajar dipakai belasan kali, sedangkan dua mesin saling balas selalu beruntun
+    // dalam hitungan detik. Karena itu batas panjangnya longgar dan batas beruntunnya yang ketat.
+    private const MAX_REPLIES = 20;      // per chat per 10 menit
+    private const BURST_REPLIES = 6;     // per chat per BURST_SECONDS; manusia tidak sampai secepat ini
+    private const BURST_SECONDS = 12;
     private const MAX_AGE_SECONDS = 300; // pesan lama (riwayat) tidak dijawab
 
     private const STOP_WORDS = ['stop', 'berhenti', 'unsubscribe'];
@@ -50,7 +56,16 @@ class BotRouter
     {
         $text = $this->normalize($message->body);
 
-        if (in_array($text, self::STOP_WORDS, true) || $this->humanIsHandling($chat) || ! $this->withinRateLimit($chat)) {
+        if (in_array($text, self::STOP_WORDS, true) || $this->humanIsHandling($chat)) {
+            return;
+        }
+
+        // Batas tercapai: chat TIDAK didiamkan, tapi diserahkan ke admin dengan satu pesan.
+        // Bot dijeda lebih dulu, jadi pesan ini sendiri tidak ikut jadi balas-balasan.
+        if (! $this->withinRateLimit($chat)) {
+            $this->pauseBot($chat, self::HUMAN_HOLD_MINUTES);
+            $this->send($chat, 'Maaf Kak, biar lebih cepat saya sambungkan ke tim kami ya 🙏 Mohon tunggu sebentar.');
+
             return;
         }
 
@@ -64,17 +79,29 @@ class BotRouter
         }
 
         if ($reply->handover) {
-            $chat->forceFill(['bot_paused_until' => now()->addMinutes($reply->handoverMinutes)])->save();
+            $this->pauseBot($chat, $reply->handoverMinutes);
         }
         if ($reply->text !== '') {
-            RateLimiter::hit($this->limiterKey($chat), 600);
-            $this->wa->sendText($chat->branch_id, [
-                'device_id' => $chat->device_id,
-                'to' => $chat->chat_jid,
-                'text' => $reply->text,
-                'client_ref' => 'bot:'.Str::uuid(),
-            ]);
+            $this->send($chat, $reply->text);
         }
+    }
+
+    /** Satu-satunya jalan keluar pesan bot: pemakaian jatah balasan selalu ikut tercatat di sini. */
+    private function send(WaChat $chat, string $text): void
+    {
+        RateLimiter::hit($this->limiterKey($chat), 600);
+        RateLimiter::hit($this->burstKey($chat), self::BURST_SECONDS);
+        $this->wa->sendText($chat->branch_id, [
+            'device_id' => $chat->device_id,
+            'to' => $chat->chat_jid,
+            'text' => $text,
+            'client_ref' => 'bot:'.Str::uuid(),
+        ]);
+    }
+
+    private function pauseBot(WaChat $chat, int $minutes): void
+    {
+        $chat->forceFill(['bot_paused_until' => now()->addMinutes($minutes)])->save();
     }
 
     private function humanIsHandling(WaChat $chat): bool
@@ -86,12 +113,18 @@ class BotRouter
 
     private function withinRateLimit(WaChat $chat): bool
     {
-        return ! RateLimiter::tooManyAttempts($this->limiterKey($chat), self::MAX_REPLIES);
+        return ! RateLimiter::tooManyAttempts($this->limiterKey($chat), self::MAX_REPLIES)
+            && ! RateLimiter::tooManyAttempts($this->burstKey($chat), self::BURST_REPLIES);
     }
 
     private function limiterKey(WaChat $chat): string
     {
         return 'wa-bot-replies:'.$chat->id;
+    }
+
+    private function burstKey(WaChat $chat): string
+    {
+        return 'wa-bot-burst:'.$chat->id;
     }
 
     /** Urutan cocok: sama persis, diawali, mengandung, lalu "semua pesan". Tiap aturan punya jeda ulang per chat. */
