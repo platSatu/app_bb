@@ -24,9 +24,10 @@ class BotRouter
 {
     use BotText;
 
-    // 14 November 2026: 30 -> 10 menit. Bot menyingkir begitu admin ikut membalas, tapi
-    // kembali berjaga lebih cepat supaya chat yang masuk setelahnya tidak ikut didiamkan lama.
-    public const HUMAN_HOLD_MINUTES = 10;
+    // 14 November 2026: 30 -> 5 menit. Bot menyingkir begitu admin ikut membalas, tapi
+    // kembali berjaga cepat supaya chat yang masuk setelahnya tidak ikut didiamkan lama.
+    // Tiap balasan admin memperpanjang jeda ini, jadi percakapan yang masih berjalan tetap aman.
+    public const HUMAN_HOLD_MINUTES = 5;
     // Batas balasan dipakai untuk memutus bot yang saling balas, bukan untuk membatasi orang:
     // menu bertingkat wajar dipakai belasan kali, sedangkan dua mesin saling balas selalu beruntun
     // dalam hitungan detik. Karena itu batas panjangnya longgar dan batas beruntunnya yang ketat.
