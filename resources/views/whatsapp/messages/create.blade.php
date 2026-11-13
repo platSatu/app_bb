@@ -57,8 +57,13 @@
         @if ($editing)
             <div class="alert alert-info small">Perubahan berlaku untuk pengiriman berikutnya. Pesan yang sudah masuk antrean atau sudah terkirim tidak ikut berubah. Jenis pengiriman tidak bisa diganti.</div>
         @endif
+        @php
+            // Sama seperti di Auto Reply: @json() memotong argumennya di setiap koma, dan yang
+            // tersisa dipakai sebagai flag json_encode -> hasilnya tidak di-escape untuk HTML.
+            $oldGroups = array_values((array) $val('wa_groups', []));
+        @endphp
         <form method="POST" action="{{ $editing ? route('whatsapp.messages.update', $broadcast) : route('whatsapp.messages.store') }}" enctype="multipart/form-data" id="wa-message-form"
-              data-groups-url="{{ route('whatsapp.messages.wa-groups', '__ID__') }}" data-old-groups='@json(array_values((array) $val('wa_groups', [])))'>
+              data-groups-url="{{ route('whatsapp.messages.wa-groups', '__ID__') }}" data-old-groups='@json($oldGroups)'>
             @csrf
             @if ($editing) @method('PUT') @endif
             @isset($copyFrom) <input type="hidden" name="copy_from" value="{{ $copyFrom->id }}"> @endisset

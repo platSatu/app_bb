@@ -29,8 +29,22 @@
                                         <td class="small">{{ $rule->device?->name ?? 'Semua device' }}</td>
                                         <td><span class="badge {{ $rule->is_active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }}">{{ $rule->is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
                                         <td class="text-end text-nowrap">
+                                            @php
+                                                // @json() Blade memotong argumennya di setiap koma (explode(',', ...)), jadi array
+                                                // literal berkoma bikin ParseError -> halaman 500. Array disiapkan di sini supaya
+                                                // @json() hanya menerima satu variabel.
+                                                $ruleValues = [
+                                                    'name' => $rule->name,
+                                                    'device_id' => $rule->device_id,
+                                                    'match_type' => $rule->match_type,
+                                                    'keywords' => implode(', ', $rule->keywords ?? []),
+                                                    'body' => $rule->body,
+                                                    'cooldown_minutes' => $rule->cooldown_minutes,
+                                                    'is_active' => $rule->is_active,
+                                                ];
+                                            @endphp
                                             <button type="button" class="btn btn-sm rounded-pill btn-outline-secondary" data-edit="{{ route('whatsapp.auto-replies.update', $rule) }}"
-                                                data-values='@json(['name' => $rule->name, 'device_id' => $rule->device_id, 'match_type' => $rule->match_type, 'keywords' => implode(', ', $rule->keywords ?? []), 'body' => $rule->body, 'cooldown_minutes' => $rule->cooldown_minutes, 'is_active' => $rule->is_active])'><i class="ri-pencil-line"></i> Ubah</button>
+                                                data-values='@json($ruleValues)'><i class="ri-pencil-line"></i> Ubah</button>
                                             <form method="POST" action="{{ route('whatsapp.auto-replies.destroy', $rule) }}" class="d-inline" onsubmit="return confirm('Hapus auto reply ini?')">
                                                 @csrf
                                                 @method('DELETE')
