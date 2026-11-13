@@ -11,6 +11,7 @@
     <link href="{{ asset('be') }}/assets/css/bootstrap.min.css" id="bootstrap-style" rel="stylesheet" type="text/css">
     <link href="{{ asset('be') }}/assets/css/icons.min.css" rel="stylesheet" type="text/css">
     <link href="{{ asset('be') }}/assets/css/app.min.css" id="app-style" rel="stylesheet" type="text/css">
+    @include('layouts.partials.meta-pixel', ['pageView' => true])
     <style>
         @media (min-width: 1200px) {
             .main-wrapper { max-height: none; }

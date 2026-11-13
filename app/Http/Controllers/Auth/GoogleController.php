@@ -97,6 +97,10 @@ class GoogleController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        if ($isNew) {
+            // Dikirim ke Meta Pixel sekali di halaman berikutnya (layouts.partials.meta-pixel).
+            $request->session()->put('meta_pixel_event', 'CompleteRegistration');
+        }
 
         if (! $user->handphone) {
             return redirect()->route('profile.edit')->with('warning', $isNew

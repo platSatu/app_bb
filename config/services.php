@@ -39,6 +39,11 @@ return [
         'secret_key' => env('TURNSTILE_SECRET_KEY'),
     ],
 
+    // Meta Pixel (iklan Instagram/Facebook). Kosong = Pixel tidak dimuat (staging/lokal).
+    'meta' => [
+        'pixel_id' => env('META_PIXEL_ID'),
+    ],
+
     // Service WhatsApp v2 (go_bizbos). url = alamat internal (API), public_url = alamat yang dibuka browser (SSE & media).
     'wa' => [
         'url' => env('WA_SERVICE_URL', 'http://127.0.0.1:8090'),

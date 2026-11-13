@@ -25,6 +25,7 @@
         }
     </style>
     @stack('styles')
+    @include('layouts.partials.meta-pixel')
 </head>
 
 <body>

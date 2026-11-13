@@ -77,6 +77,8 @@ class RegisteredUserController extends Controller
         event(new Registered($user));
 
         Auth::login($user);
+        // Dikirim ke Meta Pixel sekali di halaman berikutnya (layouts.partials.meta-pixel).
+        $request->session()->put('meta_pixel_event', 'CompleteRegistration');
 
         return redirect(route('dashboard', absolute: false));
     }
