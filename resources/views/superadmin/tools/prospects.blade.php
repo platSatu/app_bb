@@ -340,13 +340,13 @@
                 </div>
             </form>
 
-            {{-- Import kontak (mis. pembeli tiket yang setuju menerima promo): nama & email wajib, email dobel dilewati. --}}
+            {{-- Import kontak: minimal whatsapp atau email, kontak dobel dilewati. Kontak tanpa email tidak dikirimi email oleh agent. --}}
             <div class="collapse {{ $errors->has('file') ? 'show' : '' }}" id="import-box">
                 <form method="POST" action="{{ route('superadmin.tools.prospects.import') }}" enctype="multipart/form-data" class="border rounded p-3 mb-3 bg-light-subtle">
                     @csrf
                     <div class="fw-semibold mb-1">Import kontak dari Excel / CSV</div>
-                    <div class="small text-muted mb-2">Kolom: <b>nama</b>, <b>email</b> (wajib), whatsapp, kota. Maks {{ number_format(Prospect::IMPORT_MAX_ROWS, 0, ',', '.') }} baris per file,
-                        email yang sudah ada otomatis dilewati. Hanya untuk kontak yang setuju menerima info/promo dari Anda.
+                    <div class="small text-muted mb-2">Kolom: <b>nama</b>, <b>whatsapp</b> dan/atau <b>email</b> (minimal salah satu), kota, catatan. Maks {{ number_format(Prospect::IMPORT_MAX_ROWS, 0, ',', '.') }} baris per file,
+                        kontak yang sudah ada otomatis dilewati. Isi email hanya untuk kontak yang setuju menerima info/promo dari Anda; kontak tanpa email cukup dihubungi lewat WhatsApp.
                         <a href="{{ route('superadmin.tools.prospects.import.template') }}"><i class="ri-download-2-line"></i> Unduh file contoh</a></div>
                     <div class="d-flex flex-wrap gap-2">
                         <input type="file" name="file" accept=".xlsx,.xls,.csv" class="form-control" style="max-width: 420px" required>

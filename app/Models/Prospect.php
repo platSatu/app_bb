@@ -75,15 +75,21 @@ class Prospect extends Model
     }
 
     /**
-     * Kontak dari file Excel/CSV (Tools › Prospek › Import). Email wajib & valid; email yang sudah ada di Prospek
-     * (huruf besar/kecil diabaikan) dilewati, jadi tidak ada kontak dobel.
+     * Kontak dari file Excel/CSV (Tools › Prospek › Import). Minimal ada email valid atau nomor WhatsApp. Email atau nomor
+     * yang sudah ada di Prospek dilewati (email tanpa beda huruf besar/kecil, nomor tanpa beda 0/62), jadi tidak ada kontak dobel.
+     * Kontak tanpa email tidak pernah dikirimi email oleh Agent Prospek (selalu disaring whereNotNull('email')); dihubungi lewat WA.
      *
-     * @param  array<int, array{name: ?string, phone: ?string, email: ?string, city?: ?string}>  $rows
+     * @param  array<int, array{name: ?string, phone: ?string, email: ?string, city?: ?string, notes?: ?string}>  $rows
      * @return array{saved: int, skipped: int}
      */
     public static function importRows(array $rows, ?string $userId): array
     {
+        // 0812.., 62812.., +62 812.. atau 812.. (angka 0 di depan hilang di Excel) -> 812..
+        $digits = fn ($value) => preg_replace('/^(62|0)/', '', preg_replace('/\D/', '', (string) $value));
         $known = static::whereNotNull('email')->pluck('email')->mapWithKeys(fn ($e) => [strtolower($e) => true])->all();
+        $knownPhones = static::query()->toBase()->get(['phone', 'whatsapp'])
+            ->flatMap(fn ($p) => [$digits($p->phone), $digits($p->whatsapp)])
+            ->filter(fn ($d) => strlen($d) >= 8)->flip()->all();
         $saved = 0;
         $skipped = 0;
 
@@ -92,22 +98,29 @@ class Prospect extends Model
 
             foreach ($chunk as $row) {
                 $email = strtolower(trim((string) ($row['email'] ?? '')));
+                $email = strlen($email) <= 150 && filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '';
+                $number = $digits($row['phone'] ?? '');
+                $phone = strlen($number) >= 8 ? mb_substr($number, 0, 17) : '';
 
-                if (strlen($email) > 150 || ! filter_var($email, FILTER_VALIDATE_EMAIL) || isset($known[$email])) {
+                if (($email === '' && $phone === '') || ($email !== '' && isset($known[$email])) || ($phone !== '' && isset($knownPhones[$phone]))) {
                     $skipped++;
 
                     continue;
                 }
 
-                $known[$email] = true;
-                // 0812.., 62812.. atau 812.. (angka 0 di depan hilang di Excel) -> telepon 0812.., WA 62812..
-                $digits = preg_replace('/^(62|0)/', '', preg_replace('/\D/', '', (string) ($row['phone'] ?? '')));
-                $phone = strlen($digits) >= 8 ? mb_substr($digits, 0, 17) : '';
+                if ($email !== '') {
+                    $known[$email] = true;
+                }
+                if ($phone !== '') {
+                    $knownPhones[$phone] = true;
+                }
                 $insert[] = [
                     'id' => (string) \Illuminate\Support\Str::uuid7(), 'source' => 'import', 'segment' => ProspectAgentSetting::IMPORT_SEGMENT,
-                    'name' => mb_substr(trim((string) ($row['name'] ?? '')) ?: strstr($email, '@', true), 0, 200), 'email' => $email,
+                    'name' => mb_substr(trim((string) ($row['name'] ?? '')) ?: ($email !== '' ? strstr($email, '@', true) : '0'.$phone), 0, 200),
+                    'email' => $email ?: null,
                     'phone' => $phone !== '' ? '0'.$phone : null, 'whatsapp' => $phone !== '' ? '62'.$phone : null,
                     'city' => mb_substr(trim((string) ($row['city'] ?? '')), 0, 150) ?: null,
+                    'notes' => mb_substr(trim((string) ($row['notes'] ?? '')), 0, 2000) ?: null,
                     'status' => 'new', 'created_by' => $userId, 'created_at' => now(), 'updated_at' => now(),
                 ];
             }

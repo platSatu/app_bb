@@ -91,8 +91,8 @@ class ContactBookService
         $sheet = $book->getActiveSheet();
         $sheet->fromArray($rows ?? [['nama', 'whatsapp', 'email'], ['Budi Santoso', '081234567890', 'budi@contoh.com']]);
         $sheet->getStyle('B:B')->getNumberFormat()->setFormatCode('@');
-        $sheet->getStyle('A1:D1')->getFont()->setBold(true);
-        foreach (['A' => 24, 'B' => 18, 'C' => 30, 'D' => 18] as $col => $width) {
+        $sheet->getStyle('A1:E1')->getFont()->setBold(true);
+        foreach (['A' => 24, 'B' => 18, 'C' => 30, 'D' => 18, 'E' => 40] as $col => $width) {
             $sheet->getColumnDimension($col)->setWidth($width);
         }
 

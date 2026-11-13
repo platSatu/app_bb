@@ -157,29 +157,30 @@ class ProspectController extends Controller
         return back()->with('success', "Email tes \"{$data['segment']}\" sedang dikirim ke {$data['email']}. Cek kotak masuk (dan folder spam) 1–2 menit lagi.");
     }
 
-    /** Import kontak dari Excel/CSV (kolom nama, email; opsional whatsapp, kota). Email dobel/tidak valid dilewati. */
+    /** Import kontak dari Excel/CSV (kolom nama, whatsapp dan/atau email; opsional kota, catatan). Kontak dobel dilewati. */
     public function import(Request $request, ContactBookService $book): RedirectResponse
     {
         $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:5120']],
             ['file.mimes' => 'File harus Excel (.xlsx/.xls) atau CSV.', 'file.max' => 'Ukuran file maksimal 5 MB.']);
 
-        [$rows] = $book->read($request->file('file'), ['city' => ['kota', 'city']], Prospect::IMPORT_MAX_ROWS);
-        if (! collect($rows)->contains(fn ($r) => filled($r['email']))) {
-            return back()->with('error', 'Kolom email tidak ditemukan. Baris pertama harus berisi judul kolom: nama, email, whatsapp, kota. Pakai file contoh supaya pas.');
+        [$rows] = $book->read($request->file('file'), ['city' => ['kota', 'city'], 'notes' => ['catatan', 'notes', 'link']], Prospect::IMPORT_MAX_ROWS);
+        if (! collect($rows)->contains(fn ($r) => filled($r['email']) || filled($r['phone']))) {
+            return back()->with('error', 'Kolom whatsapp atau email tidak ditemukan. Baris pertama harus berisi judul kolom: nama, whatsapp, email, kota, catatan. Pakai file contoh supaya pas.');
         }
 
         $result = Prospect::importRows($rows, $request->user()->getKey());
 
-        return back()->with('success', "Import selesai: {$result['saved']} kontak masuk".($result['skipped'] ? ", {$result['skipped']} dilewati (email kosong, tidak valid, atau sudah ada)." : '.')
+        return back()->with('success', "Import selesai: {$result['saved']} kontak masuk".($result['skipped'] ? ", {$result['skipped']} dilewati (tanpa WhatsApp/email yang valid, atau sudah ada)." : '.')
             .(count($rows) >= Prospect::IMPORT_MAX_ROWS ? ' Maksimal '.Prospect::IMPORT_MAX_ROWS.' baris per file; lanjutkan sisanya dengan file berikutnya.' : ''));
     }
 
     public function importTemplate(ContactBookService $book): StreamedResponse
     {
         return $book->template('contoh-import-kontak.xlsx', [
-            ['nama', 'whatsapp', 'email', 'kota'],
-            ['Budi Santoso', '081234567890', 'budi@contoh.com', 'Bekasi'],
-            ['Siti Aminah', '', 'siti@contoh.com', 'Jakarta Selatan'],
+            ['nama', 'whatsapp', 'email', 'kota', 'catatan'],
+            ['Budi Santoso', '081234567890', 'budi@contoh.com', 'Bekasi', ''],
+            ['Siti Aminah', '', 'siti@contoh.com', 'Jakarta Selatan', ''],
+            ['Bimbel Cerdas', '081298765432', '', 'Depok', 'Dari grup Facebook, tanya aplikasi absensi'],
         ]);
     }
 
