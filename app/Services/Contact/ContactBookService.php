@@ -68,7 +68,8 @@ class ContactBookService
         }
 
         $header = array_map(fn ($h) => strtolower(trim(preg_replace('/^\xEF\xBB\xBF/', '', (string) $h))), array_shift($sheet) ?? []);
-        $find = fn (array $names) => collect($header)->search(fn ($h) => in_array($h, $names, true));
+        // Urutan nama = prioritas: file yang punya kolom "WhatsApp" dan "Telepon" (mis. export Prospek) memakai WhatsApp.
+        $find = fn (array $names) => collect($names)->map(fn ($name) => array_search($name, $header, true))->first(fn ($i) => $i !== false) ?? false;
         $cols = [
             'name' => $find(['nama', 'name', 'nama lengkap']),
             'phone' => $find(['whatsapp', 'wa', 'phone', 'hp', 'handphone', 'no hp', 'nomor', 'telepon', 'no whatsapp']),
