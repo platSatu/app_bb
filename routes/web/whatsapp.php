@@ -82,7 +82,7 @@ Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function
     Route::middleware('permission:whatsapp.contacts')->controller(ContactController::class)->prefix('contacts')->name('contacts.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/', 'store')->middleware('throttle:60,1')->name('store');
-        Route::post('import', 'import')->middleware('throttle:5,1')->name('import');
+        Route::post('import', 'import')->middleware('throttle:10,1')->name('import');
         Route::get('contoh-excel', 'template')->name('template');
         Route::put('{customer}', 'update')->whereUuid('customer')->name('update');
         Route::delete('/', 'destroyMany')->middleware('throttle:20,1')->name('destroy-many');

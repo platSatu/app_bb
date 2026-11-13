@@ -59,6 +59,17 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return back()->withInput($request->except(['_token', 'password', 'password_confirmation', 'current_password', 'pin']))->with('warning', $message);
         });
+        // "429 Too Many Requests" dari throttle di form (mis. impor beruntun): kembali ke halaman tadi dengan pesan,
+        // bukan halaman error kosong. GET, JSON/API, dan tamu tetap memakai jawaban bawaan (hindari redirect berulang).
+        $exceptions->render(function (\Illuminate\Http\Exceptions\ThrottleRequestsException $e, \Illuminate\Http\Request $request) {
+            if ($request->isMethod('GET') || $request->expectsJson() || $request->is('api/*') || ! $request->user()) {
+                return null;
+            }
+
+            $seconds = max(1, (int) ($e->getHeaders()['Retry-After'] ?? 60));
+
+            return back()->with('error', "Permintaan terlalu sering. Tunggu sekitar {$seconds} detik, lalu coba lagi ya.");
+        });
         // API Invoice selalu menjawab JSON dengan bentuk {success, message, errors}.
         $exceptions->render(function (\Illuminate\Validation\ValidationException $e, \Illuminate\Http\Request $request) {
             if ($request->is('api/v1/*')) {
