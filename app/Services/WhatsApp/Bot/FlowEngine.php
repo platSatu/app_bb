@@ -14,7 +14,9 @@ class FlowEngine
     private const MAX_INVALID = 2;
     // 14 November 2026: 120 -> 15 menit. Pelanggan yang memilih "ngobrol dengan tim" tidak
     // disela bot, tapi juga tidak terkunci berjam-jam kalau belum sempat dibalas admin.
-    private const HANDOVER_MINUTES = 15;
+    // public supaya form flow menampilkan angka ini apa adanya dan tidak pernah basi
+    // (pola yang sama dengan BotRouter::HUMAN_HOLD_MINUTES).
+    public const HANDOVER_MINUTES = 15;
 
     public function continue(WaChat $chat, string $text): ?BotReply
     {

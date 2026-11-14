@@ -40,7 +40,8 @@
                     <textarea name="end_message" rows="2" maxlength="1000" class="form-control mb-2" placeholder="Terima kasih {nama}!">{{ old('end_message', $flow->end_message) }}</textarea>
                     <label class="form-label">Pesan saat diteruskan ke admin</label>
                     <textarea name="handover_message" rows="2" maxlength="1000" class="form-control mb-1" placeholder="Baik {nama}, admin kami akan segera membalas ya 🙏">{{ old('handover_message', $flow->handover_message) }}</textarea>
-                    <div class="form-text mb-2">Setelah diteruskan, bot diam 2 jam untuk chat itu.</div>
+                    {{-- Angkanya dibaca dari konstantanya, jangan ditulis ulang di sini supaya tidak basi saat nilainya diubah. --}}
+                    <div class="form-text mb-2">Setelah diteruskan, bot diam {{ \App\Services\WhatsApp\Bot\FlowEngine::HANDOVER_MINUTES }} menit untuk chat itu. Bot juga diam {{ \App\Services\WhatsApp\Bot\BotRouter::HUMAN_HOLD_MINUTES }} menit setiap kali admin membalas, dan diam seterusnya bila chat di-assign ke admin.</div>
                     <div class="form-check form-switch mb-2">
                         <input class="form-check-input" type="checkbox" name="nudge_on" value="1" id="flow-nudge" @checked(old('nudge_on', $flow->nudge_minutes !== null))>
                         <label class="form-check-label" for="flow-nudge">Sapa kontak yang berhenti membalas</label>
