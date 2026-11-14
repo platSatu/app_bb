@@ -14,6 +14,8 @@ Schedule::command('invoices:remind')->dailyAt('07:55')->withoutOverlapping();
 Schedule::command('subscriptions:remind')->dailyAt('08:10')->withoutOverlapping();
 Schedule::command('referrals:release')->hourly()->withoutOverlapping();
 Schedule::command('whatsapp:dispatch-messages')->everyMinute()->withoutOverlapping();
+// Sapa kontak yang menggantung di tengah chatbot flow, tutup percakapan bila tetap didiamkan.
+Schedule::command('whatsapp:nudge-sessions')->everyMinute()->withoutOverlapping();
 // Agent Prospek: dicek tiap 15 menit, bekerja sekali sehari setelah jam yang diatur (lihat ProspectAgent::run()).
 Schedule::call(fn () => app(\App\Services\Marketing\ProspectAgent::class)->run())->everyFifteenMinutes()->name('prospect-agent')->withoutOverlapping();
 Schedule::command('db:backup')->dailyAt('01:00')->withoutOverlapping();

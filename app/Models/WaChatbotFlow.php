@@ -13,7 +13,8 @@ class WaChatbotFlow extends Model
 
     public const MATCH_TYPES = ['exact' => 'Sama persis', 'contains' => 'Mengandung kata kunci'];
 
-    protected $fillable = ['name', 'match_type', 'keywords', 'nodes', 'end_message', 'handover_message', 'timeout_minutes', 'is_active'];
+    /** nudge_minutes: NULL = tidak menyapa kontak yang diam (lihat NudgeIdleBotSessions). */
+    protected $fillable = ['name', 'match_type', 'keywords', 'nodes', 'end_message', 'handover_message', 'timeout_minutes', 'nudge_minutes', 'is_active'];
 
     protected function casts(): array
     {

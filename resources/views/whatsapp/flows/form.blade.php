@@ -41,6 +41,14 @@
                     <label class="form-label">Pesan saat diteruskan ke admin</label>
                     <textarea name="handover_message" rows="2" maxlength="1000" class="form-control mb-1" placeholder="Baik {nama}, admin kami akan segera membalas ya 🙏">{{ old('handover_message', $flow->handover_message) }}</textarea>
                     <div class="form-text mb-2">Setelah diteruskan, bot diam 2 jam untuk chat itu.</div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" name="nudge_on" value="1" id="flow-nudge" @checked(old('nudge_on', $flow->nudge_minutes !== null))>
+                        <label class="form-check-label" for="flow-nudge">Sapa kontak yang berhenti membalas</label>
+                    </div>
+                    <label class="form-label">Disapa setelah diam (menit)</label>
+                    <input type="number" name="nudge_minutes" min="1" max="60" class="form-control mb-1 @error('nudge_minutes') is-invalid @enderror" value="{{ old('nudge_minutes', $flow->nudge_minutes ?? 3) }}">
+                    @error('nudge_minutes') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                    <div class="form-text mb-3">Bot bertanya sekali, "masih terhubung?". Bila tetap didiamkan selama itu lagi, percakapan ditutup baik-baik dan kontak mulai dari menu awal. Biarkan mati bila tidak perlu.</div>
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" type="checkbox" name="is_active" value="1" id="flow-active" @checked(old('is_active', $flow->is_active))>
                         <label class="form-check-label" for="flow-active">Aktif</label>

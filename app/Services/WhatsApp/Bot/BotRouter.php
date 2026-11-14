@@ -89,6 +89,26 @@ class BotRouter
         }
     }
 
+    /**
+     * Sapaan/penutup dari perintah terjadwal whatsapp:nudge-sessions untuk chat yang
+     * menggantung di tengah flow. Pengamannya sama persis dengan balasan biasa -- sedang
+     * dipegang admin, batas balasan, dan langganan cabang -- supaya bot tidak pernah
+     * menyela orang atau melewati jatahnya.
+     *
+     * @return bool false kalau tidak jadi dikirim; pemanggil tidak perlu tahu alasannya.
+     */
+    public function nudge(WaChat $chat, string $text): bool
+    {
+        if ($this->humanIsHandling($chat) || ! $this->withinRateLimit($chat)
+            || ! app(\App\Services\Subscription\AppAccess::class)->branchActive($chat->branch_id, 'whatsapp')) {
+            return false;
+        }
+
+        $this->send($chat, $text);
+
+        return true;
+    }
+
     /** Satu-satunya jalan keluar pesan bot: pemakaian jatah balasan selalu ikut tercatat di sini. */
     private function send(WaChat $chat, string $text): void
     {

@@ -105,10 +105,17 @@ class ChatbotFlowController extends Controller
             'end_message' => ['nullable', 'string', 'max:1000'],
             'handover_message' => ['nullable', 'string', 'max:1000'],
             'timeout_minutes' => ['required', 'integer', 'min:5', 'max:1440'],
+            'nudge_minutes' => ['nullable', 'integer', 'min:1', 'max:60'],
             'nodes' => ['required', 'string', 'max:200000'],
-        ], ['keywords.required' => 'Isi minimal satu kata kunci pembuka, mis. menu.'], ['name' => 'nama flow', 'timeout_minutes' => 'batas waktu sesi']);
+        ], ['keywords.required' => 'Isi minimal satu kata kunci pembuka, mis. menu.'], ['name' => 'nama flow', 'timeout_minutes' => 'batas waktu sesi', 'nudge_minutes' => 'jeda sapaan']);
 
-        return ['nodes' => $this->nodes($data['nodes']), 'is_active' => $request->boolean('is_active')] + $data;
+        // Saklarnya mati -> NULL, supaya angka yang tertinggal di kolomnya tidak ikut menyalakan
+        // fitur. Kunci di sebelah kiri "+" menang, jadi nilai ini menimpa hasil validate().
+        return [
+            'nodes' => $this->nodes($data['nodes']),
+            'is_active' => $request->boolean('is_active'),
+            'nudge_minutes' => $request->boolean('nudge_on') ? (int) ($data['nudge_minutes'] ?? 3) : null,
+        ] + $data;
     }
 
     /** Bersihkan & periksa struktur node dari editor. */
