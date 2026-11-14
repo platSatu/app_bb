@@ -19,4 +19,10 @@ class WaBotSession extends Model
     {
         return $this->belongsTo(WaChatbotFlow::class, 'flow_id');
     }
+
+    /** Dipakai NudgeIdleBotSessions untuk menyapa & menutup chat yang menggantung. */
+    public function chat(): BelongsTo
+    {
+        return $this->belongsTo(WaChat::class, 'chat_id');
+    }
 }
