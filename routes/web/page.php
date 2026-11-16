@@ -59,8 +59,12 @@ $readPages = function () {
     Route::get('{page}/biolink', [BiolinkController::class, 'edit'])->name('biolink.edit');
 
     // Registrasi memakai form builder yang sama dengan Form Pembeli di Event. Nama rutenya sengaja
-    // juga 'builder', supaya satu entri di config/page_templates.php melayani kedua area.
-    Route::get('{page}/builder', [PageFormFieldController::class, 'index'])->name('builder');
+    // juga 'builder', supaya satu entri di config/page_templates.php & view builder melayani kedua area.
+    //
+    // Alamatnya '/form', BUKAN '/builder': '/pages/{id}/builder' dicegat rute peninggalan di bawah
+    // (where section = tickets|builder) lalu dialihkan paksa ke '/events/...', dan untuk page
+    // Registrasi itu berakhir 404 karena Registrasi bukan milik area Event.
+    Route::get('{page}/form', [PageFormFieldController::class, 'index'])->name('builder');
     Route::get('{page}/registration/entries', [RegistrationEntryController::class, 'index'])->name('registration.entries.index');
     Route::get('{page}/registration/entries/export', [RegistrationEntryController::class, 'export'])->middleware('throttle:10,1')->name('registration.entries.export');
 };
@@ -84,7 +88,8 @@ $writePages = function () {
 
     Route::put('{page}/biolink', [BiolinkController::class, 'update'])->middleware('throttle:30,1')->name('biolink.update');
 
-    Route::put('{page}/builder', [PageFormFieldController::class, 'sync'])->middleware('throttle:30,1')->name('builder.sync');
+    // Alamat '/form', bukan '/builder'; alasannya ada di catatan pada $readPages.
+    Route::put('{page}/form', [PageFormFieldController::class, 'sync'])->middleware('throttle:30,1')->name('builder.sync');
     Route::delete('{page}/registration/entries/{submission}', [RegistrationEntryController::class, 'destroy'])->name('registration.entries.destroy');
 };
 

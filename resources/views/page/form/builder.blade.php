@@ -1,9 +1,13 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Form Pembeli')
+{{-- Halaman ini melayani dua template: Form Pembeli (Tiket) dan Form Pendaftaran (Registrasi).
+     Mesinnya sama persis; hanya sebutannya yang menyesuaikan, karena di Tiket nama/email/WhatsApp
+     sudah ditanyakan saat checkout, sedangkan di Registrasi ketiganya justru isian form ini. --}}
+@section('title', $page->isTemplate(\App\Models\PageType::TEMPLATE_REGISTRATION) ? 'Form Pendaftaran' : 'Form Pembeli')
 @section('page-section', \App\Support\Apps::pageSection($routes))
 
 @php
+    $daftar = $page->isTemplate(\App\Models\PageType::TEMPLATE_REGISTRATION);
     $rows = old('fields', $page->fields->map(fn ($f) => $f->only(['id', 'type', 'label', 'placeholder', 'help_text', 'options', 'is_required']))->all());
 @endphp
 
@@ -19,8 +23,14 @@
                 <div class="card">
                     <div class="card-header bg-white border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
                         <div>
-                            <h6 class="mb-1 fw-semibold">Pertanyaan Tambahan untuk Pembeli</h6>
-                            <div class="text-muted small lh-sm">Nama, Email, dan WhatsApp sudah otomatis ditanyakan. Tambahkan pertanyaan lain di sini, mis. ukuran kaos atau foto KTP. Urutan di sini = urutan di form.</div>
+                            <h6 class="mb-1 fw-semibold">{{ $daftar ? 'Isian Formulir Pendaftaran' : 'Pertanyaan Tambahan untuk Pembeli' }}</h6>
+                            <div class="text-muted small lh-sm">
+                                @if ($daftar)
+                                    Semua isian di halaman pendaftaran diatur dari sini, termasuk Nama, No. WhatsApp, dan Email. Urutan di sini = urutan di form.
+                                @else
+                                    Nama, Email, dan WhatsApp sudah otomatis ditanyakan. Tambahkan pertanyaan lain di sini, mis. ukuran kaos atau foto KTP. Urutan di sini = urutan di form.
+                                @endif
+                            </div>
                         </div>
                         @if ($canManage)
                             <button type="submit" class="btn btn-primary btn-sm px-3"><i class="ri-save-line me-1"></i>Simpan Perubahan</button>
@@ -55,7 +65,7 @@
                 <div class="card position-sticky" style="top: 90px;">
                     <div class="card-header bg-white border-bottom px-4 py-3">
                         <h6 class="mb-1 fw-semibold">Preview</h6>
-                        <div class="text-muted small lh-sm">Tampilan yang dilihat pembeli</div>
+                        <div class="text-muted small lh-sm">Tampilan yang dilihat {{ $daftar ? 'pendaftar' : 'pembeli' }}</div>
                     </div>
                     <div class="card-body bg-light p-3 p-md-4">
                         <div class="bg-white rounded-3 border p-3 p-md-4">
