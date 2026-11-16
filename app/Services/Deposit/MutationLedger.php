@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\DB;
  *  - invoice_checkouts   : Bayar beberapa tagihan sekaligus dari portal customer (TGH)
  *  - ticket_orders       : Tiket / pendaftaran event berbayar (TIX; form pendaftaran = "Form Pembeli" di page Tiket)
  *  - catalog_orders      : Toko online / katalog, hanya yang bayar online (ORD)
+ *  - quiz_attempts      : Quiz berbayar, bayar di depan sebelum soal terbuka (QZ)
  *  - wallet_withdrawals  : Tarik saldo user ke rekeningnya (Debit)
  *  - disbursements       : Disbursement owner, dari dashboard / API (Debit)
  *
@@ -41,6 +42,7 @@ class MutationLedger
         'invoice_bulk' => ['Bayar Beberapa Tagihan', 'credit'],
         'ticket' => ['Tiket / Pendaftaran Event', 'credit'],
         'catalog' => ['Toko Online', 'credit'],
+        'quiz' => ['Quiz Berbayar', 'credit'],
         'withdrawal' => ['Tarik Saldo', 'debit'],
         'disbursement' => ['Disbursement', 'debit'],
     ];
@@ -96,6 +98,14 @@ class MutationLedger
                 c.name AS party, o.name AS party_note, o.payment_method AS method, {$net('o.total')},
                 CASE WHEN o.payment_note IS NOT NULL THEN 'check' END AS flag");
 
+        // Quiz berbayar: pembayarannya menempel di attempt, bukan tabel pesanan tersendiri, jadi
+        // pemiliknya ditelusuri lewat page > branch > company. Quiz gratis (amount 0) tidak lewat Duitku.
+        $quiz = $wallet(DB::table('quiz_attempts as z')->join('page_categories as zp', 'zp.id', '=', 'z.page_id')
+            ->join('user_branches as zb', 'zb.id', '=', 'zp.branch_id')->leftJoin('user_companies as zc', 'zc.id', '=', 'zb.company_id'), "CONCAT('quiz:', z.id)")
+            ->whereNotNull('z.paid_at')->where('z.amount', '>', 0)
+            ->selectRaw("z.paid_at AS at, {$credit} AS direction, CAST('quiz' AS CHAR(20)) AS source, z.reference AS reference,
+                zc.name AS party, z.name AS party_note, z.payment_method AS method, {$net('z.amount')}, CAST(NULL AS CHAR(20)) AS flag");
+
         // Debit = yang ditransfer ke rekening (net) + biaya Duitku per transfer.
         $withdrawals = DB::table('wallet_withdrawals as w')->join('users as u', 'u.id', '=', 'w.user_id')
             ->where('w.status', WalletWithdrawal::STATUS_SUCCESS)
@@ -111,7 +121,7 @@ class MutationLedger
                 s.net_amount + COALESCE(s.duitku_fee, 0) AS amount, s.net_amount AS transfer, COALESCE(s.duitku_fee, 0) AS duitku_fee, {$noSettle}, CAST(NULL AS CHAR(20)) AS flag");
 
         return DB::query()->fromSub(
-            $topUp->unionAll($invoices)->unionAll($bulk)->unionAll($tickets)->unionAll($catalog)->unionAll($withdrawals)->unionAll($disbursements),
+            $topUp->unionAll($invoices)->unionAll($bulk)->unionAll($tickets)->unionAll($catalog)->unionAll($quiz)->unionAll($withdrawals)->unionAll($disbursements),
             'm'
         );
     }
@@ -207,6 +217,7 @@ class MutationLedger
         'invoice_bulk' => 'Bayar Beberapa Tagihan',
         'ticket' => 'Ticketing',
         'catalog' => 'Toko Online',
+        'quiz' => 'Quiz Berbayar',
         'withdrawal' => 'Tarik Saldo',
         'disbursement' => 'Disbursement',
         'referral' => 'Bonus Referral (biaya)',
@@ -249,8 +260,8 @@ class MutationLedger
         $payments = $period(DB::table('wallet_transactions as w')
             ->leftJoin('invoices as i', fn ($j) => $j->on('i.id', '=', 'w.reference_id')->where('w.reference_type', \App\Models\Invoice::class))
             ->where('w.direction', 'credit')->whereNotNull('w.paid_amount')
-            ->whereIn('w.type', ['deposit', 'invoice_payment', 'ticket_sale', 'catalog_sale']), 'w.created_at')
-            ->selectRaw("CAST(CASE w.type WHEN 'deposit' THEN 'topup' WHEN 'ticket_sale' THEN 'ticket' WHEN 'catalog_sale' THEN 'catalog'
+            ->whereIn('w.type', ['deposit', 'invoice_payment', 'ticket_sale', 'catalog_sale', 'quiz_sale']), 'w.created_at')
+            ->selectRaw("CAST(CASE w.type WHEN 'deposit' THEN 'topup' WHEN 'ticket_sale' THEN 'ticket' WHEN 'catalog_sale' THEN 'catalog' WHEN 'quiz_sale' THEN 'quiz'
                     ELSE CASE WHEN w.reference_type = ? THEN 'invoice_bulk'
                         WHEN i.source = 'api' THEN 'invoice_api' WHEN i.source = 'form' THEN 'invoice_form' ELSE 'invoice_dashboard' END END AS CHAR(160)) AS app,
                 w.user_id, 1 AS trx, {$num('w.paid_amount')} AS gross,
