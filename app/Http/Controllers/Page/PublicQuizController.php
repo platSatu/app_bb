@@ -103,6 +103,7 @@ class PublicQuizController extends Controller
             'score' => $result->score,
             'max' => $result->max_score,
             'late' => $result->is_late,
+            'grade' => $this->quiz->band($result),
         ]);
     }
 

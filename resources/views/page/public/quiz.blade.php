@@ -26,6 +26,15 @@
                     </div>
                     <div class="small text-muted mb-3">{{ $percent }}% benar</div>
                 @endif
+
+                @if ($grade = $result['grade'] ?? null)
+                    <div class="mb-3">
+                        <div class="h3 fw-bold mb-1" style="color: var(--brand);">Grade {{ $grade['label'] }}</div>
+                        @if ($grade['note'])
+                            <div class="text-muted small">{{ $grade['note'] }}</div>
+                        @endif
+                    </div>
+                @endif
             </div>
 
             @if ($result['late'])

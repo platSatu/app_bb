@@ -104,6 +104,31 @@
                         @error('result_text') <div class="text-danger fs-13">{{ $message }}</div> @enderror
                     </div>
 
+                    {{-- Grade dihitung dari PERSENTASE skor, bukan jumlah soal benar: kalau soalnya
+                         ditambah, batas "50% ke atas" tetap benar sedangkan "5 soal benar" jadi salah. --}}
+                    <hr class="my-4">
+                    <label class="form-label mb-1">Grade Hasil</label>
+                    <div class="form-text mb-3">Isi dari nilai tertinggi ke terendah. Peserta mendapat grade pertama yang persentasenya tercapai. Kosongkan semua kalau tidak perlu grade.</div>
+                    @php($grades = old('grades', $page->setting('quiz.grades') ?: []))
+                    @for ($i = 0; $i < \App\Services\Quiz\QuizService::MAX_GRADES; $i++)
+                        <div class="row g-2 mb-2">
+                            <div class="col-5 col-md-3">
+                                <div class="input-group">
+                                    <span class="input-group-text">&ge;</span>
+                                    <input type="number" name="grades[{{ $i }}][min]" min="0" max="100" class="form-control" value="{{ data_get($grades, $i.'.min') }}" aria-label="Batas persen grade {{ $i + 1 }}">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-7 col-md-3">
+                                <input type="text" name="grades[{{ $i }}][label]" maxlength="20" class="form-control" placeholder="Grade, mis. A" value="{{ data_get($grades, $i.'.label') }}">
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <input type="text" name="grades[{{ $i }}][note]" maxlength="120" class="form-control" placeholder="Keterangan, mis. Cocok masuk kelas Intermediate" value="{{ data_get($grades, $i.'.note') }}">
+                            </div>
+                        </div>
+                    @endfor
+                    <div class="form-text mb-4">Baris tanpa nama grade diabaikan. Di pesan WhatsApp, pakai <code>{grade}</code> untuk satu baris jadi, atau <code>{grade_nama}</code> dan <code>{grade_info}</code> kalau mau disusun sendiri.</div>
+
                     @if ($canManage)
                         <div class="d-flex justify-content-end"><button type="submit" class="btn btn-primary">Simpan</button></div>
                     @endif

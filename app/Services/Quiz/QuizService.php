@@ -118,7 +118,40 @@ class QuizService
     }
 
     /** Teks bawaan hasil quiz. Tanpa nama merek: bizbos itu SaaS, satu flow dipakai banyak pelanggan. */
-    public const RESULT_TEXT = "Halo {nama} 👋\n\nTerima kasih sudah mengerjakan *{quiz}*.\n\nSkor Anda: *{skor}* dari {maks} ({persen}%)\nKode hasil: {referensi}";
+    public const RESULT_TEXT = "Halo {nama} 👋\n\nTerima kasih sudah mengerjakan *{quiz}*.\n\nSkor Anda: *{skor}* dari {maks} ({persen}%)\n{grade}\nKode hasil: {referensi}";
+
+    /** Jumlah baris grade yang disediakan di pengaturan; lima sudah cukup untuk A sampai E. */
+    public const MAX_GRADES = 5;
+
+    /**
+     * Grade peserta menurut batas yang diatur owner.
+     *
+     * Patokannya PERSENTASE, bukan jumlah soal benar: kalau suatu saat soalnya ditambah,
+     * batas "50% ke atas" tetap benar, sedangkan batas "5 soal benar" diam-diam jadi salah.
+     *
+     * @return array{min: int, label: string, note: ?string}|null
+     */
+    public function band(QuizAttempt $attempt): ?array
+    {
+        $bands = $attempt->page?->setting('quiz.grades') ?: [];
+        $max = (int) $attempt->max_score;
+
+        if (! $bands || $max <= 0) {
+            return null;
+        }
+
+        $percent = (int) round($attempt->score / $max * 100);
+
+        // Sudah diurutkan dari batas tertinggi saat disimpan: yang pertama terpenuhi, itu gradenya.
+        foreach ($bands as $band) {
+            if ($percent >= (int) $band['min']) {
+                return $band;
+            }
+        }
+
+        // Di bawah semua batas: pakai yang terendah, supaya peserta tidak pernah tanpa grade.
+        return end($bands) ?: null;
+    }
 
     /**
      * Kirim hasil ke WhatsApp peserta. WAJIB dipanggil SETELAH submit() selesai, bukan di dalamnya:
@@ -145,12 +178,18 @@ class QuizService
         }
 
         $max = (int) $attempt->max_score;
+        $band = $this->band($attempt);
+
         $text = strtr((string) ($page->setting('quiz.result_text') ?: self::RESULT_TEXT), [
             '{nama}' => $attempt->name,
             '{quiz}' => $page->name,
             '{skor}' => (string) (int) $attempt->score,
             '{maks}' => (string) $max,
             '{persen}' => (string) ($max > 0 ? (int) round($attempt->score / $max * 100) : 0),
+            // Baris grade hilang sendiri kalau belum diatur, jadi teks bawaan tetap rapi tanpa baris kosong.
+            '{grade}' => $band ? 'Grade: *'.$band['label'].'*'.($band['note'] ? ' - '.$band['note'] : '')."\n" : '',
+            '{grade_nama}' => $band['label'] ?? '',
+            '{grade_info}' => $band['note'] ?? '',
             '{referensi}' => $attempt->reference,
         ]);
 

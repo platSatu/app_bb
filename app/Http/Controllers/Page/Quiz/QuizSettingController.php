@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Page\Concerns\ResolvesPage;
 use App\Models\PageType;
 use App\Models\WaDevice;
+use App\Services\Quiz\QuizService;
 use App\Services\Subscription\AppAccess;
 use App\Support\Menu;
 use Illuminate\Http\RedirectResponse;
@@ -46,6 +47,10 @@ class QuizSettingController extends Controller
             'code_minutes' => ['nullable', 'integer', 'min:1', 'max:60'],
             'send_result' => ['boolean'],
             'result_text' => ['nullable', 'string', 'max:1000'],
+            'grades' => ['nullable', 'array', 'max:'.QuizService::MAX_GRADES],
+            'grades.*.min' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'grades.*.label' => ['nullable', 'string', 'max:20'],
+            'grades.*.note' => ['nullable', 'string', 'max:120'],
         ], [
             'pin.required_if' => 'Isi PIN-nya dulu kalau quiz dikunci dengan PIN.',
             'device_id.required_if' => 'Pilih device WhatsApp yang akan mengirim pesannya.',
@@ -68,9 +73,28 @@ class QuizSettingController extends Controller
             'code_minutes' => $gate === 'otp' ? (int) ($data['code_minutes'] ?? 10) : null,
             'send_result' => $sendResult,
             'result_text' => $sendResult ? (trim((string) ($data['result_text'] ?? '')) ?: null) : null,
+            'grades' => $this->grades($data['grades'] ?? []),
         ]];
         $model->save();
 
         return back()->with('success', 'Pengaturan quiz berhasil disimpan.');
+    }
+
+    /**
+     * Baris grade yang diisi saja, diurutkan dari batas tertinggi. Urutan disimpan di sini
+     * supaya QuizService tinggal mengambil yang pertama terpenuhi, tanpa mengurutkan lagi tiap kali.
+     */
+    private function grades(array $rows): array
+    {
+        return collect($rows)
+            ->filter(fn ($row) => trim((string) ($row['label'] ?? '')) !== '')
+            ->map(fn ($row) => [
+                'min' => max(0, min(100, (int) ($row['min'] ?? 0))),
+                'label' => trim((string) $row['label']),
+                'note' => trim((string) ($row['note'] ?? '')) ?: null,
+            ])
+            ->sortByDesc('min')
+            ->values()
+            ->all();
     }
 }
