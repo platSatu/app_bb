@@ -48,7 +48,9 @@ class QuizSettingController extends Controller
             'send_result' => ['boolean'],
             'result_text' => ['nullable', 'string', 'max:1000'],
             'payment_on' => ['boolean'],
-            'amount' => ['nullable', 'integer', 'min:10000', 'max:50000000', 'required_if:payment_on,1'],
+            // Rp 1.000 hanya batas kewarasan; bizbos tidak punya nominal minimum sendiri.
+            // Payment gateway yang menentukan nominal terkecil yang diterima, dan beda per metode bayar.
+            'amount' => ['nullable', 'integer', 'min:1000', 'max:50000000', 'required_if:payment_on,1'],
             'grades' => ['nullable', 'array', 'max:'.QuizService::MAX_GRADES],
             'grades.*.min' => ['nullable', 'integer', 'min:0', 'max:100'],
             'grades.*.label' => ['nullable', 'string', 'max:20'],
@@ -57,7 +59,7 @@ class QuizSettingController extends Controller
             'pin.required_if' => 'Isi PIN-nya dulu kalau quiz dikunci dengan PIN.',
             'device_id.required_if' => 'Pilih device WhatsApp yang akan mengirim pesannya.',
             'amount.required_if' => 'Isi biayanya dulu kalau quiz ini berbayar.',
-            'amount.min' => 'Biaya minimal Rp 10.000, mengikuti batas terendah payment gateway.',
+            'amount.min' => 'Biaya minimal Rp 1.000.',
         ], ['time_limit' => 'batas waktu', 'pin' => 'PIN', 'device_id' => 'device pengirim', 'code_minutes' => 'masa berlaku kode', 'result_text' => 'teks hasil', 'amount' => 'biaya quiz']);
 
         $gate = $data['gate'] ?? null;

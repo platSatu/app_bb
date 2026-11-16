@@ -142,7 +142,7 @@
                         <label for="amount" class="form-label">Biaya mengikuti quiz</label>
                         <div class="input-group" style="max-width: 280px;">
                             <span class="input-group-text">Rp</span>
-                            <input type="number" id="amount" name="amount" min="10000" max="50000000" step="1000"
+                            <input type="number" id="amount" name="amount" min="1000" max="50000000" step="1000"
                                 class="form-control @error('amount') is-invalid @enderror" value="{{ old('amount', $page->setting('quiz.amount')) }}" placeholder="50000">
                         </div>
                         @error('amount') <div class="text-danger fs-13">{{ $message }}</div> @enderror
@@ -151,6 +151,7 @@
                         <b>Yang masuk ke Saldo Anda adalah biaya ini dikurangi potongan payment gateway</b>, sama seperti penjualan katalog.
                         Besar potongannya mengikuti metode bayar yang dipilih peserta. Quiz tidak dikenai biaya layanan bizbos.
                         Kalau Anda ingin menerima angka bulat, naikkan biayanya.
+                        <br>Nominal terkecil yang diterima ditentukan payment gateway dan berbeda per metode bayar, jadi angka yang terlalu kecil bisa ditolak saat peserta memilih metodenya.
                     </div>
 
                     @if ($canManage)
