@@ -93,6 +93,9 @@ class PublicQuizController extends Controller
         $answers = $request->validate(['answers' => ['nullable', 'array', 'max:200'], 'answers.*' => ['nullable', 'string', 'max:5000']])['answers'] ?? [];
         $result = $this->quiz->submit($attempt, $answers);
 
+        // Di luar transaksi submit(): pesan yang sudah terkirim tidak bisa ditarik kalau rollback.
+        $this->quiz->sendResult($result);
+
         $request->session()->forget($this->sessionKey($page));
 
         return redirect()->route('page.show', $page->slug)->with('quiz_result', [

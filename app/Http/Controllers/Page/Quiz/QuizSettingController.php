@@ -42,14 +42,17 @@ class QuizSettingController extends Controller
             // Gerbang kode: kosong = tanpa kunci, 'pin' = kode tetap dari owner, 'otp' = kode dikirim ke WhatsApp peserta.
             'gate' => ['nullable', Rule::in(['pin', 'otp'])],
             'pin' => ['nullable', 'string', 'min:4', 'max:12', 'required_if:gate,pin'],
-            'device_id' => ['nullable', 'required_if:gate,otp', Rule::exists('wa_devices', 'id')->where('branch_id', $model->branch_id)],
+            'device_id' => ['nullable', 'required_if:gate,otp', 'required_if:send_result,1', Rule::exists('wa_devices', 'id')->where('branch_id', $model->branch_id)],
             'code_minutes' => ['nullable', 'integer', 'min:1', 'max:60'],
+            'send_result' => ['boolean'],
+            'result_text' => ['nullable', 'string', 'max:1000'],
         ], [
             'pin.required_if' => 'Isi PIN-nya dulu kalau quiz dikunci dengan PIN.',
-            'device_id.required_if' => 'Pilih device WhatsApp yang akan mengirim kodenya.',
-        ], ['time_limit' => 'batas waktu', 'pin' => 'PIN', 'device_id' => 'device pengirim', 'code_minutes' => 'masa berlaku kode']);
+            'device_id.required_if' => 'Pilih device WhatsApp yang akan mengirim pesannya.',
+        ], ['time_limit' => 'batas waktu', 'pin' => 'PIN', 'device_id' => 'device pengirim', 'code_minutes' => 'masa berlaku kode', 'result_text' => 'teks hasil']);
 
         $gate = $data['gate'] ?? null;
+        $sendResult = $request->boolean('send_result');
 
         // Seluruh isi settings.quiz ditulis ulang di sini, jadi kunci baru WAJIB ikut
         // disebut; kalau tidak, nilainya hilang diam-diam setiap kali pengaturan disimpan.
@@ -60,8 +63,11 @@ class QuizSettingController extends Controller
             'gate' => $gate,
             // PIN tetap disimpan walau mode OTP: dipakai sebagai jalan masuk cadangan saat WhatsApp bermasalah.
             'pin' => $gate ? (trim((string) ($data['pin'] ?? '')) ?: null) : null,
-            'device_id' => $gate === 'otp' ? ($data['device_id'] ?? null) : null,
+            // Device dipakai bersama oleh OTP dan kirim hasil, jadi disimpan selama salah satunya menyala.
+            'device_id' => $gate === 'otp' || $sendResult ? ($data['device_id'] ?? null) : null,
             'code_minutes' => $gate === 'otp' ? (int) ($data['code_minutes'] ?? 10) : null,
+            'send_result' => $sendResult,
+            'result_text' => $sendResult ? (trim((string) ($data['result_text'] ?? '')) ?: null) : null,
         ]];
         $model->save();
 

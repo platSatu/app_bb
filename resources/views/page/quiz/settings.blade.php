@@ -85,6 +85,25 @@
                         @error('code_minutes') <div class="text-danger fs-13">{{ $message }}</div> @enderror
                     </div>
 
+                    {{-- Kirim hasil: memakai device pengirim yang sama dengan OTP di atas. --}}
+                    <hr class="my-4">
+                    <div class="form-check form-switch mb-2">
+                        <input type="hidden" name="send_result" value="0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="send_result" name="send_result" value="1" @checked(old('send_result', $page->setting('quiz.send_result', false)))>
+                        <label class="form-check-label" for="send_result">Kirim hasil ke WhatsApp peserta</label>
+                        <div class="form-text">Dikirim sekali, segera setelah peserta menyelesaikan quiz. Butuh langganan WhatsApp aktif dan device pengirim di atas sudah dipilih.</div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="result_text" class="form-label">Teks pesan hasil</label>
+                        <textarea id="result_text" name="result_text" rows="5" maxlength="1000"
+                            class="form-control @error('result_text') is-invalid @enderror">{{ old('result_text', $page->setting('quiz.result_text')) }}</textarea>
+                        <div class="form-text">
+                            Kosongkan untuk memakai teks bawaan. Kata yang diganti otomatis:
+                            <code>{nama}</code> <code>{quiz}</code> <code>{skor}</code> <code>{maks}</code> <code>{persen}</code> <code>{referensi}</code>
+                        </div>
+                        @error('result_text') <div class="text-danger fs-13">{{ $message }}</div> @enderror
+                    </div>
+
                     @if ($canManage)
                         <div class="d-flex justify-content-end"><button type="submit" class="btn btn-primary">Simpan</button></div>
                     @endif

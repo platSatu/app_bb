@@ -117,6 +117,51 @@ class QuizService
         Cache::forget($key);
     }
 
+    /** Teks bawaan hasil quiz. Tanpa nama merek: bizbos itu SaaS, satu flow dipakai banyak pelanggan. */
+    public const RESULT_TEXT = "Halo {nama} 👋\n\nTerima kasih sudah mengerjakan *{quiz}*.\n\nSkor Anda: *{skor}* dari {maks} ({persen}%)\nKode hasil: {referensi}";
+
+    /**
+     * Kirim hasil ke WhatsApp peserta. WAJIB dipanggil SETELAH submit() selesai, bukan di dalamnya:
+     * submit() berjalan dalam transaksi, dan pesan yang sudah terkirim tidak bisa ditarik kalau rollback.
+     *
+     * Sengaja tidak pernah melempar error -- gagal kirim tidak boleh membuat peserta gagal melihat skornya.
+     */
+    public function sendResult(QuizAttempt $attempt): void
+    {
+        $page = $attempt->page ?? $attempt->load('page')->page;
+
+        if (! $page?->setting('quiz.send_result') || ! $attempt->isFinished() || ! $attempt->phone) {
+            return;
+        }
+
+        if (! $device = (string) $page->setting('quiz.device_id')) {
+            return;
+        }
+
+        // Sekali per attempt: submit() yang dipanggil dua kali mengembalikan attempt yang sama,
+        // dan peserta tidak boleh menerima hasil yang sama dua kali.
+        if (! Cache::add('quiz-result-sent:'.$attempt->getKey(), true, now()->addDay())) {
+            return;
+        }
+
+        $max = (int) $attempt->max_score;
+        $text = strtr((string) ($page->setting('quiz.result_text') ?: self::RESULT_TEXT), [
+            '{nama}' => $attempt->name,
+            '{quiz}' => $page->name,
+            '{skor}' => (string) (int) $attempt->score,
+            '{maks}' => (string) $max,
+            '{persen}' => (string) ($max > 0 ? (int) round($attempt->score / $max * 100) : 0),
+            '{referensi}' => $attempt->reference,
+        ]);
+
+        $this->wa->sendText($page->branch_id, [
+            'device_id' => $device,
+            'to' => $attempt->phone,
+            'text' => $text,
+            'client_ref' => 'quiz-result:'.$attempt->getKey(),
+        ]);
+    }
+
     private function codeMinutes(PageCategory $page): int
     {
         return max(1, min(60, (int) $page->setting('quiz.code_minutes') ?: self::CODE_MINUTES));
