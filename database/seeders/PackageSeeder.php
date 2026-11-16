@@ -12,6 +12,9 @@ use Illuminate\Database\Seeder;
  * 6 Nov 2026: Pages & Event (Ticket) berdiri sendiri dan masing-masing hanya SATU paket "Gratis Selamanya"
  * (harga 0, tanpa masa aktif, Package::LIFETIME). Paket lama Pages / Event (Trial, 6 & 12 bulan) dihapus,
  * atau dinonaktifkan kalau sudah pernah dibeli.
+ * 16 Nov 2026: isi Pages berubah -- Bio link & Landing page ditutup, Registrasi ditambah, Kuis kini
+ * punya PIN/OTP, nilai & pembayaran. Harga tidak berubah; deskripsi paket yang sudah ada disegarkan
+ * lewat migration 2026_12_17_100000.
  * Jalankan: php artisan db:seed --class=PackageSeeder
  * Aman dijalankan ulang: harga, fitur, kuota, dll. yang sudah diedit di superadmin TIDAK ditimpa.
  * Fitur = catatan + ringkasan per layanan (5 baris pertama, tampil di kartu) + rincian sesuai menu yang ada.
@@ -77,7 +80,7 @@ class PackageSeeder extends Seeder
     /** Satu baris ringkasan per layanan (5 baris pertama tampil di kartu katalog). */
     private const FEATURES = [
         'events' => 'Event: e-ticket QR, registrasi ulang & ID card peserta',
-        'pages' => 'Pages: bio link, katalog online, landing page & kuis',
+        'pages' => 'Pages: katalog online, kuis berbayar & form pendaftaran',
         'schedules' => 'Jadwal les & kursus: kelas bulanan atau paket pertemuan',
         'invoices' => 'Invoice: tagihan online dengan link bayar VA, QRIS & e-wallet',
         'whatsapp' => 'WhatsApp: inbox tim CS, broadcast, auto reply & chatbot',
@@ -91,10 +94,11 @@ class PackageSeeder extends Seeder
             'Form pendaftaran dengan pembayaran online',
         ],
         'pages' => [
-            'Bio link: semua link penting dalam satu halaman',
             'Katalog online: pembeli pesan & bayar langsung',
-            'Landing page tanpa coding, tinggal isi',
-            'Kuis & tes online dengan skor otomatis',
+            'Kuis & tes online dengan skor dan nilai otomatis',
+            'Kuis berbayar: peserta bayar dulu, uangnya langsung masuk saldo',
+            'Kuis bisa dikunci PIN; kode & hasil lewat WhatsApp bila berlangganan WhatsApp',
+            'Form pendaftaran: peserta daftar, datanya rapi & bisa diunduh Excel',
             'Pengunjung yang mengisi otomatis tersimpan jadi customer',
         ],
         'schedules' => [
