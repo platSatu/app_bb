@@ -19,6 +19,23 @@ class PublicQuizController extends Controller
     {
     }
 
+    /** Kirim kode akses ke WhatsApp peserta, lalu kembali ke halaman yang sama. */
+    public function code(Request $request, string $slug): RedirectResponse
+    {
+        $page = $this->find($slug);
+        abort_unless($page->setting('quiz.gate') === 'otp', 404);
+
+        $data = $request->validate([
+            'website' => ['nullable', 'max:0'],
+            'phone' => ['required', 'string', 'max:20', 'regex:/^\+?[0-9\s\-]{8,20}$/'],
+        ], ['phone.regex' => 'Nomor WhatsApp belum benar.', 'website.max' => 'Permintaan kode gagal.'], ['phone' => 'nomor WhatsApp']);
+
+        // Isian lain dikembalikan lewat withInput supaya peserta tidak perlu mengetik ulang.
+        return ($error = $this->quiz->sendCode($page, $data['phone']))
+            ? back()->withInput()->withErrors(['code' => $error])
+            : back()->withInput()->with('code_sent', 'Kode sudah dikirim ke WhatsApp Anda. Cek pesan masuk ya.');
+    }
+
     public function start(Request $request, string $slug): RedirectResponse
     {
         $page = $this->find($slug);
@@ -29,7 +46,11 @@ class PublicQuizController extends Controller
             'name' => ['required', 'string', 'max:150'],
             'phone' => ['required', 'string', 'max:20', 'regex:/^\+?[0-9\s\-]{8,20}$/'],
             'email' => ['nullable', 'email', 'max:255'],
+            'code' => ['nullable', 'string', 'max:20'],
         ], ['phone.regex' => 'Nomor WhatsApp belum benar.', 'website.max' => 'Gagal memulai quiz.'], ['name' => 'nama', 'phone' => 'nomor WhatsApp']);
+
+        // Dicek sebelum apa pun dibuat: kode salah tidak boleh meninggalkan attempt atau kontak baru.
+        $this->quiz->assertCode($page, $data['phone'], $data['code'] ?? null);
 
         $attempt = $this->quiz->start($page, [
             'name' => trim($data['name']),

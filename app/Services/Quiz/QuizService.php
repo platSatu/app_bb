@@ -9,7 +9,10 @@ use App\Models\QuizQuestion;
 use App\Models\User;
 use App\Models\UserBranch;
 use App\Services\Customer\CustomerService;
+use App\Services\WhatsApp\WaGateway;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -18,8 +21,110 @@ class QuizService
     // Toleransi jaringan setelah waktu habis, supaya kiriman otomatis di detik terakhir tetap dihitung.
     private const GRACE_SECONDS = 30;
 
-    public function __construct(private readonly CustomerService $customers)
+    /** Masa berlaku kode OTP bila owner tidak mengisinya. */
+    private const CODE_MINUTES = 10;
+
+    /**
+     * Batas permintaan kode. Satu kode = satu pesan WhatsApp = kuota & uang pemilik page,
+     * jadi dibatasi dua lapis: per nomor (orang yang menekan berkali-kali) dan per page
+     * (ramai-ramai menghabiskan kuota sebulan dalam semenit).
+     */
+    private const MAX_PER_PHONE = 3;   // per 10 menit
+    private const MAX_PER_PAGE = 30;   // per jam
+
+    public function __construct(private readonly CustomerService $customers, private readonly WaGateway $wa)
     {
+    }
+
+    /**
+     * Kirim kode akses ke WhatsApp peserta.
+     *
+     * @return string|null pesan kesalahan untuk ditampilkan, atau null kalau terkirim.
+     *
+     * WaGateway yang menolak sendiri bila langganan WhatsApp cabang tidak aktif atau kuota pesan
+     * habis, dan mengembalikan kuotanya kalau pengiriman gagal -- penghitungannya tidak diulang di sini.
+     */
+    public function sendCode(PageCategory $page, string $phone): ?string
+    {
+        $phone = User::normalizePhone($phone);
+        $perPhone = 'quiz-code:'.$page->getKey().':'.$phone;
+        $perPage = 'quiz-code-page:'.$page->getKey();
+
+        if (RateLimiter::tooManyAttempts($perPhone, self::MAX_PER_PHONE)) {
+            return 'Kode sudah dikirim beberapa kali ke nomor ini. Coba lagi beberapa menit lagi ya.';
+        }
+
+        if (RateLimiter::tooManyAttempts($perPage, self::MAX_PER_PAGE)) {
+            return 'Permintaan kode sedang ramai. Coba lagi sebentar lagi ya.';
+        }
+
+        if (! $device = (string) $page->setting('quiz.device_id')) {
+            return 'Pengirim WhatsApp belum dipilih pada quiz ini. Hubungi admin ya.';
+        }
+
+        $code = (string) random_int(100000, 999999);
+        $minutes = $this->codeMinutes($page);
+
+        $result = $this->wa->sendText($page->branch_id, [
+            'device_id' => $device,
+            'to' => $phone,
+            'text' => "Kode akses *{$page->name}*: *{$code}*\n\nBerlaku {$minutes} menit. Jangan berikan kode ini ke siapa pun.",
+            'client_ref' => 'quiz-code:'.Str::uuid(),
+        ]);
+
+        if (! ($result['success'] ?? false)) {
+            return $result['message'] ?? 'Kode gagal dikirim. Hubungi admin ya.';
+        }
+
+        // Jatah baru dipakai setelah pesannya benar-benar terkirim, supaya kegagalan di sisi
+        // gateway tidak ikut menghabiskan batas percobaan peserta.
+        RateLimiter::hit($perPhone, 600);
+        RateLimiter::hit($perPage, 3600);
+        Cache::put($this->codeKey($page, $phone), $code, now()->addMinutes($minutes));
+
+        return null;
+    }
+
+    /**
+     * Periksa kode sebelum attempt dibuat. Dipanggil di awal start(), bukan di view.
+     *
+     * PIN tetap milik owner selalu diterima selama diisi -- sekaligus jadi jalan masuk cadangan
+     * kalau WhatsApp sedang bermasalah, supaya quiz tidak mati total. Kode OTP sekali pakai.
+     *
+     * @throws ValidationException
+     */
+    public function assertCode(PageCategory $page, string $phone, ?string $code): void
+    {
+        if (! $gate = $page->setting('quiz.gate')) {
+            return;
+        }
+
+        $code = trim((string) $code);
+        $pin = trim((string) $page->setting('quiz.pin'));
+
+        if ($pin !== '' && $code !== '' && hash_equals($pin, $code)) {
+            return;
+        }
+
+        $saved = $gate === 'otp' && $code !== ''
+            ? (string) Cache::get($key = $this->codeKey($page, User::normalizePhone($phone)), '')
+            : '';
+
+        if ($saved === '' || ! hash_equals($saved, $code)) {
+            throw ValidationException::withMessages(['code' => 'Kode akses salah atau sudah kedaluwarsa.']);
+        }
+
+        Cache::forget($key);
+    }
+
+    private function codeMinutes(PageCategory $page): int
+    {
+        return max(1, min(60, (int) $page->setting('quiz.code_minutes') ?: self::CODE_MINUTES));
+    }
+
+    private function codeKey(PageCategory $page, string $phone): string
+    {
+        return 'quiz-code-value:'.$page->getKey().':'.$phone;
     }
 
     /** @param  array{name: string, phone: string, email: ?string}  $participant */

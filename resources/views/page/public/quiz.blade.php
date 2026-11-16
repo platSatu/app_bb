@@ -74,8 +74,23 @@
                     @if ($questionCount === 0)
                         <div class="text-center text-muted py-5"><i class="ri-time-line fs-1 d-block mb-2"></i>Soal quiz sedang disiapkan. Coba lagi nanti ya.</div>
                     @else
+                        @php($gate = $page->setting('quiz.gate'))
                         <h2 class="h5 fw-semibold mb-1">Data Peserta</h2>
                         <p class="text-muted small mb-4">Isi data di bawah, lalu klik Mulai Quiz.</p>
+
+                        @if (session('code_sent'))
+                            <div class="alert alert-success py-2 small">{{ session('code_sent') }}</div>
+                        @endif
+
+                        {{-- Form terpisah untuk minta kode; tidak boleh berada di dalam form Mulai Quiz
+                             (form bersarang tidak sah di HTML). Nomornya disalin saat tombol ditekan. --}}
+                        @if ($gate === 'otp')
+                            <form method="POST" action="{{ route('page.quiz.code', $page->slug) }}" id="quiz-code-form" class="d-none">
+                                @csrf
+                                <input type="hidden" name="phone" id="quiz-code-phone">
+                            </form>
+                        @endif
+
                         <form method="POST" action="{{ route('page.quiz.start', $page->slug) }}" onsubmit="this.querySelector('[type=submit]').disabled = true">
                             @csrf
                             @include('page.public._honeypot')
@@ -86,6 +101,27 @@
                                     @error($field) <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
                             @endforeach
+                            @if ($gate)
+                                <div class="mb-3">
+                                    <label for="code" class="form-label mb-1">Kode akses <span class="text-danger">*</span></label>
+                                    <div class="d-flex gap-2">
+                                        <input type="text" id="code" name="code" value="{{ old('code') }}" maxlength="12" inputmode="numeric" autocomplete="one-time-code"
+                                            class="form-control @error('code') is-invalid @enderror" placeholder="{{ $gate === 'otp' ? '6 angka dari WhatsApp' : 'PIN dari admin' }}" required>
+                                        @if ($gate === 'otp')
+                                            <button type="button" class="btn btn-outline-secondary text-nowrap"
+                                                onclick="document.getElementById('quiz-code-phone').value = document.getElementById('phone').value; document.getElementById('quiz-code-form').submit();">
+                                                <i class="ri-whatsapp-line me-1"></i>Kirim kode
+                                            </button>
+                                        @endif
+                                    </div>
+                                    <div class="form-text">
+                                        {{ $gate === 'otp'
+                                            ? 'Isi nomor WhatsApp di atas dulu, lalu klik Kirim kode. Kodenya masuk ke WhatsApp Anda.'
+                                            : 'Masukkan PIN yang diberikan admin.' }}
+                                    </div>
+                                    @error('code') <div class="text-danger fs-13 mt-1">{{ $message }}</div> @enderror
+                                </div>
+                            @endif
                             <div class="mb-3">@include('auth.partials.turnstile')</div>
                             <button type="submit" class="btn btn-brand w-100 py-2"><i class="ri-play-circle-line me-1"></i>Mulai Quiz</button>
                             @if ($timeLimit)

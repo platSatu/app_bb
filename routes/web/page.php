@@ -196,6 +196,12 @@ Route::middleware('public.app:pages')->group(function () {
         ->where('slug', '[a-z0-9-]+')
         ->middleware('throttle:10,1')
         ->name('page.register');
+    // Tiap permintaan kode memakai kuota WhatsApp pemilik page, jadi batasnya ketat di sini juga,
+    // selain batas per nomor & per page di QuizService.
+    Route::post('page/{slug}/quiz/code', [PublicQuizController::class, 'code'])
+        ->where('slug', '[a-z0-9-]+')
+        ->middleware('throttle:6,1')
+        ->name('page.quiz.code');
     Route::post('page/{slug}/quiz/start', [PublicQuizController::class, 'start'])
         ->where('slug', '[a-z0-9-]+')
         ->middleware('throttle:10,1')
