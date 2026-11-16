@@ -117,7 +117,8 @@ class PublicQuizController extends Controller
         $result = $this->quiz->submit($attempt, $answers);
 
         // Di luar transaksi submit(): pesan yang sudah terkirim tidak bisa ditarik kalau rollback.
-        $this->quiz->sendResult($result);
+        // Hasilnya dipakai layar hasil: terkirim = skor tidak diulang di layar.
+        $viaWa = $this->quiz->sendResult($result);
 
         $request->session()->forget($this->sessionKey($page));
 
@@ -127,6 +128,7 @@ class PublicQuizController extends Controller
             'max' => $result->max_score,
             'late' => $result->is_late,
             'grade' => $this->quiz->band($result),
+            'via_wa' => $viaWa,
         ]);
     }
 

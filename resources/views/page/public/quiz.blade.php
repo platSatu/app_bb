@@ -17,25 +17,38 @@
             <h1 class="h4 fw-bold mb-1">Terima kasih sudah mengerjakan!</h1>
             <p class="text-muted mb-4">{{ $page->name }}</p>
 
-            <div class="mx-auto" style="max-width: 360px;">
-                <div class="text-muted small mb-1">Skor Anda</div>
-                <div class="display-5 fw-bold mb-2">{{ $result['score'] }} <span class="fs-4 text-muted fw-normal">/ {{ $result['max'] }}</span></div>
-                @if ($result['max'] > 0)
-                    <div class="progress mb-1" style="height: 10px;" role="progressbar" aria-valuenow="{{ $percent }}" aria-valuemin="0" aria-valuemax="100">
-                        <div class="progress-bar" style="width: {{ $percent }}%; background: var(--brand);"></div>
+            {{-- Hasilnya sudah dikirim ke WhatsApp: tidak perlu diulang di layar. Kalau pengirimannya
+                 mati atau gagal, skor TETAP ditampilkan di sini -- peserta tidak boleh pulang tanpa hasil. --}}
+            @if ($result['via_wa'] ?? false)
+                <div class="mx-auto" style="max-width: 400px;">
+                    <div class="d-inline-flex align-items-center justify-content-center mb-3"
+                        style="width: 56px; height: 56px; border-radius: 50%; font-size: 1.6rem; background: #dcfce7; color: #16a34a;">
+                        <i class="ri-whatsapp-line"></i>
                     </div>
-                    <div class="small text-muted mb-3">{{ $percent }}% benar</div>
-                @endif
+                    <p class="mb-0">Hasil lengkapnya sedang kami kirim ke <b>WhatsApp Anda</b>.</p>
+                    <p class="text-muted small mt-2 mb-0">Kalau dalam beberapa menit belum masuk, cek folder arsip atau hubungi admin dengan menyebut kode di bawah ini.</p>
+                </div>
+            @else
+                <div class="mx-auto" style="max-width: 360px;">
+                    <div class="text-muted small mb-1">Skor Anda</div>
+                    <div class="display-5 fw-bold mb-2">{{ $result['score'] }} <span class="fs-4 text-muted fw-normal">/ {{ $result['max'] }}</span></div>
+                    @if ($result['max'] > 0)
+                        <div class="progress mb-1" style="height: 10px;" role="progressbar" aria-valuenow="{{ $percent }}" aria-valuemin="0" aria-valuemax="100">
+                            <div class="progress-bar" style="width: {{ $percent }}%; background: var(--brand);"></div>
+                        </div>
+                        <div class="small text-muted mb-3">{{ $percent }}% benar</div>
+                    @endif
 
-                @if ($grade = $result['grade'] ?? null)
-                    <div class="mb-3">
-                        <div class="h3 fw-bold mb-1" style="color: var(--brand);">Grade {{ $grade['label'] }}</div>
-                        @if ($grade['note'])
-                            <div class="text-muted small">{{ $grade['note'] }}</div>
-                        @endif
-                    </div>
-                @endif
-            </div>
+                    @if ($grade = $result['grade'] ?? null)
+                        <div class="mb-3">
+                            <div class="h3 fw-bold mb-1" style="color: var(--brand);">Grade {{ $grade['label'] }}</div>
+                            @if ($grade['note'])
+                                <div class="text-muted small">{{ $grade['note'] }}</div>
+                            @endif
+                        </div>
+                    @endif
+                </div>
+            @endif
 
             @if ($result['late'])
                 <div class="alert alert-danger small py-2 mx-auto" style="max-width: 420px;">Jawaban dikirim setelah waktu habis, jadi tidak dihitung.</div>

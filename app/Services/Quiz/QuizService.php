@@ -294,23 +294,28 @@ class QuizService
      * submit() berjalan dalam transaksi, dan pesan yang sudah terkirim tidak bisa ditarik kalau rollback.
      *
      * Sengaja tidak pernah melempar error -- gagal kirim tidak boleh membuat peserta gagal melihat skornya.
+     *
+     * @return bool true kalau hasilnya memang sudah/sedang dikirim ke WhatsApp. Layar hasil memakai
+     *              nilai ini: true = skor tidak perlu diulang di layar, false = skor WAJIB ditampilkan
+     *              supaya peserta tidak pulang tanpa hasil sama sekali.
      */
-    public function sendResult(QuizAttempt $attempt): void
+    public function sendResult(QuizAttempt $attempt): bool
     {
         $page = $attempt->page ?? $attempt->load('page')->page;
 
         if (! $page?->setting('quiz.send_result') || ! $attempt->isFinished() || ! $attempt->phone) {
-            return;
+            return false;
         }
 
         if (! $device = (string) $page->setting('quiz.device_id')) {
-            return;
+            return false;
         }
 
         // Sekali per attempt: submit() yang dipanggil dua kali mengembalikan attempt yang sama,
-        // dan peserta tidak boleh menerima hasil yang sama dua kali.
+        // dan peserta tidak boleh menerima hasil yang sama dua kali. Sudah pernah terkirim = tetap true,
+        // supaya layar hasil tidak tiba-tiba memunculkan skor saat halaman dimuat ulang.
         if (! Cache::add('quiz-result-sent:'.$attempt->getKey(), true, now()->addDay())) {
-            return;
+            return true;
         }
 
         $max = (int) $attempt->max_score;
@@ -329,12 +334,22 @@ class QuizService
             '{referensi}' => $attempt->reference,
         ]);
 
-        $this->wa->sendText($page->branch_id, [
+        $sent = $this->wa->sendText($page->branch_id, [
             'device_id' => $device,
             'to' => $attempt->phone,
             'text' => $text,
             'client_ref' => 'quiz-result:'.$attempt->getKey(),
         ]);
+
+        if (! ($sent['success'] ?? false)) {
+            // Gagal kirim: tanda "sudah dikirim" dibatalkan supaya percobaan berikutnya boleh jalan,
+            // dan layar hasil kembali menampilkan skornya.
+            Cache::forget('quiz-result-sent:'.$attempt->getKey());
+
+            return false;
+        }
+
+        return true;
     }
 
     private function codeMinutes(PageCategory $page): int
