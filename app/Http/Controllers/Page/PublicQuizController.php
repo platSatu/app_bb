@@ -11,6 +11,7 @@ use App\Services\Quiz\QuizService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use RuntimeException;
 
 /** Alur publik quiz: isi data diri -> kerjakan -> skor. Attempt yang aktif dipegang di session pengunjung. */
 class PublicQuizController extends Controller
@@ -60,6 +61,17 @@ class PublicQuizController extends Controller
 
         $request->session()->put($this->sessionKey($page), $attempt->getKey());
 
+        // Quiz berbayar: soal baru dibuka setelah callback Duitku menyatakan lunas.
+        if ($attempt->awaitsPayment()) {
+            try {
+                return redirect()->away($this->quiz->startPayment($attempt, $page));
+            } catch (RuntimeException $e) {
+                $request->session()->forget($this->sessionKey($page));
+
+                return back()->withInput()->withErrors(['payment' => $e->getMessage()]);
+            }
+        }
+
         return redirect()->route('page.quiz.play', $page->slug);
     }
 
@@ -70,6 +82,17 @@ class PublicQuizController extends Controller
 
         if (! $attempt) {
             return redirect()->route('page.show', $page->slug);
+        }
+
+        // Belum lunas: layar tunggu, bukan soal. Lunas ditentukan callback Duitku, bukan layar ini.
+        if ($attempt->awaitsPayment()) {
+            return view('page.public.quiz-pay', ['page' => $page, 'attempt' => $attempt]);
+        }
+
+        // Jam mengerjakan baru berjalan saat soal pertama benar-benar tampil, bukan saat attempt dibuat,
+        // supaya peserta quiz berbayar tidak kehilangan menit selama menunggu pembayarannya masuk.
+        if (! $attempt->opened_at) {
+            $attempt->forceFill(['opened_at' => now()])->save();
         }
 
         return view('page.public.quiz-play', [

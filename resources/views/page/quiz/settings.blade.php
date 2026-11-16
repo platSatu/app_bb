@@ -129,6 +129,30 @@
                     @endfor
                     <div class="form-text mb-4">Baris tanpa nama grade diabaikan. Di pesan WhatsApp, pakai <code>{grade}</code> untuk satu baris jadi, atau <code>{grade_nama}</code> dan <code>{grade_info}</code> kalau mau disusun sendiri.</div>
 
+                    {{-- Pembayaran selalu DI DEPAN: lunas dulu, baru soal terbuka. Tidak ada mode bayar
+                         di belakang, supaya tidak pernah ada jawaban menggantung yang belum dibayar. --}}
+                    <hr class="my-4">
+                    <div class="form-check form-switch mb-2">
+                        <input type="hidden" name="payment_on" value="0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="payment_on" name="payment_on" value="1" @checked(old('payment_on', $page->setting('quiz.payment_on', false)))>
+                        <label class="form-check-label" for="payment_on">Quiz berbayar</label>
+                        <div class="form-text">Peserta membayar dulu, soal terbuka setelah pembayarannya dikonfirmasi. Tiap kali mengulang, bayar lagi.</div>
+                    </div>
+                    <div class="mb-2">
+                        <label for="amount" class="form-label">Biaya mengikuti quiz</label>
+                        <div class="input-group" style="max-width: 280px;">
+                            <span class="input-group-text">Rp</span>
+                            <input type="number" id="amount" name="amount" min="10000" max="50000000" step="1000"
+                                class="form-control @error('amount') is-invalid @enderror" value="{{ old('amount', $page->setting('quiz.amount')) }}" placeholder="50000">
+                        </div>
+                        @error('amount') <div class="text-danger fs-13">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="alert alert-warning py-2 fs-13 mb-4">
+                        <b>Yang masuk ke Saldo Anda adalah biaya ini dikurangi potongan payment gateway</b>, sama seperti penjualan katalog.
+                        Besar potongannya mengikuti metode bayar yang dipilih peserta. Quiz tidak dikenai biaya layanan bizbos.
+                        Kalau Anda ingin menerima angka bulat, naikkan biayanya.
+                    </div>
+
                     @if ($canManage)
                         <div class="d-flex justify-content-end"><button type="submit" class="btn btn-primary">Simpan</button></div>
                     @endif

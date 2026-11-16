@@ -47,6 +47,8 @@ class QuizSettingController extends Controller
             'code_minutes' => ['nullable', 'integer', 'min:1', 'max:60'],
             'send_result' => ['boolean'],
             'result_text' => ['nullable', 'string', 'max:1000'],
+            'payment_on' => ['boolean'],
+            'amount' => ['nullable', 'integer', 'min:10000', 'max:50000000', 'required_if:payment_on,1'],
             'grades' => ['nullable', 'array', 'max:'.QuizService::MAX_GRADES],
             'grades.*.min' => ['nullable', 'integer', 'min:0', 'max:100'],
             'grades.*.label' => ['nullable', 'string', 'max:20'],
@@ -54,7 +56,9 @@ class QuizSettingController extends Controller
         ], [
             'pin.required_if' => 'Isi PIN-nya dulu kalau quiz dikunci dengan PIN.',
             'device_id.required_if' => 'Pilih device WhatsApp yang akan mengirim pesannya.',
-        ], ['time_limit' => 'batas waktu', 'pin' => 'PIN', 'device_id' => 'device pengirim', 'code_minutes' => 'masa berlaku kode', 'result_text' => 'teks hasil']);
+            'amount.required_if' => 'Isi biayanya dulu kalau quiz ini berbayar.',
+            'amount.min' => 'Biaya minimal Rp 10.000, mengikuti batas terendah payment gateway.',
+        ], ['time_limit' => 'batas waktu', 'pin' => 'PIN', 'device_id' => 'device pengirim', 'code_minutes' => 'masa berlaku kode', 'result_text' => 'teks hasil', 'amount' => 'biaya quiz']);
 
         $gate = $data['gate'] ?? null;
         $sendResult = $request->boolean('send_result');
@@ -74,6 +78,10 @@ class QuizSettingController extends Controller
             'send_result' => $sendResult,
             'result_text' => $sendResult ? (trim((string) ($data['result_text'] ?? '')) ?: null) : null,
             'grades' => $this->grades($data['grades'] ?? []),
+            // Harga hanya berlaku untuk attempt BARU; attempt yang tagihannya sudah terbit
+            // memakai harga yang tersimpan di baris attempt-nya sendiri.
+            'payment_on' => $request->boolean('payment_on'),
+            'amount' => $request->boolean('payment_on') ? (int) ($data['amount'] ?? 0) : null,
         ]];
         $model->save();
 

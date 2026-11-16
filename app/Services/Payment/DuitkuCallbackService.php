@@ -7,6 +7,7 @@ use App\Services\Catalog\CatalogOrderService;
 use App\Services\Deposit\DepositService;
 use App\Services\Invoice\InvoiceCheckoutService;
 use App\Services\Invoice\InvoicePaymentService;
+use App\Services\Quiz\QuizService;
 use App\Services\Ticket\TicketOrderService;
 use Illuminate\Support\Str;
 use Throwable;
@@ -25,6 +26,7 @@ class DuitkuCallbackService
         private readonly InvoicePaymentService $invoices,
         private readonly InvoiceCheckoutService $checkouts,
         private readonly CatalogOrderService $catalog,
+        private readonly QuizService $quiz,
     ) {
     }
 
@@ -54,6 +56,7 @@ class DuitkuCallbackService
             $result = match (true) {
                 str_starts_with($orderId, TicketOrderService::PREFIX) => $this->tickets->handleCallback($payload, $log, $client),
                 str_starts_with($orderId, CatalogOrderService::PREFIX) => $this->catalog->handleCallback($payload, $log, $client),
+                str_starts_with($orderId, QuizService::PREFIX) => $this->quiz->handleCallback($payload, $log, $client),
                 str_starts_with($orderId, InvoicePaymentService::PREFIX) => $this->invoices->handleCallback($payload, $log, $client),
                 str_starts_with($orderId, InvoiceCheckoutService::PREFIX) => $this->checkouts->handleCallback($payload, $log, $client),
                 default => $this->deposits->handleCallback($payload, $log, $client),

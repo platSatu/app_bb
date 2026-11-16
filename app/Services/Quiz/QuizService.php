@@ -3,18 +3,25 @@
 namespace App\Services\Quiz;
 
 use App\Models\PageCategory;
+use App\Models\PaymentCallback;
 use App\Models\QuizAnswer;
 use App\Models\QuizAttempt;
 use App\Models\QuizQuestion;
 use App\Models\User;
 use App\Models\UserBranch;
+use App\Models\WalletTransaction;
 use App\Services\Customer\CustomerService;
+use App\Services\Payment\DuitkuClient;
+use App\Services\Wallet\SettlementCalendar;
+use App\Services\Wallet\WalletService;
 use App\Services\WhatsApp\WaGateway;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
+use Throwable;
 
 class QuizService
 {
@@ -32,8 +39,137 @@ class QuizService
     private const MAX_PER_PHONE = 3;   // per 10 menit
     private const MAX_PER_PAGE = 30;   // per jam
 
-    public function __construct(private readonly CustomerService $customers, private readonly WaGateway $wa)
+    /** Awalan nomor pembayaran di Duitku. Sama dengan awalan referensi attempt, jadi tidak perlu nomor kedua. */
+    public const PREFIX = 'QZ';
+
+    /** Harga quiz ini sekarang; 0 = gratis. */
+    public function price(PageCategory $page): int
     {
+        return $page->setting('quiz.payment_on') ? max(0, (int) $page->setting('quiz.amount')) : 0;
+    }
+
+    public function __construct(
+        private readonly CustomerService $customers,
+        private readonly WaGateway $wa,
+        private readonly WalletService $wallets,
+    ) {
+    }
+
+    /**
+     * Buat tagihan Duitku untuk attempt berbayar, kembalikan alamat pembayarannya.
+     * Meniru CatalogOrderService::startPayment: tagihan gagal dibuat = attempt dibuang,
+     * supaya tidak ada attempt menggantung yang menunggu pembayaran selamanya.
+     *
+     * @throws RuntimeException
+     */
+    public function startPayment(QuizAttempt $attempt, PageCategory $page): string
+    {
+        $amount = (int) $attempt->amount;
+
+        try {
+            $invoice = DuitkuClient::make(forCallback: true)->createInvoice([
+                'amount' => $amount,
+                'orderId' => $attempt->reference,
+                'product' => Str::limit($page->name, 250, ''),
+                'customer' => ['name' => $attempt->name, 'email' => (string) $attempt->email, 'phone' => $attempt->phone],
+                'items' => [['name' => Str::limit($page->name, 50, ''), 'price' => $amount, 'quantity' => 1]],
+                'returnUrl' => route('page.quiz.play', $page->slug),
+            ]);
+        } catch (Throwable $e) {
+            report($e);
+            $invoice = ['paymentUrl' => null, 'reference' => null, 'message' => $e instanceof RuntimeException ? $e->getMessage() : 'Duitku tidak bisa dihubungi'];
+        }
+
+        if (! $invoice['paymentUrl']) {
+            // Belum ada jawaban apa pun di attempt ini, jadi aman dibuang sepenuhnya.
+            $attempt->delete();
+
+            throw new RuntimeException('Pembayaran belum bisa dibuat. Silakan coba beberapa saat lagi.');
+        }
+
+        $attempt->forceFill(['payment_url' => $invoice['paymentUrl'], 'provider_reference' => $invoice['reference']])->save();
+
+        return $invoice['paymentUrl'];
+    }
+
+    /**
+     * Callback Duitku untuk nomor QZ... Tanda tangannya sudah diperiksa DuitkuCallbackService.
+     * Urutan penjagaannya sengaja sama persis dengan katalog & tiket.
+     *
+     * @return array{0: int, 1: string}
+     */
+    public function handleCallback(array $payload, PaymentCallback $log, DuitkuClient $client): array
+    {
+        $attempt = QuizAttempt::where('reference', $payload['merchantOrderId'] ?? '')->first();
+
+        if (! $attempt || (int) $attempt->amount <= 0) {
+            $log->update(['result' => 'not_found']);
+
+            return [200, 'OK'];
+        }
+
+        // Nominal harus sama persis. Ini yang mencegah orang membayar Rp1.000 untuk quiz Rp100.000.
+        if ((int) round((float) ($payload['amount'] ?? 0)) !== (int) $attempt->amount) {
+            $log->update(['result' => 'amount_mismatch']);
+
+            return [200, 'OK'];
+        }
+
+        if (($payload['resultCode'] ?? null) !== '00') {
+            $log->update(['result' => 'failed', 'message' => 'Dibatalkan/gagal di Duitku']);
+
+            return [200, 'OK'];
+        }
+
+        // Callback saja tidak cukup: statusnya ditanya ulang ke Duitku sebelum uang diakui.
+        if ($attempt->awaitsPayment() && ($reason = $client->unpaidReason($attempt->reference, (int) $attempt->amount))) {
+            $log->update(['result' => 'not_confirmed', 'message' => $reason]);
+
+            return [409, 'Payment not confirmed'];
+        }
+
+        $log->update(['result' => $this->markPaid($attempt, $payload['paymentCode'] ?? null, $payload['reference'] ?? null)]);
+
+        return [200, 'OK'];
+    }
+
+    /** Tandai lunas & tambahkan ke saldo pemilik page. Aman dipanggil berkali-kali (callback ganda). */
+    private function markPaid(QuizAttempt $attempt, ?string $method, ?string $providerReference): string
+    {
+        return DB::transaction(function () use ($attempt, $method, $providerReference) {
+            $locked = QuizAttempt::with('page.branch.user')->whereKey($attempt->getKey())->lockForUpdate()->firstOrFail();
+
+            if (! $locked->awaitsPayment()) {
+                return 'already_processed';
+            }
+
+            $locked->forceFill([
+                'paid_at' => now(),
+                'payment_method' => $method,
+                'provider_reference' => $providerReference ?: $locked->provider_reference,
+            ])->save();
+
+            $total = (int) $locked->amount;
+
+            // Quiz tanpa biaya layanan bizbos: kotor = bersih, sama seperti penjualan katalog.
+            // Potongan payment gateway tetap dihitung di dalam creditPayment -- satu aturan untuk
+            // semua aplikasi, jangan dihitung ulang di sini supaya tidak pernah berbeda.
+            $this->wallets->creditPayment(
+                $locked->page->branch->user,
+                $total,
+                $total,
+                WalletTransaction::TYPE_QUIZ_SALE,
+                // Kunci idempoten: callback ganda tidak akan menambah saldo dua kali.
+                'quiz:'.$locked->getKey(),
+                $locked,
+                'Pembayaran quiz '.$locked->reference,
+                paymentMethod: $locked->payment_method,
+                availableAt: SettlementCalendar::availableAt($locked->payment_method),
+                duitkuFee: DuitkuClient::confirmedFee($locked->reference),
+            );
+
+            return 'paid';
+        });
     }
 
     /**
@@ -235,6 +371,8 @@ class QuizService
                 'name' => $participant['name'],
                 'phone' => $phone,
                 'email' => $participant['email'],
+                // Harga dikunci di attempt: harga yang diubah owner besok tidak mengubah tagihan yang sudah terbit.
+                'amount' => $this->price($page),
                 'started_at' => now(),
                 'ip_address' => $ip,
                 'user_agent' => Str::limit((string) $userAgent, 250, ''),

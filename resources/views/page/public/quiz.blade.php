@@ -87,6 +87,17 @@
                         <h2 class="h5 fw-semibold mb-1">Data Peserta</h2>
                         <p class="text-muted small mb-4">Isi data di bawah, lalu klik Mulai Quiz.</p>
 
+                        @error('payment')
+                            <div class="alert alert-danger py-2 small">{{ $message }}</div>
+                        @enderror
+
+                        @if ($price = $page->setting('quiz.payment_on') ? (int) $page->setting('quiz.amount') : 0)
+                            <div class="alert alert-info py-2 small">
+                                Quiz ini berbayar: <b>Rp {{ number_format($price, 0, ',', '.') }}</b>.
+                                Setelah menekan Mulai Quiz, Anda diarahkan ke halaman pembayaran dulu.
+                            </div>
+                        @endif
+
                         @if (session('code_sent'))
                             <div class="alert alert-success py-2 small">{{ session('code_sent') }}</div>
                         @endif
@@ -134,7 +145,7 @@
                             <div class="mb-3">@include('auth.partials.turnstile')</div>
                             <button type="submit" class="btn btn-brand w-100 py-2"><i class="ri-play-circle-line me-1"></i>Mulai Quiz</button>
                             @if ($timeLimit)
-                                <div class="form-text text-center mt-2">Waktu {{ $timeLimit }} menit mulai berjalan setelah tombol ini diklik.</div>
+                                <div class="form-text text-center mt-2">Waktu {{ $timeLimit }} menit mulai berjalan saat soal pertama tampil.</div>
                             @endif
                         </form>
                     @endif
