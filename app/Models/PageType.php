@@ -19,6 +19,9 @@ class PageType extends Model
     public const TEMPLATE_TICKET = 'ticket';
     public const TEMPLATE_QUIZ = 'quiz';
     public const TEMPLATE_BIOLINK = 'biolink';
+    // Formulir pendaftaran tanpa tiket & tanpa pembayaran. Memakai mesin form yang sama
+    // dengan Form Pembeli di Tiket (page_form_fields + page_submissions), bukan mesin baru.
+    public const TEMPLATE_REGISTRATION = 'registration';
 
     public const TEMPLATES = [
         self::TEMPLATE_LANDING => 'Landing Page',
@@ -26,6 +29,7 @@ class PageType extends Model
         self::TEMPLATE_TICKET => 'Ticket',
         self::TEMPLATE_QUIZ => 'Quiz',
         self::TEMPLATE_BIOLINK => 'Bio Link',
+        self::TEMPLATE_REGISTRATION => 'Registrasi',
     ];
 
     protected $fillable = ['name', 'template', 'description', 'status'];

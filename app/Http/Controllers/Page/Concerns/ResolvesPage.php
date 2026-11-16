@@ -22,11 +22,15 @@ trait ResolvesPage
             ->findOrFail($id);
     }
 
-    /** Page dengan template tertentu; template lain = 404 supaya tab/URL tidak bisa dipaksa. */
-    protected function templatePage(Request $request, string $id, string $template, string $ability = Menu::ABILITY_VIEW): PageCategory
+    /**
+     * Page dengan template tertentu; template lain = 404 supaya tab/URL tidak bisa dipaksa.
+     * Boleh diisi beberapa template untuk halaman yang dipakai bersama -- mis. form builder
+     * yang melayani Tiket (Form Pembeli) sekaligus Registrasi (Form Pendaftaran).
+     */
+    protected function templatePage(Request $request, string $id, string|array $template, string $ability = Menu::ABILITY_VIEW): PageCategory
     {
         $page = $this->page($request, $id, $ability);
-        abort_unless($page->isTemplate($template), 404);
+        abort_unless(in_array($page->template(), (array) $template, true), 404);
 
         return $page;
     }

@@ -75,6 +75,14 @@ class PageCategoryController extends Controller
         $page = $this->pages->save(new PageCategory(), $request->branch(), $request->validated());
         $routes = $this->area($request);
 
+        // Registrasi: formnya langsung diisi Nama, WhatsApp & Email, lalu dibuka supaya tinggal ditambah.
+        if ($page->isTemplate(PageType::TEMPLATE_REGISTRATION)) {
+            $this->pages->seedDefaultFields($page);
+
+            return redirect()->route($routes.'.builder', $page)
+                ->with('success', "Page {$page->name} berhasil dibuat. Isian Nama, No. WhatsApp, dan Email sudah disiapkan, tinggal ditambah kalau perlu.");
+        }
+
         // Event (page tiket): langkah berikutnya selalu mengisi kategori tiket.
         if ($page->isTemplate(PageType::TEMPLATE_TICKET)) {
             return redirect()->route($routes.'.ticket.categories.index', $page)

@@ -51,6 +51,17 @@ return [
         'public' => 'page.public.biolink',
     ],
 
+    // Registrasi memakai tab 'builder' yang sama dengan Form Pembeli di Tiket; rutenya
+    // didaftarkan di area Pages juga, jadi satu entri ini berlaku untuk kedua area.
+    'registration' => [
+        'tabs' => [
+            'builder' => ['Form Pendaftaran', 'ri-list-settings-line', 'builder'],
+            'registration-entries' => ['Pendaftar', 'ri-group-line', 'registration.entries.index'],
+        ],
+        'quick' => ['Pendaftar', 'ri-group-line', 'registration.entries.index', 'submissions_count'],
+        'public' => 'page.public.registration',
+    ],
+
     'quiz' => [
         'tabs' => [
             'quiz-questions' => ['Soal', 'ri-question-answer-line', 'quiz.questions.index'],

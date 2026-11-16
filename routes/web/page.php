@@ -8,6 +8,8 @@ use App\Http\Controllers\Page\Catalog\CatalogProductController;
 use App\Http\Controllers\Page\Category\PageCategoryController;
 use App\Http\Controllers\Page\Form\PageFormFieldController;
 use App\Http\Controllers\Page\Form\PageSubmissionController;
+use App\Http\Controllers\Page\PublicRegistrationController;
+use App\Http\Controllers\Page\Registration\RegistrationEntryController;
 use App\Http\Controllers\Page\Landing\LandingSectionController;
 use App\Http\Controllers\Page\Landing\LandingSettingController;
 use App\Http\Controllers\Page\PublicPageController;
@@ -55,6 +57,12 @@ $readPages = function () {
     Route::get('{page}/landing/settings', [LandingSettingController::class, 'edit'])->name('landing.settings.edit');
 
     Route::get('{page}/biolink', [BiolinkController::class, 'edit'])->name('biolink.edit');
+
+    // Registrasi memakai form builder yang sama dengan Form Pembeli di Event. Nama rutenya sengaja
+    // juga 'builder', supaya satu entri di config/page_templates.php melayani kedua area.
+    Route::get('{page}/builder', [PageFormFieldController::class, 'index'])->name('builder');
+    Route::get('{page}/registration/entries', [RegistrationEntryController::class, 'index'])->name('registration.entries.index');
+    Route::get('{page}/registration/entries/export', [RegistrationEntryController::class, 'export'])->middleware('throttle:10,1')->name('registration.entries.export');
 };
 
 $writePages = function () {
@@ -75,6 +83,9 @@ $writePages = function () {
     Route::put('{page}/landing/settings', [LandingSettingController::class, 'update'])->name('landing.settings.update');
 
     Route::put('{page}/biolink', [BiolinkController::class, 'update'])->middleware('throttle:30,1')->name('biolink.update');
+
+    Route::put('{page}/builder', [PageFormFieldController::class, 'sync'])->middleware('throttle:30,1')->name('builder.sync');
+    Route::delete('{page}/registration/entries/{submission}', [RegistrationEntryController::class, 'destroy'])->name('registration.entries.destroy');
 };
 
 // Tiket & Form Pembeli: hanya di area Event.
@@ -176,6 +187,10 @@ Route::middleware('public.app:pages')->group(function () {
         ->where('slug', '[a-z0-9-]+')
         ->middleware('throttle:10,1')
         ->name('page.checkout.store');
+    Route::post('page/{slug}/register', [PublicRegistrationController::class, 'store'])
+        ->where('slug', '[a-z0-9-]+')
+        ->middleware('throttle:10,1')
+        ->name('page.register');
     Route::post('page/{slug}/quiz/start', [PublicQuizController::class, 'start'])
         ->where('slug', '[a-z0-9-]+')
         ->middleware('throttle:10,1')

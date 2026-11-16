@@ -18,9 +18,12 @@ class PageFormFieldController extends Controller
 {
     use ResolvesPage;
 
+    /** Dipakai dua template: Form Pembeli (Tiket) dan Form Pendaftaran (Registrasi). Perilakunya sama persis. */
+    private const TEMPLATES = [PageType::TEMPLATE_TICKET, PageType::TEMPLATE_REGISTRATION];
+
     public function index(Request $request, string $page): View
     {
-        $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET);
+        $model = $this->templatePage($request, $page, self::TEMPLATES);
 
         return view('page.form.builder', [
             'page' => $model->load('fields'),
@@ -32,7 +35,7 @@ class PageFormFieldController extends Controller
     /** Simpan semua baris sekaligus: baris lama diperbarui, baris baru dibuat, baris yang dihapus ikut dihapus. */
     public function sync(PageFormSyncRequest $request, string $page): RedirectResponse
     {
-        $model = $this->templatePage($request, $page, PageType::TEMPLATE_TICKET, Menu::ABILITY_MANAGE);
+        $model = $this->templatePage($request, $page, self::TEMPLATES, Menu::ABILITY_MANAGE);
 
         DB::transaction(function () use ($model, $request) {
             // Kunci page supaya 2 tab yang menyimpan bersamaan tidak saling menimpa urutan.

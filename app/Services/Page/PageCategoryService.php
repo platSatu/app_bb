@@ -3,6 +3,7 @@
 namespace App\Services\Page;
 
 use App\Models\PageCategory;
+use App\Models\PageFormField;
 use App\Models\PageType;
 use App\Models\TicketSetting;
 use App\Models\UserBranch;
@@ -23,7 +24,31 @@ class PageCategoryService
      * bertingkat (kategori > produk > foto) dan tiap foto perlu disalin jadi berkas sendiri;
      * menyalin setengah-setengah lebih berbahaya daripada menolak.
      */
-    private const DUPLICABLE = [PageType::TEMPLATE_LANDING, PageType::TEMPLATE_BIOLINK, PageType::TEMPLATE_QUIZ, PageType::TEMPLATE_TICKET];
+    private const DUPLICABLE = [PageType::TEMPLATE_LANDING, PageType::TEMPLATE_BIOLINK, PageType::TEMPLATE_QUIZ, PageType::TEMPLATE_TICKET, PageType::TEMPLATE_REGISTRATION];
+
+    /**
+     * Isian bawaan page Registrasi supaya langsung bisa dipakai tanpa menyusun form dari nol.
+     * Hanya dijalankan saat page masih kosong, jadi tidak pernah menimpa susunan milik owner.
+     */
+    public function seedDefaultFields(PageCategory $page): void
+    {
+        if (! $page->isTemplate(PageType::TEMPLATE_REGISTRATION) || $page->fields()->exists()) {
+            return;
+        }
+
+        $defaults = [
+            ['type' => 'text', 'label' => 'Nama lengkap', 'placeholder' => 'Nama sesuai identitas', 'is_required' => true],
+            ['type' => 'phone', 'label' => 'No. WhatsApp', 'placeholder' => '0812xxxxxxxx', 'is_required' => true],
+            ['type' => 'email', 'label' => 'Email', 'placeholder' => 'nama@email.com', 'is_required' => false],
+        ];
+
+        foreach ($defaults as $position => $row) {
+            $field = new PageFormField($row);
+            $field->page_category_id = $page->getKey();
+            $field->sort_order = $position;
+            $field->save();
+        }
+    }
 
     public function __construct(private readonly QrCodeGenerator $qrcodes, private readonly ImageUploader $images, private readonly PlanLimits $limits)
     {
