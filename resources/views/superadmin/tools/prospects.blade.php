@@ -321,7 +321,7 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md-2">
                     <label class="form-label small text-muted mb-1">Kecamatan / Kota</label>
                     <select name="city" class="form-select" onchange="this.form.submit()">
                         <option value="">Semua</option>
@@ -330,11 +330,22 @@
                         @endforeach
                     </select>
                 </div>
+                {{-- Rentang tanggal kolom "Disimpan". Daftar & tombol Excel memakai penyaring yang sama
+                     (ProspectController::filtered), jadi hasil export otomatis ikut rentang ini. --}}
+                <div class="col-6 col-md-2">
+                    <label class="form-label small text-muted mb-1">Disimpan dari</label>
+                    <input type="date" name="from" class="form-control @error('from') is-invalid @enderror" value="{{ request('from') }}" max="{{ now()->toDateString() }}">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small text-muted mb-1">Sampai</label>
+                    <input type="date" name="to" class="form-control @error('to') is-invalid @enderror" value="{{ request('to') }}" max="{{ now()->toDateString() }}">
+                    @error('to') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                </div>
                 <div class="col-12 col-md-3 d-flex gap-2">
                     <button type="submit" class="btn btn-primary flex-grow-1" title="Filter"><i class="ri-search-line"></i></button>
                     <a href="{{ route('superadmin.tools.prospects.export', request()->except('page')) }}" class="btn btn-success" title="Download Excel (sesuai filter)"><i class="ri-file-excel-2-line"></i></a>
                     <button type="button" class="btn btn-outline-primary" title="Import kontak dari Excel" data-bs-toggle="collapse" data-bs-target="#import-box"><i class="ri-upload-2-line"></i></button>
-                    @if (request()->hasAny(['search', 'city', 'status', 'segment', 'sort']))
+                    @if (request()->hasAny(['search', 'city', 'status', 'segment', 'sort', 'from', 'to']))
                         <a href="{{ route('superadmin.tools.prospects.index') }}" class="btn btn-outline-danger" title="Hapus filter"><i class="ri-close-line"></i></a>
                     @endif
                 </div>
@@ -386,7 +397,7 @@
                     <thead class="table-light">
                         <tr><th style="width: 1%"><input class="form-check-input" type="checkbox" title="Pilih semua di halaman ini" onclick="document.querySelectorAll('.prospect-check').forEach(c => c.checked = this.checked)"></th><th>Nama</th><th>Alamat</th><th>Kontak</th>
                             <th class="text-nowrap"><a href="{{ route('superadmin.tools.prospects.index', ['sort' => request('sort') === 'score' ? null : 'score'] + request()->except('sort', 'page')) }}" class="text-reset" title="Urutkan skor tertinggi">Skor <i class="ri-arrow-down-line"></i></a></th>
-                            <th>Rating</th><th>Status</th><th class="text-end">Aksi</th></tr>
+                            <th>Rating</th><th>Status</th><th class="text-nowrap">Disimpan</th><th class="text-end">Aksi</th></tr>
                     </thead>
                     <tbody>
                         @forelse ($prospects as $prospect)
@@ -427,6 +438,10 @@
                                     @if ($outreach = Prospect::OUTREACH[$prospect->outreach_status] ?? null) <span class="badge {{ $outreach[1] }}">{{ $outreach[0] }}</span> @endif
                                     @if ($prospect->notes) <span class="sub text-truncate" style="max-width: 200px" title="{{ $prospect->notes }}">{{ $prospect->notes }}</span> @endif
                                 </td>
+                                <td class="text-nowrap">
+                                    {{ $prospect->created_at?->format('d/m/Y') ?: '-' }}
+                                    @if ($prospect->created_at) <span class="sub">{{ $prospect->created_at->format('H:i') }}</span> @endif
+                                </td>
                                 <td class="text-end text-nowrap">
                                     @if ($prospect->whatsapp)
                                         <a href="https://wa.me/{{ $prospect->whatsapp }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success" title="WhatsApp"><i class="ri-whatsapp-line"></i></a>
@@ -446,7 +461,7 @@
                                 </td>
                             </tr>
                             <tr class="collapse prospect-edit" id="edit-{{ $prospect->id }}">
-                                <td colspan="8">
+                                <td colspan="9">
                                     <form method="POST" action="{{ route('superadmin.tools.prospects.update', $prospect) }}" class="row g-2 align-items-end">
                                         @csrf
                                         @method('PUT')
@@ -499,7 +514,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="8" class="text-center text-muted py-4">Belum ada prospek. Simpan dari Tools › Open Places atau nyalakan Agent.</td></tr>
+                            <tr><td colspan="9" class="text-center text-muted py-4">Belum ada prospek. Simpan dari Tools › Open Places atau nyalakan Agent.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

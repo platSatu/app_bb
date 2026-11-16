@@ -344,13 +344,19 @@ class ProspectController extends Controller
             'status' => ['nullable', Rule::in(array_keys(Prospect::STATUSES))],
             'city' => ['nullable', 'string', 'max:150'],
             'segment' => ['nullable', 'string', 'max:60'],
-        ]);
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ], ['to.after_or_equal' => 'Tanggal "sampai" tidak boleh lebih awal dari tanggal "dari".']);
         $search = trim((string) ($data['search'] ?? ''));
 
         return Prospect::query()
             ->when($withStatus ? ($data['status'] ?? null) : null, fn ($q, $status) => $q->where('status', $status))
             ->when($data['city'] ?? null, fn ($q, $city) => $q->where('city', $city))
             ->when($data['segment'] ?? null, fn ($q, $segment) => $q->where('segment', $segment))
+            // Rentang tanggal kolom "Disimpan" (created_at). Zona waktu aplikasi Asia/Jakarta, jadi
+            // whereDate memotong hari memakai tanggal WIB -- sama dengan yang dilihat di layar & Excel.
+            ->when($data['from'] ?? null, fn ($q, $from) => $q->whereDate('created_at', '>=', $from))
+            ->when($data['to'] ?? null, fn ($q, $to) => $q->whereDate('created_at', '<=', $to))
             ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%")
                 ->orWhere('category', 'like', "%{$search}%")->orWhere('phone', 'like', "%{$search}%")->orWhere('address', 'like', "%{$search}%")));
     }
