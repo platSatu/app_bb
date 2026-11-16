@@ -89,6 +89,8 @@
                         </div>
                     @endforeach
 
+                    <div class="mb-3">@include('auth.partials.turnstile')</div>
+
                     <button type="submit" class="btn btn-brand w-100 py-2 mt-2"><i class="ri-send-plane-line me-1"></i>Kirim Pendaftaran</button>
                 </form>
             @endif

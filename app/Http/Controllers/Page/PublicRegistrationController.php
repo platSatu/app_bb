@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PageCategory;
 use App\Models\PageType;
 use App\Models\UserBranch;
+use App\Rules\Turnstile;
 use App\Services\Customer\CustomerService;
 use App\Services\Page\PageSubmissionService;
 use App\Support\Apps;
@@ -17,8 +18,8 @@ use Illuminate\Support\Facades\DB;
  * Halaman publik Registrasi: isian yang disusun owner di Form Pendaftaran dikirim ke sini,
  * lalu disimpan lewat PageSubmissionService -- mesin yang sama dengan Form Pembeli di Tiket.
  *
- * Belum memakai Turnstile: aturannya baru berfungsi kalau widget captcha ikut ditampilkan di
- * form, dan itu menyusul. Sementara pengamannya honeypot + batas 10 kiriman per menit di route.
+ * Pengamannya tiga lapis, sama seperti Quiz & Tiket: captcha Turnstile, honeypot (isian
+ * tersembunyi yang harus tetap kosong), dan batas 10 kiriman per menit di route.
  */
 class PublicRegistrationController extends Controller
 {
@@ -30,7 +31,7 @@ class PublicRegistrationController extends Controller
 
         // Aturan tiap isian dibentuk dari Form Pendaftaran, jadi validasi selalu mengikuti
         // apa yang diatur owner -- termasuk wajib/tidaknya dan jenis berkas yang boleh diunggah.
-        $rules = ['website' => ['nullable', 'max:0']];
+        $rules = ['website' => ['nullable', 'max:0'], 'cf-turnstile-response' => [new Turnstile()]];
         $labels = [];
 
         foreach ($page->fields as $field) {
