@@ -110,6 +110,20 @@ class PageCategoryController extends Controller
         return redirect()->route($this->area($request).'.index')->with('success', $this->noun($request)." {$model->name} sudah dihapus.");
     }
 
+    /** Salinan page berikut isinya. Selalu Tidak Aktif dulu, supaya sempat diperiksa sebelum tayang. */
+    public function duplicate(Request $request, string $page): RedirectResponse
+    {
+        $model = $this->owned($request, $page);
+
+        try {
+            $copy = $this->pages->duplicate($model);
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route($this->area($request).'.index')->with('success', $this->noun($request)." {$copy->name} dibuat dari salinan {$model->name}. Statusnya Tidak Aktif, periksa dulu isinya lalu aktifkan.");
+    }
+
     public function qrcode(Request $request, string $page): StreamedResponse
     {
         $model = $this->owned($request, $page);

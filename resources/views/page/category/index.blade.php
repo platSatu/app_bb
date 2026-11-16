@@ -108,6 +108,13 @@
                                     <a href="{{ route($routes.'.qrcode', $page) }}" class="btn btn-sm rounded-pill btn-outline-primary"><i class="ri-qr-code-line"></i> QR</a>
                                     @if ($canManage)
                                     <a href="{{ route($routes.'.edit', $page) }}" class="btn btn-sm rounded-pill btn-outline-secondary"><i class="ri-edit-line"></i> Edit</a>
+                                    {{-- Isi page ikut tersalin (soal quiz + kunci jawaban, kolom form, kategori & sesi tiket);
+                                         jawaban peserta dan pesanan tidak, karena itu catatan milik page aslinya. --}}
+                                    <form action="{{ route($routes.'.duplicate', $page) }}" method="POST" class="d-inline"
+                                        onsubmit="return confirm({{ \Illuminate\Support\Js::from('Buat salinan '.strtolower($noun).' '.$page->name.'? Isinya ikut disalin, tapi data peserta dan pesanan tidak. Salinannya dibuat Tidak Aktif.') }});">
+                                        @csrf
+                                        <button type="submit" class="btn btn-sm rounded-pill btn-outline-info"><i class="ri-file-copy-line"></i> Duplikat</button>
+                                    </form>
                                     <form action="{{ route($routes.'.destroy', $page) }}" method="POST" class="d-inline"
                                         onsubmit="return confirm({{ \Illuminate\Support\Js::from('Hapus '.strtolower($noun).' '.$page->name.'? Link dan QR code-nya tidak bisa dipakai lagi.') }});">
                                         @csrf

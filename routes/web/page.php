@@ -121,6 +121,7 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'permission:events.list'])->group(function () use ($readShared, $readEvents, $writeEvents) {
     Route::get('events/{page}/qrcode', [PageCategoryController::class, 'qrcode'])->name('events.qrcode');
+    Route::post('events/{page}/duplicate', [PageCategoryController::class, 'duplicate'])->middleware('throttle:10,1')->name('events.duplicate');
     Route::get('events/ticket-fee', [TicketFeeController::class, 'show'])->name('events.ticket-fee');
     Route::resource('events', PageCategoryController::class)->parameters(['events' => 'page'])->except('show');
     Route::prefix('events')->name('events.')->group(function () use ($readShared, $readEvents, $writeEvents) {
@@ -132,6 +133,7 @@ Route::middleware(['auth', 'permission:events.list'])->group(function () use ($r
 
 Route::middleware(['auth', 'permission:pages.list'])->group(function () use ($readShared, $readPages, $writePages) {
     Route::get('pages/{page}/qrcode', [PageCategoryController::class, 'qrcode'])->name('pages.qrcode');
+    Route::post('pages/{page}/duplicate', [PageCategoryController::class, 'duplicate'])->middleware('throttle:10,1')->name('pages.duplicate');
     Route::resource('pages', PageCategoryController::class)->except('show');
     Route::prefix('pages')->name('pages.')->group(function () use ($readShared, $readPages, $writePages) {
         $readShared();
