@@ -50,29 +50,51 @@
                         </div>
                     </div>
 
-                    <div class="list-group">
-                        @foreach ($routines as $routine)
-                            @php($names = $routine->students->pluck('name'))
-                            @php($full = $names->count() >= $routine->capacity)
-                            <label class="list-group-item d-flex align-items-center gap-3" data-slot
-                                data-students="{{ $routine->students->pluck('id')->join(',') }}" data-capacity="{{ $routine->capacity }}">
-                                <input class="form-check-input flex-shrink-0 mt-0" type="checkbox" name="routine_ids[]" value="{{ $routine->id }}" disabled>
-                                <span class="flex-grow-1">
-                                    <span class="fw-semibold">{{ $routine->dayLabel() }} · {{ $routine->timeRange() }}</span>
-                                    <span class="d-block text-muted small">{{ $routine->teacher?->name }} · {{ $routine->room?->name }}</span>
-                                </span>
-                                <span class="text-end small text-nowrap">
-                                    @if ($names->isEmpty())
-                                        <span class="badge bg-success-subtle text-success">Kosong</span>
-                                    @elseif ($routine->capacity > 1)
-                                        <span class="badge {{ $full ? 'bg-secondary-subtle text-secondary' : 'bg-info-subtle text-info' }}">{{ $names->count() }}/{{ $routine->capacity }} terisi</span>
-                                        <span class="d-block text-muted">{{ $names->join(', ') }}</span>
-                                    @else
-                                        <span class="badge bg-secondary-subtle text-secondary">Terisi</span>
-                                        <span class="d-block text-muted">{{ $names->first() }}</span>
-                                    @endif
-                                </span>
-                            </label>
+                    {{-- Jam dikelompokkan per hari supaya daftarnya tidak memanjang ke bawah. Tab yang
+                         tidak aktif hanya disembunyikan, centangnya tetap ikut terkirim saat Simpan. --}}
+                    @php($byDay = $routines->groupBy('day_of_week'))
+
+                    <ul class="nav nav-pills gap-2 mb-3" role="tablist">
+                        @foreach ($byDay as $day => $daySlots)
+                            <li class="nav-item">
+                                <button class="nav-link {{ $loop->first ? 'active' : '' }}" data-bs-toggle="tab" data-bs-target="#fill-day-{{ $day }}" type="button" role="tab">
+                                    {{ \App\Models\ScheduleRoutine::DAYS[$day] ?? '-' }}
+                                    <span class="badge bg-white text-body ms-1">{{ $daySlots->count() }}</span>
+                                    <span class="badge bg-primary ms-1 d-none" data-day-taken="{{ $day }}"></span>
+                                </button>
+                            </li>
+                        @endforeach
+                    </ul>
+
+                    <div class="tab-content">
+                        @foreach ($byDay as $day => $daySlots)
+                            <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}" id="fill-day-{{ $day }}" role="tabpanel">
+                                <div class="list-group">
+                                    @foreach ($daySlots as $routine)
+                                        @php($names = $routine->students->pluck('name'))
+                                        @php($full = $names->count() >= $routine->capacity)
+                                        <label class="list-group-item d-flex align-items-center gap-3" data-slot data-day="{{ $day }}"
+                                            data-students="{{ $routine->students->pluck('id')->join(',') }}" data-capacity="{{ $routine->capacity }}">
+                                            <input class="form-check-input flex-shrink-0 mt-0" type="checkbox" name="routine_ids[]" value="{{ $routine->id }}" disabled>
+                                            <span class="flex-grow-1">
+                                                <span class="fw-semibold">{{ $routine->timeRange() }}</span>
+                                                <span class="d-block text-muted small">{{ $routine->teacher?->name }} · {{ $routine->room?->name }}</span>
+                                            </span>
+                                            <span class="text-end small text-nowrap">
+                                                @if ($names->isEmpty())
+                                                    <span class="badge bg-success-subtle text-success">Kosong</span>
+                                                @elseif ($routine->capacity > 1)
+                                                    <span class="badge {{ $full ? 'bg-secondary-subtle text-secondary' : 'bg-info-subtle text-info' }}">{{ $names->count() }}/{{ $routine->capacity }} terisi</span>
+                                                    <span class="d-block text-muted">{{ $names->join(', ') }}</span>
+                                                @else
+                                                    <span class="badge bg-secondary-subtle text-secondary">Terisi</span>
+                                                    <span class="d-block text-muted">{{ $names->first() }}</span>
+                                                @endif
+                                            </span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                            </div>
                         @endforeach
                     </div>
 
@@ -115,6 +137,13 @@
                     slot.classList.toggle('opacity-50', input.disabled);
                     if (has) taken++;
                     else if (!input.disabled) open++;
+                });
+
+                // Lencana di tab hari: berapa jam yang diambil murid ini di hari itu.
+                document.querySelectorAll('[data-day-taken]').forEach(badge => {
+                    const count = slots.filter(slot => slot.dataset.day === badge.dataset.dayTaken && slot.querySelector('input').checked).length;
+                    badge.textContent = count;
+                    badge.classList.toggle('d-none', count === 0);
                 });
 
                 submit.disabled = !id;
