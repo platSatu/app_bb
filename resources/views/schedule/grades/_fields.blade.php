@@ -48,9 +48,12 @@
 <div class="col-12" id="pengajar">
     <label class="form-label">Pengajar yang Mengajar Grade Ini</label>
     @error('teacher_ids.*') <div class="text-danger small mb-1">{{ $message }}</div> @enderror
-    @forelse ($teachers as $branchId => $branchTeachers)
+    {{-- $teachers datang sebagai daftar datar (dipakai juga oleh dropdown di baris Jam Buka),
+         jadi pengelompokan per branch dikerjakan di sini saja. --}}
+    @php($byBranch = $teachers->groupBy('branch_id'))
+    @forelse ($byBranch as $branchId => $branchTeachers)
         <div class="border rounded p-2 mb-2" data-branch-teachers="{{ $branchId }}">
-            @if ($teachers->count() > 1)
+            @if ($byBranch->count() > 1)
                 <div class="small text-muted mb-1">{{ $branchTeachers->first()->branch?->name }}</div>
             @endif
             <div class="row g-1">
