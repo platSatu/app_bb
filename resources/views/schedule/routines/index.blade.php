@@ -79,6 +79,11 @@
                     @endunless
                 </div>
             @else
+                <div class="alert alert-light border small py-2 mb-3">
+                    Memindahkan <strong>satu pertemuan saja</strong> (mis. hanya Minggu 2) lewat tombol kalender di kotaknya.
+                    Tombol pensil mengubah <strong>jadwal rutin</strong>, dan itu berlaku untuk semua minggu di bulan ini.
+                </div>
+
                 <ul class="nav nav-pills gap-2 mb-3" role="tablist">
                     @foreach ($board as $i => $group)
                         <li class="nav-item">
@@ -133,16 +138,31 @@
                                                                                     {{ $slot->students->pluck('name')->join(', ') }}@if ($slot->isGroup()) <span class="text-muted">({{ $slot->students->count() }}/{{ $slot->capacity }})</span>@endif
                                                                                 @endif
                                                                             </div>
+                                                                            {{-- Tanggal nyata pertemuan minggu ini. Kalau pertemuannya pernah dipindah sendiri,
+                                                                                 hari & jam barunya ditulis di sini supaya kotak ini tidak terbaca salah:
+                                                                                 polanya tetap di kolom ini, yang berubah hanya minggu ini. --}}
                                                                             @if ($session)
-                                                                                <div class="text-muted mt-1" style="font-size: .72rem">{{ \Carbon\Carbon::parse($session->date)->translatedFormat('d M') }}</div>
+                                                                                @if ($session->moved_at && ($session->date->dayOfWeekIso !== $day || $session->start_at->format('H:i') !== substr($time['value'], 0, 5)))
+                                                                                    <div class="text-warning-emphasis fw-semibold mt-1" style="font-size: .72rem">
+                                                                                        <i class="ri-arrow-right-up-line"></i> Minggu ini pindah ke {{ $session->date->translatedFormat('l d M') }} jam {{ $session->start_at->format('H.i') }}
+                                                                                    </div>
+                                                                                @else
+                                                                                    <div class="text-muted mt-1" style="font-size: .72rem">{{ $session->date->translatedFormat('d M') }}</div>
+                                                                                @endif
                                                                             @endif
                                                                             @if ($canManage)
                                                                                 {{-- Slot yang sudah ada muridnya: cukup absensi & ubah jadwal. Isi Murid dan Hapus
                                                                                      disembunyikan supaya kelas yang sedang berjalan tidak salah dipencet. --}}
                                                                                 <div class="d-flex gap-1 mt-2">
-                                                                                    <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id, 'date_from' => today()->toDateString()]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Sesi & absensi"><i class="ri-checkbox-multiple-line"></i></a>
+                                                                                    {{-- Ada pertemuan minggu ini: langsung ke sesinya, tempat absensi DAN pindah
+                                                                                         satu pertemuan (tanpa menggeser minggu lain). Kalau tidak ada, ke daftar sesi. --}}
+                                                                                    @if ($session)
+                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Absensi & pindah pertemuan minggu ini saja"><i class="ri-calendar-check-line"></i></a>
+                                                                                    @else
+                                                                                        <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id, 'date_from' => today()->toDateString()]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Daftar sesi"><i class="ri-checkbox-multiple-line"></i></a>
+                                                                                    @endif
                                                                                     @if ($slot->students->isEmpty())<a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $month->format('Y-m')]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Isi murid"><i class="ri-user-add-line"></i></a>@endif
-                                                                                    <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Ubah jadwal"><i class="ri-edit-line"></i></a>
+                                                                                    <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Ubah jadwal rutin — berlaku untuk SEMUA minggu di bulan ini"><i class="ri-edit-line"></i></a>
                                                                                     @if ($slot->students->isEmpty())<form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="flex-fill d-flex"
                                                                                         onsubmit="return confirm('Hapus slot ini? Sesi yang belum berjalan ikut terhapus.');">
                                                                                         @csrf

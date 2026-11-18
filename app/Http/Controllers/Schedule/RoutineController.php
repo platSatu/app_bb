@@ -74,8 +74,8 @@ class RoutineController extends Controller
         // tampil kosong apa adanya.
         $sessions = ScheduleSession::whereIn('routine_id', $routines->pluck('id'))
             ->whereBetween('date', [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()])
-            ->get(['id', 'routine_id', 'date', 'status'])
-            ->keyBy(fn ($session) => $session->routine_id.'@'.(int) ceil(Carbon::parse($session->date)->day / 7));
+            ->get(['id', 'routine_id', 'date', 'start_at', 'status', 'moved_at'])
+            ->keyBy(fn ($session) => $session->routine_id.'@'.(int) ceil($session->date->day / 7));
 
         $board = $routines->groupBy(fn ($routine) => (string) $routine->room_id)
             ->map(fn ($rows) => [
