@@ -67,21 +67,30 @@ class RoutineController extends Controller
             ->orderBy('start_time')
             ->get();
 
-        // Papan mingguan per ruangan. Jadwal rutin berulang tiap minggu, jadi satu minggu sudah
-        // mewakili seluruh bulan -- tidak perlu daftar memanjang ke bawah. Dikelompokkan per
-        // ruangan supaya tiap ruangan punya tabnya sendiri.
+        // Papan mingguan per ruangan: tiap ruangan satu tab, di dalamnya tab Minggu 1-5.
+        // Kolomnya selalu Senin-Minggu walau kosong, supaya posisi harinya tidak bergeser-geser.
+        // Sesi bulan ini dimuat terpisah lalu dipetakan per (jadwal, minggu), jadi tiap kotak bisa
+        // menampilkan tanggal aslinya -- dan minggu tanpa pertemuan (mis. kuota bulanan sudah habis)
+        // tampil kosong apa adanya.
+        $sessions = ScheduleSession::whereIn('routine_id', $routines->pluck('id'))
+            ->whereBetween('date', [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()])
+            ->get(['id', 'routine_id', 'date', 'status'])
+            ->keyBy(fn ($session) => $session->routine_id.'@'.(int) ceil(Carbon::parse($session->date)->day / 7));
+
         $board = $routines->groupBy(fn ($routine) => (string) $routine->room_id)
             ->map(fn ($rows) => [
                 'room' => $rows->first()->room,
-                'days' => $rows->pluck('day_of_week')->unique()->sort()->values(),
-                'times' => $rows->pluck('start_time')->unique()->sort()->values(),
+                'times' => $rows->sortBy('start_time')->unique('start_time')
+                    ->map(fn ($routine) => ['value' => $routine->start_time, 'label' => $routine->timeRange()])
+                    ->values(),
                 'cells' => $rows->groupBy(fn ($routine) => $routine->day_of_week.'@'.$routine->start_time),
                 'count' => $rows->count(),
             ])
             ->sortBy(fn ($group) => $group['room']?->name ?? '')
             ->values();
 
-        return view('schedule.routines.index', [...$this->shared($request), 'items' => $routines, 'board' => $board, 'month' => $month]);
+        return view('schedule.routines.index', [...$this->shared($request),
+            'items' => $routines, 'board' => $board, 'sessions' => $sessions, 'month' => $month]);
     }
 
     /** Salin satu jadwal ke bulan berikutnya (murid yang masih aktif ikut). */
