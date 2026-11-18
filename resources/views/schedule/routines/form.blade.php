@@ -148,6 +148,50 @@
                         </div>
                     </div>
 
+                    {{-- Penunjuk ketersediaan (tidak bisa diklik): slot yang sudah ada di ruangan & bulan
+                         yang sama, beserta isinya. Supaya sebelum memindahkan hari/jam terlihat dulu
+                         mana yang terpakai. Slot yang sedang diedit diberi sorotan. --}}
+                    @if ($availability ?? null)
+                        <div class="col-12">
+                            <label class="form-label mb-1">Jam yang Sudah Terpakai · {{ $availability['room']?->name }} · {{ $availability['month']->translatedFormat('F Y') }}</label>
+                            <div class="form-text mt-0 mb-2">Hanya penunjuk. Kotak kosong berarti jam itu masih bisa dipakai; yang bertanda biru adalah slot yang sedang Anda ubah.</div>
+                            <div class="table-responsive border rounded">
+                                <table class="table table-sm table-bordered align-middle mb-0" style="table-layout: fixed">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 8rem" class="small">Jam</th>
+                                            @foreach (\App\Models\ScheduleRoutine::DAYS as $dayValue => $dayLabel)
+                                                <th class="text-center small">{{ $dayLabel }}</th>
+                                            @endforeach
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse ($availability['times'] as $time)
+                                            <tr>
+                                                <td class="small fw-semibold text-nowrap">{{ str_replace('–', ' s/d ', $time['label']) }}</td>
+                                                @foreach (\App\Models\ScheduleRoutine::DAYS as $dayValue => $dayLabel)
+                                                    @php($taken = $availability['cells'][$dayValue.'@'.$time['value']] ?? collect())
+                                                    <td class="p-1 align-top">
+                                                        @forelse ($taken as $slot)
+                                                            <div class="rounded px-2 py-1 {{ $loop->last ? '' : 'mb-1' }} {{ $slot->id === $item->id ? 'bg-primary-subtle border border-primary' : ($slot->students->isEmpty() ? 'bg-light' : 'bg-success-subtle') }}" style="font-size: .72rem">
+                                                                <div class="fw-semibold text-truncate">{{ $slot->grade?->name ?? '-' }}{{ $slot->id === $item->id ? ' (ini)' : '' }}</div>
+                                                                <div class="text-truncate text-muted">{{ $slot->students->pluck('name')->join(', ') ?: 'kosong' }}</div>
+                                                            </div>
+                                                        @empty
+                                                            <div class="text-center text-muted" style="font-size: .72rem">bebas</div>
+                                                        @endforelse
+                                                    </td>
+                                                @endforeach
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="8" class="text-center text-muted small py-3">Belum ada slot lain di ruangan ini.</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endif
+
                     <div class="col-12">
                         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
                             <label class="form-label mb-0">Murid <span class="text-muted small" data-student-count></span></label>

@@ -462,9 +462,42 @@ class RoutineController extends Controller
         ];
     }
 
+    /**
+     * Papan ketersediaan untuk form Edit: slot lain di ruangan & bulan yang sama, lengkap dengan
+     * isinya. Hanya penunjuk, tidak bisa diklik -- supaya sebelum memindahkan hari/jam terlihat
+     * dulu mana yang sudah terpakai dan mana yang masih kosong.
+     */
+    private function availability(Request $request, ScheduleRoutine $routine): ?array
+    {
+        if (! $routine->exists || ! $routine->room_id || $routine->isPackage()) {
+            return null;
+        }
+
+        $month = $routine->starts_on->copy();
+
+        $rows = ScheduleRoutine::accessibleBy($request->user())
+            ->where('room_id', $routine->room_id)
+            ->whereNull('pattern')
+            ->whereDate('starts_on', '>=', $month->copy()->startOfMonth())
+            ->whereDate('starts_on', '<=', $month->copy()->endOfMonth())
+            ->with(['grade:id,name', 'teacher:id,name', 'students:id,name'])
+            ->orderBy('start_time')
+            ->get();
+
+        return [
+            'room' => $routine->room,
+            'month' => $month,
+            'times' => $rows->sortBy('start_time')->unique('start_time')
+                ->map(fn ($row) => ['value' => $row->start_time, 'label' => $row->timeRange()])
+                ->values(),
+            'cells' => $rows->groupBy(fn ($row) => $row->day_of_week.'@'.$row->start_time),
+        ];
+    }
+
     private function form(Request $request, ScheduleRoutine $routine, array $options): View
     {
         return view('schedule.routines.form', [
+            'availability' => $this->availability($request, $routine),
             ...$this->shared($request),
             ...$options,
             'item' => $routine,
