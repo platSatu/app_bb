@@ -25,6 +25,24 @@ class ScheduleRoutineService
     {
     }
 
+    /**
+     * Potong satu jendela jam jadi slot selebar durasi grade: 13.00-15.00 dengan durasi 30 menit
+     * menghasilkan 13.00, 13.30, 14.00, 14.30. Sisa yang tidak muat penuh tidak dibuatkan slot.
+     */
+    public function slotTimes(string $from, string $until, int $minutes, int $max = 24): array
+    {
+        $cursor = Carbon::createFromFormat('H:i', $from);
+        $end = Carbon::createFromFormat('H:i', $until);
+        $times = [];
+
+        while ($minutes > 0 && count($times) < $max && $cursor->copy()->addMinutes($minutes)->lte($end)) {
+            $times[] = $cursor->format('H:i');
+            $cursor->addMinutes($minutes);
+        }
+
+        return $times;
+    }
+
     public function save(ScheduleRoutine $routine, array $data, array $studentIds): ScheduleRoutine
     {
         return DB::transaction(function () use ($routine, $data, $studentIds) {

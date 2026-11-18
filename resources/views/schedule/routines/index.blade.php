@@ -29,9 +29,8 @@
                     </form>
                 @endif
                 @if ($canManage && ! $isAdmin)
-                    {{-- Isi Jam jadi tombol utama: untuk kelas privat, sekali isi menghasilkan semua slotnya sekaligus. --}}
-                    <a href="{{ route($routes.'.routines.slots', array_filter(['grade' => request('grade'), 'month' => $month->format('Y-m')])) }}" class="btn btn-primary"><i class="ri-time-line me-1"></i>Isi Jam</a>
-                    <a href="{{ route($routes.'.routines.create', array_filter(['grade' => request('grade'), 'month' => $month->format('Y-m')])) }}" class="btn btn-outline-primary"><i class="ri-add-line me-1"></i>Satu Jadwal</a>
+                    {{-- Jadwal dibuat dari form Grade (Pengajar & Jam), bukan dari sini. --}}
+                    <a href="{{ route($routes.'.grades.index') }}" class="btn btn-primary"><i class="ri-time-line me-1"></i>Atur Jam di Grade</a>
                 @endif
             </div>
 

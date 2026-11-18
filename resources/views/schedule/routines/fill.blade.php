@@ -23,8 +23,8 @@
                 <div class="text-center text-muted py-5">
                     <i class="ri-time-line fs-1 d-block mb-2 opacity-50"></i>
                     <div class="fw-semibold text-body">Belum ada slot di {{ $month->translatedFormat('F Y') }}</div>
-                    <div class="small mt-1">Buat jam bukanya dulu, nanti muridnya tinggal diisi di sini.</div>
-                    <a href="{{ route($routes.'.routines.slots', ['grade' => $grade->id, 'month' => $month->format('Y-m')]) }}" class="btn btn-primary btn-sm mt-3"><i class="ri-time-line me-1"></i>Isi Jam</a>
+                    <div class="small mt-1">Isi jam bukanya dulu di form grade, nanti muridnya tinggal dicentang di sini.</div>
+                    <a href="{{ route($routes.'.grades.edit', $grade->id) }}#pengajar" class="btn btn-primary btn-sm mt-3"><i class="ri-time-line me-1"></i>Atur Jam Buka</a>
                 </div>
             @elseif ($students->isEmpty())
                 <div class="text-muted">Belum ada murid di branch ini. Tambahkan dulu di tab Murid, atau lewat link pendaftaran portal.</div>

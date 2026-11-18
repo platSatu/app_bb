@@ -67,8 +67,158 @@
     @empty
         <div class="text-muted small">Belum ada pengajar yang bisa dipilih. Tambahkan dulu di tab Pengajar, lalu tugaskan di sini.</div>
     @endforelse
-    <div class="form-text">Saat membuat jadwal untuk grade ini, hanya pengajar yang dicentang di sini yang muncul.</div>
+    <div class="form-text">Centang dulu pengajarnya, baru namanya bisa dipakai di jam buka di bawah.</div>
 </div>
+
+{{-- Jam buka: tiap baris dipecah sendiri mengikuti Durasi di atas. Sekali simpan, grade jadi,
+     pengajarnya ditugaskan, dan slotnya langsung terbentuk -- muridnya diisi lewat tombol Isi Murid. --}}
+<div class="col-12" data-slots-block>
+    <label class="form-label mb-1">Jam Buka</label>
+    <div class="form-text mt-0 mb-2">Tulis jendela jamnya, misalnya Senin 13.00–15.00. Sistem memecahnya sendiri sesuai durasi grade.</div>
+
+    @if (($slotCount ?? 0) > 0)
+        <div class="alert alert-light border small py-2">Grade ini sudah punya <strong>{{ $slotCount }} slot</strong>. Baris di bawah hanya <em>menambah</em> slot baru; yang sudah ada diatur lewat tombol Isi Murid di tabel Grade.</div>
+    @endif
+
+    @error('slots') <div class="text-danger small mb-2">{{ $message }}</div> @enderror
+
+    <div class="row g-2 mb-2">
+        <div class="col-md-3">
+            <label for="slot_month" class="form-label small mb-1">Bulan</label>
+            <input type="month" id="slot_month" name="slot_month" class="form-control @error('slot_month') is-invalid @enderror" value="{{ old('slot_month', now()->format('Y-m')) }}">
+            @error('slot_month') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        </div>
+        <div class="col-md-3">
+            <label for="slot_capacity" class="form-label small mb-1">Murid per Slot</label>
+            <input type="number" id="slot_capacity" name="slot_capacity" min="1" max="100" class="form-control @error('slot_capacity') is-invalid @enderror" value="{{ old('slot_capacity', 1) }}">
+            <div class="form-text">1 = privat.</div>
+            @error('slot_capacity') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        </div>
+    </div>
+
+    <div data-slot-rows>
+        @foreach (old('slots', [['day' => 1, 'from' => '', 'until' => '', 'teacher' => '', 'room' => '']]) as $i => $row)
+            <div class="row g-2 align-items-end mb-2" data-slot-row>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-1">Hari</label>
+                    <select name="slots[{{ $i }}][day]" class="form-select form-select-sm">
+                        @foreach (\App\Models\ScheduleRoutine::DAYS as $value => $label)
+                            <option value="{{ $value }}" @selected((int) ($row['day'] ?? 1) === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-3 col-md-2">
+                    <label class="form-label small mb-1">Mulai</label>
+                    <input type="time" name="slots[{{ $i }}][from]" class="form-control form-control-sm @error('slots.'.$i.'.from') is-invalid @enderror" value="{{ $row['from'] ?? '' }}" data-slot-from>
+                </div>
+                <div class="col-3 col-md-2">
+                    <label class="form-label small mb-1">Selesai</label>
+                    <input type="time" name="slots[{{ $i }}][until]" class="form-control form-control-sm @error('slots.'.$i.'.until') is-invalid @enderror" value="{{ $row['until'] ?? '' }}" data-slot-until>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-1">Pengajar</label>
+                    <select name="slots[{{ $i }}][teacher]" class="form-select form-select-sm @error('slots.'.$i.'.teacher') is-invalid @enderror" data-slot-teacher>
+                        <option value="">--</option>
+                        @foreach ($teachers as $teacher)
+                            <option value="{{ $teacher->id }}" data-branch="{{ $teacher->branch_id }}" @selected(($row['teacher'] ?? '') === $teacher->id)>{{ $teacher->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-1">Ruangan</label>
+                    <select name="slots[{{ $i }}][room]" class="form-select form-select-sm @error('slots.'.$i.'.room') is-invalid @enderror">
+                        <option value="">--</option>
+                        @foreach ($rooms as $room)
+                            <option value="{{ $room->id }}" data-branch="{{ $room->branch_id }}" @selected(($row['room'] ?? '') === $room->id)>{{ $room->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <span class="badge bg-light text-body border flex-grow-1 text-center py-2" data-slot-count>—</span>
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-slot-remove title="Hapus baris"><i class="ri-close-line"></i></button>
+                </div>
+                @error('slots.'.$i.'.from') <div class="col-12"><div class="text-danger small">{{ $message }}</div></div> @enderror
+                @error('slots.'.$i.'.until') <div class="col-12"><div class="text-danger small">{{ $message }}</div></div> @enderror
+                @error('slots.'.$i.'.teacher') <div class="col-12"><div class="text-danger small">{{ $message }}</div></div> @enderror
+                @error('slots.'.$i.'.room') <div class="col-12"><div class="text-danger small">{{ $message }}</div></div> @enderror
+                @error('slots.'.$i.'.day') <div class="col-12"><div class="text-danger small">{{ $message }}</div></div> @enderror
+            </div>
+        @endforeach
+    </div>
+
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-slot-add><i class="ri-add-line me-1"></i>Tambah Baris Jam</button>
+</div>
+
+@push('scripts')
+    <script>
+        // Baris jam: tambah/hapus baris, dan hitung jumlah slot tiap baris sesuai Durasi di atas.
+        (() => {
+            const block = document.querySelector('[data-slots-block]');
+            if (!block) return;
+
+            const rows = block.querySelector('[data-slot-rows]');
+            const duration = document.getElementById('duration_minutes');
+            const MAX_ROWS = 12;
+
+            const toMinutes = (value) => {
+                const [h, m] = (value || '').split(':').map(Number);
+                return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+            };
+
+            const countRow = (row) => {
+                const minutes = Number(duration?.value) || 0;
+                const from = toMinutes(row.querySelector('[data-slot-from]').value);
+                const until = toMinutes(row.querySelector('[data-slot-until]').value);
+                const badge = row.querySelector('[data-slot-count]');
+                let slots = 0;
+
+                if (minutes > 0 && from !== null && until !== null) {
+                    while (slots < 24 && from + minutes * (slots + 1) <= until) slots++;
+                }
+
+                badge.textContent = slots ? slots + ' slot' : '—';
+                badge.classList.toggle('bg-success-subtle', slots > 0);
+                badge.classList.toggle('text-success', slots > 0);
+                badge.classList.toggle('bg-light', slots === 0);
+            };
+
+            const countAll = () => rows.querySelectorAll('[data-slot-row]').forEach(countRow);
+
+            const renumber = () => [...rows.querySelectorAll('[data-slot-row]')].forEach((row, i) => {
+                row.querySelectorAll('[name^="slots["]').forEach(input => {
+                    input.name = input.name.replace(/slots\[\d+\]/, `slots[${i}]`);
+                });
+            });
+
+            block.querySelector('[data-slot-add]').addEventListener('click', () => {
+                const all = rows.querySelectorAll('[data-slot-row]');
+                if (all.length >= MAX_ROWS) return;
+                const copy = all[all.length - 1].cloneNode(true);
+                copy.querySelectorAll('input').forEach(input => input.value = '');
+                copy.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                copy.querySelectorAll('.text-danger').forEach(el => el.remove());
+                rows.appendChild(copy);
+                renumber();
+                countRow(copy);
+            });
+
+            // Baris terakhir tidak dihapus, hanya dikosongkan -- supaya tidak ada tombol tambah tanpa baris.
+            rows.addEventListener('click', (event) => {
+                const button = event.target.closest('[data-slot-remove]');
+                if (!button) return;
+                const row = button.closest('[data-slot-row]');
+                if (rows.querySelectorAll('[data-slot-row]').length > 1) row.remove();
+                else row.querySelectorAll('input, select').forEach(el => el.value = el.tagName === 'SELECT' ? el.options[0].value : '');
+                renumber();
+                countAll();
+            });
+
+            rows.addEventListener('input', countAll);
+            duration?.addEventListener('input', countAll);
+            countAll();
+        })();
+    </script>
+@endpush
 
 @push('scripts')
     <script>
