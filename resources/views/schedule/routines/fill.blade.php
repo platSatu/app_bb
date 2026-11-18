@@ -40,7 +40,7 @@
                             <select id="student_id" name="student_id" class="form-select @error('student_id') is-invalid @enderror" required data-student>
                                 <option value="">-- Pilih murid --</option>
                                 @foreach ($students as $student)
-                                    <option value="{{ $student->id }}" @selected(old('student_id') === $student->id)>{{ $student->name }}{{ $student->status === 'active' ? '' : ' (tidak aktif)' }}</option>
+                                    <option value="{{ $student->id }}" @selected(old('student_id', $selectedStudent ?? '') === $student->id)>{{ $student->name }}{{ $student->status === 'active' ? '' : ' (tidak aktif)' }}</option>
                                 @endforeach
                             </select>
                             @error('student_id') <div class="invalid-feedback">{{ $message }}</div> @enderror

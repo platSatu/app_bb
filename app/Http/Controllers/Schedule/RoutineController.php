@@ -245,6 +245,8 @@ class RoutineController extends Controller
             ...$this->shared($request),
             'grade' => $grade,
             'month' => $month,
+            // Datang dari papan ketersediaan: muridnya sudah ditentukan, jadi langsung dipilihkan.
+            'selectedStudent' => (string) $request->query('student', ''),
             'routines' => $this->slotsOf($request, $grade, $month),
             'students' => ScheduleStudent::accessibleBy($request->user())
                 ->where('branch_id', $grade->branch_id)

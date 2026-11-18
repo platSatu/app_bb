@@ -173,8 +173,12 @@
                             {{-- Form ini mengubah pola rutinnya, jadi seluruh minggu ikut. Dikatakan terang-terangan
                                  di sini karena papan di bawah terlihat seperti alat pindah per minggu. --}}
                             <div class="alert alert-warning small py-2 mb-2">
-                                <i class="ri-alert-line me-1"></i>Memindahkan di sini berlaku untuk <strong>semua minggu</strong> di bulan ini &mdash; Minggu 1 sampai 5 ikut pindah.
-                                Kalau yang mau dipindah <strong>hanya satu minggu</strong>, kembali ke papan jadwal dan pakai tombol kalender di kotak minggu itu.
+                                <i class="ri-alert-line me-1"></i>Form ini memindahkan <strong>slotnya</strong>, dan itu berlaku untuk <strong>semua minggu</strong> di bulan ini.
+                                Slot hanya bisa pindah ke kotak yang benar-benar <strong>bebas</strong>; kotak yang sudah berisi slot lain &mdash; walau muridnya kosong &mdash; tetap memakai pengajar dan ruangan di jam itu.
+                                <div class="mt-1">
+                                    Mau <strong>memindahkan murid</strong> ke hari lain yang slotnya sudah dibuka? Itu bukan di sini, tapi lewat <strong>Isi Murid</strong>: lepas centang jam lama, centang jam baru, lalu Simpan.
+                                    Mau pindah <strong>hanya satu minggu</strong>? Pakai tombol kalender di kotak minggu itu pada papan jadwal.
+                                </div>
                             </div>
                             <label class="form-label mb-1">Jam yang Sudah Terpakai · {{ $availability['room']?->name }} · {{ $availability['month']->translatedFormat('F Y') }}</label>
                             <div class="form-text mt-0 mb-2" data-move-note>Centang salah satu jam yang masih <strong>bebas</strong> untuk memindahkan slot ini ke sana &mdash; Hari dan Jam Mulai di atas ikut terisi sendiri. Yang bertanda biru adalah posisi slot ini sekarang.</div>
@@ -199,6 +203,12 @@
                                                             <div class="rounded px-2 py-1 {{ $loop->last ? '' : 'mb-1' }} {{ $slot->id === $item->id ? 'bg-primary-subtle border border-primary' : ($slot->students->isEmpty() ? 'bg-light' : 'bg-success-subtle') }}" style="font-size: .72rem">
                                                                 <div class="fw-semibold text-truncate">{{ $slot->grade?->name ?? '-' }}{{ $slot->id === $item->id ? ' (ini)' : '' }}</div>
                                                                 <div class="text-truncate text-muted">{{ $slot->students->pluck('name')->join(', ') ?: 'kosong' }}</div>
+                                                                {{-- Slot grade ini yang masih kosong: tujuan yang benar untuk memindahkan murid,
+                                                                     karena slotnya sudah ada dan tinggal dipindah centangnya. --}}
+                                                                @if ($slot->id !== $item->id && $slot->students->isEmpty() && $slot->grade_id === $item->grade_id)
+                                                                    <a href="{{ route($routes.'.routines.fill', array_filter(['grade' => $item->grade_id, 'month' => $availability['month']->format('Y-m'), 'student' => $item->students->first()?->id])) }}"
+                                                                        class="d-block text-decoration-none fw-semibold mt-1">Pindahkan murid ke sini</a>
+                                                                @endif
                                                             </div>
                                                         @empty
                                                             {{-- Radio, bukan kotak yang bisa diklik di mana saja: harus sengaja menekan
