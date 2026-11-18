@@ -42,8 +42,11 @@ $routineWrite = function () {
     Route::post('routines/{routine}/duplicate', [RoutineController::class, 'duplicate'])->middleware('throttle:30,1')->name('routines.duplicate');
 };
 
-// Kirim kartu absen QR murid (email / WhatsApp branch) & buat tagihan les ke menu Invoice.
+// Kirim kartu absen QR murid (email / WhatsApp branch), buat tagihan les ke menu Invoice, & import murid dari Excel.
 $studentCard = function () {
+    // Import murid dari Excel (migrasi data banyak sekaligus) & template-nya.
+    Route::get('students/import/template', [StudentController::class, 'importTemplate'])->middleware('throttle:30,1')->name('students.import.template');
+    Route::post('students/import', [StudentController::class, 'import'])->middleware('throttle:10,1')->name('students.import');
     Route::post('students/bill', [StudentController::class, 'bill'])->middleware('throttle:10,1')->name('students.bill');
     Route::post('students/{student}/card', [StudentController::class, 'sendCard'])->middleware('throttle:20,1')->name('students.card');
 };

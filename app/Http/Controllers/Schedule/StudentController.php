@@ -11,6 +11,9 @@ use App\Models\WaDevice;
 use App\Services\Customer\CustomerService;
 use App\Services\Schedule\ScheduleBillingService;
 use App\Services\Schedule\ScheduleRoutineService;
+use App\Services\Schedule\StudentImportService;
+use App\Services\Subscription\AppAccess;
+use App\Support\XlsxExport;
 use App\Services\WhatsApp\WaGateway;
 use App\Support\Menu;
 use Carbon\Carbon;
@@ -21,6 +24,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use RuntimeException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StudentController extends ScheduleResourceController
 {
@@ -76,6 +81,45 @@ class StudentController extends ScheduleResourceController
         return back()->with($result['success'] ? 'success' : 'error', $result['success']
             ? "Kartu absen {$item->name} terkirim ke WhatsApp {$item->phone}."
             : 'WhatsApp belum terkirim: '.($result['message'] ?? 'coba lagi sebentar lagi.'));
+    }
+
+    /** Template Excel untuk Import Murid: judul kolom + 2 baris contoh (boleh dihapus). */
+    public function importTemplate(Request $request): StreamedResponse
+    {
+        abort_if($this->isAdmin($request), 404);
+
+        return XlsxExport::download('template-import-murid', StudentImportService::HEADINGS, StudentImportService::exampleRows());
+    }
+
+    /**
+     * Import murid dari Excel ke satu branch (owner). Murid yang WA/emailnya sudah ada dilewati & dilaporkan
+     * per baris, supaya file yang sama aman diunggah ulang setelah diperbaiki. Lihat StudentImportService.
+     */
+    public function import(Request $request, StudentImportService $importer): RedirectResponse
+    {
+        abort_if($this->isAdmin($request), 404);
+
+        $branches = UserBranch::where('user_id', $request->user()->getKey())->whereIn('id', AppAccess::activeBranches('schedules'))->pluck('id');
+        $data = $request->validate([
+            'branch_id' => ['required', Rule::in($branches)],
+            'file' => ['required', 'file', 'max:5120', 'mimes:xlsx,xls,csv,txt'],
+        ], [
+            'file.required' => 'Pilih file Excel dulu ya.',
+            'file.mimes' => 'File harus berformat .xlsx, .xls, atau .csv.',
+            'file.max' => 'Ukuran file maksimal 5 MB.',
+        ], ['branch_id' => 'branch', 'file' => 'file']);
+
+        try {
+            $result = $importer->import(UserBranch::findOrFail($data['branch_id']), $request->file('file'));
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()
+            ->with($result['created'] ? 'success' : 'info', $result['created']
+                ? "{$result['created']} murid berhasil diimpor.".($result['skipped'] ? ' '.count($result['skipped']).' baris dilewati, lihat detailnya di bawah.' : '')
+                : 'Belum ada murid baru yang diimpor.'.($result['skipped'] ? ' Lihat baris yang dilewati di bawah.' : ''))
+            ->with('import_skipped', $result['skipped']);
     }
 
     /** Buat tagihan les murid yang dicentang untuk satu bulan; langsung masuk menu Invoice (lihat ScheduleBillingService). */

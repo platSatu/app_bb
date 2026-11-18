@@ -67,11 +67,18 @@
                     @endif
                 </div>
                 @if ($canManage)
-                    <a href="{{ route($routes.'.'.$resource.'.create', array_filter(['parent' => $parentFilter?->id])) }}" class="btn btn-primary">
-                        <i class="ri-add-line"></i> Tambah {{ $config['label'] }}
-                    </a>
+                    <div class="d-flex flex-wrap gap-2">
+                        {{-- Tombol tambahan per menu, mis. Murid › Import Excel. --}}
+                        @includeIf('schedule.'.$resource.'._toolbar')
+                        <a href="{{ route($routes.'.'.$resource.'.create', array_filter(['parent' => $parentFilter?->id])) }}" class="btn btn-primary">
+                            <i class="ri-add-line"></i> Tambah {{ $config['label'] }}
+                        </a>
+                    </div>
                 @endif
             </div>
+
+            {{-- Pesan tambahan per menu, mis. baris yang dilewati saat Import Excel murid. --}}
+            @includeIf('schedule.'.$resource.'._notice')
 
             {{-- Murid: centang lalu Buat Tagihan, invoice les langsung masuk menu Invoice (hanya kalau paket Invoice aktif). --}}
             @php($billing = $resource === 'students' && $canManage && $items->isNotEmpty()
