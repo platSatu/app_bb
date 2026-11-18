@@ -141,6 +141,19 @@
                                                                             {{-- Tanggal nyata pertemuan minggu ini. Kalau pertemuannya pernah dipindah sendiri,
                                                                                  hari & jam barunya ditulis di sini supaya kotak ini tidak terbaca salah:
                                                                                  polanya tetap di kolom ini, yang berubah hanya minggu ini. --}}
+                                                                            @unless ($session)
+                                                                                {{-- Tidak ada pertemuan di minggu ini. Sesi tidak dibuat mundur ke tanggal yang
+                                                                                     sudah lewat, karena tagihan dihitung dari jumlah sesi yang diikuti murid. --}}
+                                                                                <div class="text-muted mt-1" style="font-size: .72rem">
+                                                                                    @if ($slot->students->isEmpty())
+                                                                                        Belum ada pertemuan
+                                                                                    @elseif ($month->copy()->startOfMonth()->addDays($week * 7 - 1)->lt(today()))
+                                                                                        Minggu ini sudah lewat
+                                                                                    @else
+                                                                                        Pertemuan belum terbentuk
+                                                                                    @endif
+                                                                                </div>
+                                                                            @endunless
                                                                             @if ($session)
                                                                                 @if ($session->moved_at && ($session->date->dayOfWeekIso !== $day || $session->start_at->format('H:i') !== substr($time['value'], 0, 5)))
                                                                                     <div class="text-warning-emphasis fw-semibold mt-1" style="font-size: .72rem">
@@ -167,7 +180,7 @@
                                                                                          hanya satu minggu. --}}
                                                                                     <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border flex-fill p-1"
                                                                                         title="Ubah jadwal rutin — berlaku untuk SEMUA minggu di bulan ini"
-                                                                                        @if ($session) onclick="return confirm('Ini mengubah JADWAL RUTIN, jadi Minggu 1 sampai 5 ikut berubah.\n\nKalau yang mau dipindah hanya Minggu {{ $week }}, batalkan dan pakai tombol kalender di kotak ini.\n\nLanjut ubah semua minggu?');" @endif><i class="ri-edit-line"></i></a>
+                                                                                        onclick="return confirm('Ini mengubah JADWAL RUTIN, jadi Minggu 1 sampai 5 ikut berubah.\n\nUntuk memindahkan MURID ke hari lain yang slotnya sudah dibuka, pakai Isi Murid.\nUntuk memindahkan HANYA Minggu {{ $week }}, pakai tombol kalender di kotak ini.\n\nLanjut ubah semua minggu?');"><i class="ri-edit-line"></i></a>
                                                                                     @if ($slot->students->isEmpty())<form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="flex-fill d-flex"
                                                                                         onsubmit="return confirm('Hapus slot ini? Sesi yang belum berjalan ikut terhapus.');">
                                                                                         @csrf
