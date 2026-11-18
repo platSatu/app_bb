@@ -102,26 +102,31 @@
                     @foreach ($board as $i => $group)
                         <div class="tab-pane fade {{ $i === 0 ? 'show active' : '' }}" id="room-{{ $i }}" role="tabpanel">
                             <ul class="nav nav-tabs mb-3" role="tablist">
-                                @for ($week = 1; $week <= 5; $week++)
+                                {{-- Minggu kalender Senin-Minggu; label tanggalnya dibatasi ke bulan ini. --}}
+                                @foreach ($weekStarts as $week => $weekStart)
+                                    @php($from = $weekStart->copy()->max($month->copy()->startOfMonth()))
+                                    @php($to = $weekStart->copy()->addDays(6)->min($month->copy()->endOfMonth()))
                                     <li class="nav-item">
-                                        <button class="nav-link {{ $week === 1 ? 'active' : '' }}" data-bs-toggle="tab" data-bs-target="#room-{{ $i }}-w{{ $week }}" type="button" role="tab">Minggu {{ $week }}</button>
+                                        <button class="nav-link {{ $week === $activeWeek ? 'active' : '' }}" data-bs-toggle="tab" data-bs-target="#room-{{ $i }}-w{{ $week }}" type="button" role="tab">
+                                            Minggu {{ $week }}
+                                            <span class="d-block fw-normal text-muted" style="font-size: .7rem">{{ $from->format('d') }}{{ $from->isSameDay($to) ? '' : '–'.$to->format('d') }} {{ $month->translatedFormat('M') }}</span>
+                                        </button>
                                     </li>
-                                @endfor
+                                @endforeach
                             </ul>
 
                             <div class="tab-content">
-                                @for ($week = 1; $week <= 5; $week++)
+                                @foreach ($weekStarts as $week => $weekStart)
                                     @php($entries = $group['weeks'][$week])
                                     @php($times = $entries->flatten(1)->pluck('time')->unique()->sort()->values())
-                                    @php($weekStart = $month->copy()->startOfMonth()->addDays(($week - 1) * 7))
-                                    <div class="tab-pane fade {{ $week === 1 ? 'show active' : '' }}" id="room-{{ $i }}-w{{ $week }}" role="tabpanel">
+                                    <div class="tab-pane fade {{ $week === $activeWeek ? 'show active' : '' }}" id="room-{{ $i }}-w{{ $week }}" role="tabpanel">
                                         <div class="table-responsive">
                                             <table class="table table-bordered align-middle mb-0" style="table-layout: fixed">
                                                 <thead class="table-light">
                                                     <tr>
                                                         <th style="width: 8.5rem">Jam</th>
                                                         @foreach (\App\Models\ScheduleRoutine::DAYS as $day => $label)
-                                                            @php($headDate = $weekStart->copy()->addDays(($day - $weekStart->dayOfWeekIso + 7) % 7))
+                                                            @php($headDate = $weekStart->copy()->addDays($day - 1))
                                                             <th class="text-center small">
                                                                 {{ $label }}
                                                                 @if ($headDate->month === $month->month)
@@ -195,7 +200,7 @@
                                             </table>
                                         </div>
                                     </div>
-                                @endfor
+                                @endforeach
                             </div>
                         </div>
                     @endforeach

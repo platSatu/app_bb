@@ -71,21 +71,28 @@ class RoutineController extends Controller
         // kartu yang disusun ke bawah per hari. Kartu diletakkan menurut TANGGAL SESINYA, bukan
         // menurut pola -- jadi pertemuan yang dipindah muncul di hari barunya, lengkap dengan
         // keterangan asalnya. Satu sumber, satu tempat: jadwal sama dilihat dari mana pun.
+        // Minggu = minggu kalender Senin-Minggu (18 November 2026). Dulu blok tanggal 1-7, 8-14, ..., sehingga
+        // kolom Senin bisa berisi tanggal 7 sesudah Minggu tanggal 6. Minggu 1 = minggu yang memuat tanggal 1;
+        // tanggal di luar bulan ini dibiarkan kosong. Satu bulan bisa 4-6 minggu.
+        $firstMonday = $month->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
+        $weekCount = (int) ceil(((int) round($firstMonday->diffInDays($month->copy()->endOfMonth()->startOfDay())) + 1) / 7);
+        $weekOf = fn (Carbon $date) => intdiv((int) round($firstMonday->diffInDays($date->copy()->startOfDay())), 7) + 1;
+
         $sessions = ScheduleSession::whereIn('routine_id', $routines->pluck('id'))
             ->whereBetween('date', [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()])
             ->get(['id', 'routine_id', 'date', 'start_at', 'end_at', 'status', 'moved_at'])
-            ->keyBy(fn ($session) => $session->routine_id.'@'.(int) ceil($session->date->day / 7));
+            ->keyBy(fn ($session) => $session->routine_id.'@'.$weekOf($session->date));
 
         $board = $routines->groupBy(fn ($routine) => (string) $routine->room_id)
-            ->map(function ($rows) use ($sessions, $month) {
+            ->map(function ($rows) use ($sessions, $month, $firstMonday, $weekCount) {
                 $weeks = [];
 
-                for ($week = 1; $week <= 5; $week++) {
-                    $weekStart = $month->copy()->startOfMonth()->addDays(($week - 1) * 7);
+                for ($week = 1; $week <= $weekCount; $week++) {
+                    $weekStart = $firstMonday->copy()->addWeeks($week - 1);
                     $days = [];
 
                     foreach ($rows as $routine) {
-                        $entry = $this->weekEntry($routine, $sessions->get($routine->id.'@'.$week), $weekStart);
+                        $entry = $this->weekEntry($routine, $sessions->get($routine->id.'@'.$week), $weekStart, $month);
 
                         if ($entry) {
                             $days[$entry['day']][] = $entry;
@@ -102,7 +109,10 @@ class RoutineController extends Controller
             ->values();
 
         return view('schedule.routines.index', [...$this->shared($request),
-            'items' => $routines, 'board' => $board, 'month' => $month, 'copyPending' => $this->copyPending($request, $month)]);
+            'items' => $routines, 'board' => $board, 'month' => $month, 'copyPending' => $this->copyPending($request, $month),
+            // Tab minggu: Senin awal tiap minggu, dan minggu yang dibuka pertama (minggu ini kalau bulannya bulan ini).
+            'weekStarts' => collect(range(1, $weekCount))->mapWithKeys(fn ($week) => [$week => $firstMonday->copy()->addWeeks($week - 1)]),
+            'activeWeek' => $month->isSameMonth(today()) ? $weekOf(today()) : 1]);
     }
 
     /**
@@ -552,13 +562,13 @@ class RoutineController extends Controller
      * & jam sesi itu (pindahan ikut pindah kartunya). Kalau belum ada, kartu memakai hari & jam pola
      * beserta alasannya. Minggu yang harinya memang tidak ada di bulan itu tidak dibuatkan kartu.
      */
-    private function weekEntry(ScheduleRoutine $routine, ?ScheduleSession $session, Carbon $weekStart): ?array
+    private function weekEntry(ScheduleRoutine $routine, ?ScheduleSession $session, Carbon $weekStart, Carbon $month): ?array
     {
         $nominal = $weekStart->copy()->addDays(($routine->day_of_week - $weekStart->dayOfWeekIso + 7) % 7);
         $time = substr((string) $routine->start_time, 0, 5);
 
         if (! $session) {
-            if ($nominal->month !== $weekStart->month) {
+            if (! $nominal->isSameMonth($month)) {
                 return null;
             }
 
