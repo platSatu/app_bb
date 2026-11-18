@@ -125,6 +125,11 @@
                                                             <td class="text-nowrap fw-semibold small">{{ str_replace('–', ' s/d ', $time['label']) }}</td>
                                                             @foreach (\App\Models\ScheduleRoutine::DAYS as $day => $label)
                                                                 @php($slots = $group['cells'][$day.'@'.$time['value']] ?? collect())
+                                                                {{-- Tanggal yang diwakili kotak ini. Minggu ke-5 sering hanya berisi 2-3 hari,
+                                                                     jadi belum tentu harinya ada di bulan ini. --}}
+                                                                @php($weekStart = $month->copy()->startOfMonth()->addDays(($week - 1) * 7))
+                                                                @php($cellDate = $weekStart->copy()->addDays(($day - $weekStart->dayOfWeekIso + 7) % 7))
+                                                                @php($cellInMonth = $cellDate->month === $month->month)
                                                                 <td class="p-1 align-top">
                                                                     @forelse ($slots as $slot)
                                                                         @php($session = $sessions[$slot->id.'@'.$week] ?? null)
@@ -145,12 +150,14 @@
                                                                                 {{-- Tidak ada pertemuan di minggu ini. Sesi tidak dibuat mundur ke tanggal yang
                                                                                      sudah lewat, karena tagihan dihitung dari jumlah sesi yang diikuti murid. --}}
                                                                                 <div class="text-muted mt-1" style="font-size: .72rem">
-                                                                                    @if ($slot->students->isEmpty())
-                                                                                        Belum ada pertemuan
-                                                                                    @elseif ($month->copy()->startOfMonth()->addDays($week * 7 - 1)->lt(today()))
-                                                                                        Minggu ini sudah lewat
+                                                                                    @if (! $cellInMonth)
+                                                                                        Tidak ada {{ \App\Models\ScheduleRoutine::DAYS[$day] }} di minggu ini
+                                                                                    @elseif ($slot->students->isEmpty())
+                                                                                        Belum ada murid
+                                                                                    @elseif ($cellDate->lt(today()))
+                                                                                        {{ $cellDate->translatedFormat('d M') }} &middot; sudah lewat
                                                                                     @else
-                                                                                        Pertemuan belum terbentuk
+                                                                                        Jatah pertemuan bulan ini sudah penuh
                                                                                     @endif
                                                                                 </div>
                                                                             @endunless
