@@ -154,7 +154,7 @@
                     @if ($availability ?? null)
                         <div class="col-12">
                             <label class="form-label mb-1">Jam yang Sudah Terpakai · {{ $availability['room']?->name }} · {{ $availability['month']->translatedFormat('F Y') }}</label>
-                            <div class="form-text mt-0 mb-2">Hanya penunjuk. Kotak kosong berarti jam itu masih bisa dipakai; yang bertanda biru adalah slot yang sedang Anda ubah.</div>
+                            <div class="form-text mt-0 mb-2" data-move-note>Centang salah satu jam yang masih <strong>bebas</strong> untuk memindahkan slot ini ke sana &mdash; Hari dan Jam Mulai di atas ikut terisi sendiri. Yang bertanda biru adalah posisi slot ini sekarang.</div>
                             <div class="table-responsive border rounded">
                                 <table class="table table-sm table-bordered align-middle mb-0" style="table-layout: fixed">
                                     <thead class="table-light">
@@ -178,7 +178,13 @@
                                                                 <div class="text-truncate text-muted">{{ $slot->students->pluck('name')->join(', ') ?: 'kosong' }}</div>
                                                             </div>
                                                         @empty
-                                                            <div class="text-center text-muted" style="font-size: .72rem">bebas</div>
+                                                            {{-- Radio, bukan kotak yang bisa diklik di mana saja: harus sengaja menekan
+                                                                 lingkarannya, jadi tidak mudah salah pilih. --}}
+                                                            <label class="d-flex align-items-center justify-content-center gap-1 text-muted py-1" style="font-size: .72rem; cursor: pointer">
+                                                                <input type="radio" name="pindah_ke" class="form-check-input m-0 flex-shrink-0"
+                                                                    data-move-day="{{ $dayValue }}" data-move-time="{{ substr($time['value'], 0, 5) }}">
+                                                                bebas
+                                                            </label>
                                                         @endforelse
                                                     </td>
                                                 @endforeach
@@ -239,6 +245,38 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+    <script>
+        // Centang jam bebas di papan ketersediaan -> isi Hari & Jam Mulai di atas, supaya tidak
+        // perlu mengetik ulang dan tidak salah ketik. Hanya mengisi; simpan tetap manual.
+        (() => {
+            const note = document.querySelector('[data-move-note]');
+            const day = document.getElementById('day_of_week');
+            const time = document.getElementById('start_time');
+            if (!note || !day || !time) return;
+
+            const original = note.innerHTML;
+
+            document.querySelectorAll('input[name="pindah_ke"]').forEach(radio => {
+                radio.addEventListener('change', () => {
+                    if (!radio.checked) return;
+                    day.value = radio.dataset.moveDay;
+                    time.value = radio.dataset.moveTime;
+                    const label = day.selectedOptions[0]?.textContent.trim() ?? '';
+                    note.innerHTML = `Hari dan Jam Mulai di atas sudah diubah ke <strong>${label} ${radio.dataset.moveTime.replace(':', '.')}</strong>. Tekan Simpan untuk memindahkannya.`;
+                    day.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            });
+
+            // Kalau Hari/Jam diubah manual, centangnya dilepas supaya tidak menyesatkan.
+            [day, time].forEach(el => el.addEventListener('input', () => {
+                document.querySelectorAll('input[name="pindah_ke"]:checked').forEach(radio => radio.checked = false);
+                note.innerHTML = original;
+            }));
+        })();
+    </script>
+@endpush
 
 @push('scripts')
     <script>
