@@ -67,30 +67,42 @@ class RoutineController extends Controller
             ->orderBy('start_time')
             ->get();
 
-        // Papan mingguan per ruangan: tiap ruangan satu tab, di dalamnya tab Minggu 1-5.
-        // Kolomnya selalu Senin-Minggu walau kosong, supaya posisi harinya tidak bergeser-geser.
-        // Sesi bulan ini dimuat terpisah lalu dipetakan per (jadwal, minggu), jadi tiap kotak bisa
-        // menampilkan tanggal aslinya -- dan minggu tanpa pertemuan (mis. kuota bulanan sudah habis)
-        // tampil kosong apa adanya.
+        // Papan mingguan per ruangan: tiap ruangan satu tab, di dalamnya tab Minggu 1-5, isinya
+        // kartu yang disusun ke bawah per hari. Kartu diletakkan menurut TANGGAL SESINYA, bukan
+        // menurut pola -- jadi pertemuan yang dipindah muncul di hari barunya, lengkap dengan
+        // keterangan asalnya. Satu sumber, satu tempat: jadwal sama dilihat dari mana pun.
         $sessions = ScheduleSession::whereIn('routine_id', $routines->pluck('id'))
             ->whereBetween('date', [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()])
-            ->get(['id', 'routine_id', 'date', 'start_at', 'status', 'moved_at'])
+            ->get(['id', 'routine_id', 'date', 'start_at', 'end_at', 'status', 'moved_at'])
             ->keyBy(fn ($session) => $session->routine_id.'@'.(int) ceil($session->date->day / 7));
 
         $board = $routines->groupBy(fn ($routine) => (string) $routine->room_id)
-            ->map(fn ($rows) => [
-                'room' => $rows->first()->room,
-                'times' => $rows->sortBy('start_time')->unique('start_time')
-                    ->map(fn ($routine) => ['value' => $routine->start_time, 'label' => $routine->timeRange()])
-                    ->values(),
-                'cells' => $rows->groupBy(fn ($routine) => $routine->day_of_week.'@'.$routine->start_time),
-                'count' => $rows->count(),
-            ])
+            ->map(function ($rows) use ($sessions, $month) {
+                $weeks = [];
+
+                for ($week = 1; $week <= 5; $week++) {
+                    $weekStart = $month->copy()->startOfMonth()->addDays(($week - 1) * 7);
+                    $days = [];
+
+                    foreach ($rows as $routine) {
+                        $entry = $this->weekEntry($routine, $sessions->get($routine->id.'@'.$week), $weekStart);
+
+                        if ($entry) {
+                            $days[$entry['day']][] = $entry;
+                        }
+                    }
+
+                    $weeks[$week] = collect($days)->sortKeys()
+                        ->map(fn ($list) => collect($list)->sortBy('time')->values());
+                }
+
+                return ['room' => $rows->first()->room, 'count' => $rows->count(), 'weeks' => $weeks];
+            })
             ->sortBy(fn ($group) => $group['room']?->name ?? '')
             ->values();
 
         return view('schedule.routines.index', [...$this->shared($request),
-            'items' => $routines, 'board' => $board, 'sessions' => $sessions, 'month' => $month]);
+            'items' => $routines, 'board' => $board, 'month' => $month]);
     }
 
     /** Salin satu jadwal ke bulan berikutnya (murid yang masih aktif ikut). */
@@ -513,6 +525,36 @@ class RoutineController extends Controller
     }
 
     /** Bulan dari ?month=YYYY-MM (bawaan: bulan ini). */
+    /**
+     * Satu kartu untuk satu jadwal di satu minggu. Kalau pertemuannya ada, kartu diletakkan di hari
+     * & jam sesi itu (pindahan ikut pindah kartunya). Kalau belum ada, kartu memakai hari & jam pola
+     * beserta alasannya. Minggu yang harinya memang tidak ada di bulan itu tidak dibuatkan kartu.
+     */
+    private function weekEntry(ScheduleRoutine $routine, ?ScheduleSession $session, Carbon $weekStart): ?array
+    {
+        $nominal = $weekStart->copy()->addDays(($routine->day_of_week - $weekStart->dayOfWeekIso + 7) % 7);
+        $time = substr((string) $routine->start_time, 0, 5);
+
+        if (! $session) {
+            if ($nominal->month !== $weekStart->month) {
+                return null;
+            }
+
+            return ['routine' => $routine, 'session' => null, 'day' => $routine->day_of_week, 'time' => $time,
+                'date' => $nominal, 'from' => null, 'reason' => $routine->students->isEmpty()
+                    ? 'Belum ada murid di slot ini'
+                    : ($nominal->lt(today()) ? 'Tanggalnya sudah lewat' : 'Jatah pertemuan bulan ini sudah terpakai')];
+        }
+
+        $day = $session->date->dayOfWeekIso;
+        $start = $session->start_at->format('H:i');
+        $moved = $day !== $routine->day_of_week || $start !== $time;
+
+        return ['routine' => $routine, 'session' => $session, 'day' => $day, 'time' => $start,
+            'date' => $session->date, 'reason' => null,
+            'from' => $moved ? (ScheduleRoutine::DAYS[$routine->day_of_week] ?? '-').' '.str_replace(':', '.', $time) : null];
+    }
+
     private function month(Request $request): Carbon
     {
         $value = (string) $request->input('month');

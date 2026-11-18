@@ -67,9 +67,10 @@
                 </div>
             </form>
 
-            {{-- Papan mingguan: tab ruangan, di dalamnya tab Minggu 1-5. Baris jam, kolom Senin-Minggu
-                 (selalu tujuh kolom supaya posisi harinya tetap). Tiap kotak memakai tanggal nyata
-                 minggu itu; minggu tanpa pertemuan tampil kosong apa adanya. --}}
+            {{-- Papan mingguan: tab ruangan, di dalamnya tab Minggu 1-5. Isinya kartu yang disusun
+                 ke bawah per hari, bukan tabel tujuh kolom -- supaya lega dan terbaca di layar kecil.
+                 Kartu berada di hari TANGGAL SESINYA, jadi pertemuan yang dipindah ikut berpindah
+                 kartunya, dengan keterangan asalnya. --}}
             @if ($board->isEmpty())
                 <div class="text-center text-muted py-5">
                     <i class="ri-calendar-2-line fs-1 d-block mb-2 opacity-50"></i>
@@ -80,7 +81,7 @@
                 </div>
             @else
                 <div class="alert alert-light border small py-2 mb-3">
-                    Tiap pertemuan berdiri sendiri. Tombol <strong>pensil</strong> di sebuah kotak mengubah <strong>pertemuan minggu itu saja</strong> &mdash; minggu lain tetap.
+                    Tiap pertemuan berdiri sendiri. Tombol <strong>pensil</strong> mengubah <strong>pertemuan itu saja</strong> &mdash; minggu lain tetap.
                 </div>
 
                 <ul class="nav nav-pills gap-2 mb-3" role="tablist">
@@ -100,7 +101,12 @@
                             <ul class="nav nav-tabs mb-3" role="tablist">
                                 @for ($week = 1; $week <= 5; $week++)
                                     <li class="nav-item">
-                                        <button class="nav-link {{ $week === 1 ? 'active' : '' }}" data-bs-toggle="tab" data-bs-target="#room-{{ $i }}-w{{ $week }}" type="button" role="tab">Minggu {{ $week }}</button>
+                                        <button class="nav-link {{ $week === 1 ? 'active' : '' }}" data-bs-toggle="tab" data-bs-target="#room-{{ $i }}-w{{ $week }}" type="button" role="tab">
+                                            Minggu {{ $week }}
+                                            @if ($group['weeks'][$week]->isNotEmpty())
+                                                <span class="badge bg-light text-body ms-1">{{ $group['weeks'][$week]->flatten(1)->count() }}</span>
+                                            @endif
+                                        </button>
                                     </li>
                                 @endfor
                             </ul>
@@ -108,101 +114,72 @@
                             <div class="tab-content">
                                 @for ($week = 1; $week <= 5; $week++)
                                     <div class="tab-pane fade {{ $week === 1 ? 'show active' : '' }}" id="room-{{ $i }}-w{{ $week }}" role="tabpanel">
-                                        <div class="table-responsive">
-                                            <table class="table table-bordered align-middle mb-0" style="table-layout: fixed">
-                                                <thead class="table-light">
-                                                    <tr>
-                                                        <th style="width: 8.5rem">Jam</th>
-                                                        @foreach (\App\Models\ScheduleRoutine::DAYS as $value => $label)
-                                                            <th class="text-center small">{{ $label }}</th>
-                                                        @endforeach
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    @foreach ($group['times'] as $time)
-                                                        <tr>
-                                                            <td class="text-nowrap fw-semibold small">{{ str_replace('–', ' s/d ', $time['label']) }}</td>
-                                                            @foreach (\App\Models\ScheduleRoutine::DAYS as $day => $label)
-                                                                @php($slots = $group['cells'][$day.'@'.$time['value']] ?? collect())
-                                                                {{-- Tanggal yang diwakili kotak ini. Minggu ke-5 sering hanya berisi 2-3 hari,
-                                                                     jadi belum tentu harinya ada di bulan ini. --}}
-                                                                @php($weekStart = $month->copy()->startOfMonth()->addDays(($week - 1) * 7))
-                                                                @php($cellDate = $weekStart->copy()->addDays(($day - $weekStart->dayOfWeekIso + 7) % 7))
-                                                                @php($cellInMonth = $cellDate->month === $month->month)
-                                                                <td class="p-1 align-top">
-                                                                    @forelse ($slots as $slot)
-                                                                        @php($session = $sessions[$slot->id.'@'.$week] ?? null)
-                                                                        <div class="border rounded p-2 {{ $loop->last ? '' : 'mb-1' }} {{ $slot->students->isEmpty() ? 'bg-light' : 'bg-success-subtle' }}">
-                                                                            <div class="small fw-semibold text-truncate">{{ $slot->grade?->name ?? '-' }}</div>
-                                                                            <div class="text-muted text-truncate" style="font-size: .75rem">{{ $slot->grade?->category?->subject?->name }} › {{ $slot->teacher?->name }}</div>
-                                                                            <div class="small text-truncate mt-1">
-                                                                                @if ($slot->students->isEmpty())
-                                                                                    <span class="text-muted">Belum ada murid</span>
-                                                                                @else
-                                                                                    {{ $slot->students->pluck('name')->join(', ') }}@if ($slot->isGroup()) <span class="text-muted">({{ $slot->students->count() }}/{{ $slot->capacity }})</span>@endif
-                                                                                @endif
-                                                                            </div>
-                                                                            {{-- Tanggal pertemuan minggu ini. Kalau harinya sudah diganti, hari & jam barunya
-                                                                                 ditulis di sini supaya kotak ini tidak terbaca salah. --}}
-                                                                            @unless ($session)
-                                                                                {{-- Minggu ini tidak punya pertemuan: harinya memang tidak ada di minggu itu,
-                                                                                     slotnya belum berisi murid, atau jatah bulanannya sudah terpakai. --}}
-                                                                                <div class="text-muted mt-1" style="font-size: .72rem">
-                                                                                    @if (! $cellInMonth)
-                                                                                        Tidak ada {{ \App\Models\ScheduleRoutine::DAYS[$day] }} di minggu ini
-                                                                                    @elseif ($slot->students->isEmpty())
-                                                                                        Belum ada murid
-                                                                                    @elseif ($cellDate->lt(today()))
-                                                                                        {{ $cellDate->translatedFormat('d M') }} &middot; sudah lewat
-                                                                                    @else
-                                                                                        Jatah pertemuan bulan ini sudah penuh
-                                                                                    @endif
-                                                                                </div>
-                                                                            @endunless
-                                                                            @if ($session)
-                                                                                @if ($session->moved_at && ($session->date->dayOfWeekIso !== $day || $session->start_at->format('H:i') !== substr($time['value'], 0, 5)))
-                                                                                    <div class="text-warning-emphasis fw-semibold mt-1" style="font-size: .72rem">
-                                                                                        <i class="ri-arrow-right-up-line"></i> Minggu ini pindah ke {{ $session->date->translatedFormat('l d M') }} jam {{ $session->start_at->format('H.i') }}
-                                                                                    </div>
-                                                                                @else
-                                                                                    <div class="text-muted mt-1" style="font-size: .72rem">{{ $session->date->translatedFormat('d M') }}</div>
-                                                                                @endif
-                                                                            @endif
-                                                                            @if ($canManage)
-                                                                                {{-- Tombol edit di sini mengubah PERTEMUAN MINGGU INI saja, bukan jadwal
-                                                                                     sebulan. Slot yang sudah berisi murid tidak lagi menawarkan Isi Murid
-                                                                                     maupun Hapus, supaya kelas berjalan tidak salah pencet. --}}
-                                                                                <div class="d-flex gap-1 mt-2">
-                                                                                    <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Semua pertemuan slot ini"><i class="ri-checkbox-multiple-line"></i></a>
-                                                                                    @if ($slot->students->isEmpty())
-                                                                                        <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $month->format('Y-m')]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Isi murid"><i class="ri-user-add-line"></i></a>
-                                                                                    @endif
-                                                                                    @if ($session)
-                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Ubah pertemuan Minggu {{ $week }} saja &mdash; ganti hari, jam, pengajar, ruangan"><i class="ri-edit-line"></i></a>
-                                                                                    @elseif ($slot->students->isEmpty())
-                                                                                        <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Ubah slot jam ini"><i class="ri-edit-line"></i></a>
-                                                                                    @endif
-                                                                                    @if ($slot->students->isEmpty())
-                                                                                        <form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="flex-fill d-flex"
-                                                                                            onsubmit="return confirm('Hapus slot jam ini? Hanya slot yang belum ada muridnya yang bisa dihapus.');">
-                                                                                            @csrf
-                                                                                            @method('DELETE')
-                                                                                            <button type="submit" class="btn btn-sm btn-light border w-100 p-1 text-danger" title="Hapus slot"><i class="ri-delete-bin-line"></i></button>
-                                                                                        </form>
-                                                                                    @endif
-                                                                                </div>
-                                                                            @endif
-                                                                        </div>
-                                                                    @empty
-                                                                        <div class="text-center text-muted py-2" style="font-size: .75rem">—</div>
-                                                                    @endforelse
-                                                                </td>
-                                                            @endforeach
-                                                        </tr>
-                                                    @endforeach
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                        @forelse ($group['weeks'][$week] as $day => $entries)
+                                            <div class="d-flex align-items-baseline gap-2 border-bottom pb-1 mb-2 {{ $loop->first ? '' : 'mt-4' }}">
+                                                <span class="fw-semibold">{{ \App\Models\ScheduleRoutine::DAYS[$day] ?? '-' }}</span>
+                                                <span class="text-muted small">{{ $entries->first()['date']->translatedFormat('d F Y') }}</span>
+                                                <span class="text-muted small ms-auto">{{ $entries->count() }} jadwal</span>
+                                            </div>
+
+                                            @foreach ($entries as $entry)
+                                                @php($slot = $entry['routine'])
+                                                @php($session = $entry['session'])
+                                                <div class="border rounded-3 p-3 mb-2 d-flex flex-wrap align-items-center gap-3 {{ $session ? 'bg-success-subtle' : 'bg-light' }}">
+                                                    <div class="text-center flex-shrink-0" style="min-width: 6rem">
+                                                        <div class="fw-bold">{{ str_replace(':', '.', $entry['time']) }}</div>
+                                                        <div class="text-muted" style="font-size: .75rem">{{ $slot->duration_minutes }} menit</div>
+                                                    </div>
+
+                                                    <div class="flex-grow-1" style="min-width: 14rem">
+                                                        <div class="fw-semibold">{{ $slot->grade?->name ?? '-' }}
+                                                            <span class="text-muted fw-normal small">&middot; {{ $slot->grade?->category?->subject?->name }} &rsaquo; {{ $slot->teacher?->name }}</span>
+                                                        </div>
+                                                        <div class="small mt-1">
+                                                            @if ($slot->students->isEmpty())
+                                                                <span class="text-muted">Belum ada murid</span>
+                                                            @else
+                                                                {{ $slot->students->pluck('name')->join(', ') }}@if ($slot->isGroup()) <span class="text-muted">({{ $slot->students->count() }}/{{ $slot->capacity }})</span>@endif
+                                                            @endif
+                                                        </div>
+                                                        @if ($entry['from'])
+                                                            <div class="text-warning-emphasis fw-semibold small mt-1"><i class="ri-arrow-right-up-line"></i> Dipindah dari {{ $entry['from'] }}</div>
+                                                        @endif
+                                                        @if ($entry['reason'])
+                                                            <div class="text-muted small mt-1">{{ $entry['reason'] }}</div>
+                                                        @endif
+                                                    </div>
+
+                                                    @if ($canManage)
+                                                        {{-- Pensil mengubah pertemuan minggu ini saja. Isi Murid & Hapus hanya untuk
+                                                             slot yang belum berisi murid, supaya kelas berjalan tidak salah pencet. --}}
+                                                        <div class="d-flex gap-2 flex-shrink-0">
+                                                            <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="btn btn-sm btn-light border" title="Semua pertemuan slot ini"><i class="ri-checkbox-multiple-line"></i></a>
+                                                            @if ($slot->students->isEmpty())
+                                                                <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $month->format('Y-m')]) }}" class="btn btn-sm btn-light border" title="Isi murid"><i class="ri-user-add-line"></i></a>
+                                                            @endif
+                                                            @if ($session)
+                                                                <a href="{{ route($routes.'.sessions.show', $session->id) }}" class="btn btn-sm btn-light border" title="Ubah pertemuan ini saja"><i class="ri-edit-line"></i></a>
+                                                            @elseif ($slot->students->isEmpty())
+                                                                <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border" title="Ubah slot jam ini"><i class="ri-edit-line"></i></a>
+                                                            @endif
+                                                            @if ($slot->students->isEmpty())
+                                                                <form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST"
+                                                                    onsubmit="return confirm('Hapus slot jam ini? Hanya slot yang belum ada muridnya yang bisa dihapus.');">
+                                                                    @csrf
+                                                                    @method('DELETE')
+                                                                    <button type="submit" class="btn btn-sm btn-light border text-danger" title="Hapus slot"><i class="ri-delete-bin-line"></i></button>
+                                                                </form>
+                                                            @endif
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            @endforeach
+                                        @empty
+                                            <div class="text-center text-muted py-5">
+                                                <i class="ri-calendar-line fs-3 d-block mb-2 opacity-50"></i>
+                                                Tidak ada jadwal di minggu ini.
+                                            </div>
+                                        @endforelse
                                     </div>
                                 @endfor
                             </div>
