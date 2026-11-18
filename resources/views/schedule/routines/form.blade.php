@@ -68,17 +68,34 @@
                         @error('day_of_week') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
-                    <div class="col-md-2">
-                        <label for="start_time" class="form-label">Jam Mulai</label>
-                        <input type="time" id="start_time" name="start_time" class="form-control @error('start_time') is-invalid @enderror" value="{{ old('start_time', $item->start_time ? substr($item->start_time, 0, 5) : '') }}" required>
-                        @error('start_time') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                    </div>
+                    @if ($item->exists)
+                        {{-- Saat Edit, jam tidak diketik lagi di sini: dipilih lewat papan di bawah, dan
+                             durasinya mengikuti grade. Nilainya tetap terkirim lewat isian tersembunyi. --}}
+                        <div class="col-md-5">
+                            <label class="form-label">Jam</label>
+                            <div class="border rounded px-3 py-2 bg-light">
+                                <span class="fw-semibold" data-time-display>{{ str_replace(':', '.', substr((string) old('start_time', $item->start_time), 0, 5)) }}</span>
+                                <span class="text-muted small">&middot; {{ $item->duration_minutes }} menit</span>
+                            </div>
+                            <div class="form-text">Pindah jam lewat papan ketersediaan di bawah.</div>
+                            @error('start_time') <div class="text-danger small">{{ $message }}</div> @enderror
+                            @error('duration_minutes') <div class="text-danger small">{{ $message }}</div> @enderror
+                        </div>
+                        <input type="hidden" id="start_time" name="start_time" value="{{ old('start_time', substr((string) $item->start_time, 0, 5)) }}">
+                        <input type="hidden" id="duration_minutes" name="duration_minutes" value="{{ old('duration_minutes', $item->duration_minutes) }}">
+                    @else
+                        <div class="col-md-2">
+                            <label for="start_time" class="form-label">Jam Mulai</label>
+                            <input type="time" id="start_time" name="start_time" class="form-control @error('start_time') is-invalid @enderror" value="{{ old('start_time', $item->start_time ? substr($item->start_time, 0, 5) : '') }}" required>
+                            @error('start_time') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
 
-                    <div class="col-md-3">
-                        <label for="duration_minutes" class="form-label">Durasi (menit)</label>
-                        <input type="number" id="duration_minutes" name="duration_minutes" min="15" max="600" step="5" class="form-control @error('duration_minutes') is-invalid @enderror" value="{{ old('duration_minutes', $item->duration_minutes) }}" required>
-                        @error('duration_minutes') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                    </div>
+                        <div class="col-md-3">
+                            <label for="duration_minutes" class="form-label">Durasi (menit)</label>
+                            <input type="number" id="duration_minutes" name="duration_minutes" min="15" max="600" step="5" class="form-control @error('duration_minutes') is-invalid @enderror" value="{{ old('duration_minutes', $item->duration_minutes) }}" required>
+                            @error('duration_minutes') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                    @endif
 
                     <div class="col-md-4" data-monthly>
                         <label for="capacity" class="form-label">Kapasitas Murid</label>
@@ -263,6 +280,8 @@
                     if (!radio.checked) return;
                     day.value = radio.dataset.moveDay;
                     time.value = radio.dataset.moveTime;
+                    const display = document.querySelector('[data-time-display]');
+                    if (display) display.textContent = radio.dataset.moveTime.replace(':', '.');
                     const label = day.selectedOptions[0]?.textContent.trim() ?? '';
                     note.innerHTML = `Hari dan Jam Mulai di atas sudah diubah ke <strong>${label} ${radio.dataset.moveTime.replace(':', '.')}</strong>. Tekan Simpan untuk memindahkannya.`;
                     day.dispatchEvent(new Event('change', { bubbles: true }));

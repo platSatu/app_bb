@@ -123,7 +123,7 @@
                                                                 <td class="p-1 align-top">
                                                                     @forelse ($slots as $slot)
                                                                         @php($session = $sessions[$slot->id.'@'.$week] ?? null)
-                                                                        <div class="border rounded p-2 {{ $loop->last ? '' : 'mb-1' }} {{ $slot->students->isEmpty() ? 'bg-light' : 'bg-success-subtle' }} {{ $session ? '' : 'opacity-50' }}">
+                                                                        <div class="border rounded p-2 {{ $loop->last ? '' : 'mb-1' }} {{ $slot->students->isEmpty() ? 'bg-light' : 'bg-success-subtle' }}">
                                                                             <div class="small fw-semibold text-truncate">{{ $slot->grade?->name ?? '-' }}</div>
                                                                             <div class="text-muted text-truncate" style="font-size: .75rem">{{ $slot->grade?->category?->subject?->name }} › {{ $slot->teacher?->name }}</div>
                                                                             <div class="small text-truncate mt-1">
@@ -133,20 +133,22 @@
                                                                                     {{ $slot->students->pluck('name')->join(', ') }}@if ($slot->isGroup()) <span class="text-muted">({{ $slot->students->count() }}/{{ $slot->capacity }})</span>@endif
                                                                                 @endif
                                                                             </div>
-                                                                            <div class="text-muted mt-1" style="font-size: .72rem">
-                                                                                {{ $session ? \Carbon\Carbon::parse($session->date)->translatedFormat('d M') : 'Tidak ada pertemuan' }}
-                                                                            </div>
+                                                                            @if ($session)
+                                                                                <div class="text-muted mt-1" style="font-size: .72rem">{{ \Carbon\Carbon::parse($session->date)->translatedFormat('d M') }}</div>
+                                                                            @endif
                                                                             @if ($canManage)
+                                                                                {{-- Slot yang sudah ada muridnya: cukup absensi & ubah jadwal. Isi Murid dan Hapus
+                                                                                     disembunyikan supaya kelas yang sedang berjalan tidak salah dipencet. --}}
                                                                                 <div class="d-flex gap-1 mt-2">
                                                                                     <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id, 'date_from' => today()->toDateString()]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Sesi & absensi"><i class="ri-checkbox-multiple-line"></i></a>
-                                                                                    <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $month->format('Y-m')]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Isi murid"><i class="ri-user-add-line"></i></a>
+                                                                                    @if ($slot->students->isEmpty())<a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $month->format('Y-m')]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Isi murid"><i class="ri-user-add-line"></i></a>@endif
                                                                                     <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Ubah jadwal"><i class="ri-edit-line"></i></a>
-                                                                                    <form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="flex-fill d-flex"
+                                                                                    @if ($slot->students->isEmpty())<form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="flex-fill d-flex"
                                                                                         onsubmit="return confirm('Hapus slot ini? Sesi yang belum berjalan ikut terhapus.');">
                                                                                         @csrf
                                                                                         @method('DELETE')
                                                                                         <button type="submit" class="btn btn-sm btn-light border w-100 p-1 text-danger" title="Hapus slot"><i class="ri-delete-bin-line"></i></button>
-                                                                                    </form>
+                                                                                    </form>@endif
                                                                                 </div>
                                                                             @endif
                                                                         </div>
