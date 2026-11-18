@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Schedule\Concerns\InScheduleArea;
 use App\Models\ScheduleAttendance;
 use App\Models\ScheduleRoom;
+use App\Models\ScheduleRoutine;
 use App\Models\ScheduleSession;
 use App\Models\ScheduleTeacher;
 use App\Models\UserBranch;
@@ -76,7 +77,62 @@ class SessionController extends Controller
             'session' => $model,
             'teachers' => ScheduleTeacher::where('branch_id', $model->branch_id)->active()->whereHas('grades', fn ($q) => $q->whereKey($model->grade_id))->orderBy('name')->get(['id', 'name']),
             'rooms' => ScheduleRoom::where('branch_id', $model->branch_id)->active()->orderBy('name')->get(['id', 'name']),
+            'openings' => $this->openings($model),
         ]);
+    }
+
+    /**
+     * Jam yang bisa dipakai untuk memindahkan pertemuan ini, dalam minggu yang sama.
+     * Jamnya diambil dari jam buka ruangan, lalu ditandai terpakai kalau pengajar, ruangan,
+     * atau muridnya sudah punya pertemuan lain yang beririsan. Dipilih lewat centang, tidak diketik,
+     * supaya tidak mungkin memasukkan jam yang bentrok.
+     */
+    private function openings(ScheduleSession $session): array
+    {
+        $from = $session->date->copy()->startOfWeek();
+        $until = $session->date->copy()->endOfWeek();
+        $minutes = max(1, (int) $session->start_at->diffInMinutes($session->end_at));
+
+        $times = ScheduleRoutine::where('room_id', $session->room_id)
+            ->where('status', ScheduleRoutine::STATUS_ACTIVE)
+            ->pluck('start_time')
+            ->push($session->start_at->format('H:i:s'))
+            ->map(fn ($time) => substr((string) $time, 0, 5))
+            ->unique()->sort()->values();
+
+        $studentIds = $session->attendances->pluck('student_id')->all();
+
+        $busy = ScheduleSession::where('branch_id', $session->branch_id)
+            ->whereBetween('date', [$from->toDateString(), $until->toDateString()])
+            ->where('status', '!=', ScheduleSession::STATUS_CANCELLED)
+            ->whereKeyNot($session->getKey())
+            ->where(fn ($q) => $q->where('room_id', $session->room_id)
+                ->orWhere('teacher_id', $session->teacher_id)
+                ->orWhereHas('attendances', fn ($a) => $a->whereIn('student_id', $studentIds ?: ['-'])))
+            ->get(['id', 'start_at', 'end_at']);
+
+        $days = [];
+
+        for ($day = $from->copy(); $day->lte($until); $day->addDay()) {
+            $cells = [];
+
+            foreach ($times as $time) {
+                $start = $day->copy()->setTimeFromTimeString($time);
+                $end = $start->copy()->addMinutes($minutes);
+
+                $cells[$time] = [
+                    'date' => $day->toDateString(),
+                    'time' => $time,
+                    'taken' => $busy->contains(fn ($other) => $other->start_at->lt($end) && $other->end_at->gt($start)),
+                    'past' => $start->lte(now()),
+                    'current' => $session->date->isSameDay($day) && $session->start_at->format('H:i') === $time,
+                ];
+            }
+
+            $days[] = ['label' => $day->translatedFormat('D'), 'date' => $day->copy(), 'cells' => $cells];
+        }
+
+        return ['times' => $times->all(), 'days' => $days];
     }
 
     public function attendance(Request $request, string $session): RedirectResponse

@@ -140,9 +140,9 @@
                 <div class="col-lg-6">
                     <div class="card mb-0 h-100">
                         <div class="card-body">
-                            <h6>Pindahkan Sesi Ini</h6>
-                            <p class="small text-muted">Hanya sesi ini yang pindah; jadwal rutin tetap. Jatah pertemuan bulannya tidak berubah.</p>
-                            @include('schedule.sessions._slot-form', ['action' => route($routes.'.sessions.move', $session), 'method' => 'PUT', 'button' => 'Pindahkan', 'default' => $session])
+                            <h6>Pindahkan Pertemuan Ini</h6>
+                            <p class="small text-muted">Hanya pertemuan ini yang pindah &mdash; minggu lain tetap, dan jatah pertemuan bulannya tidak berubah.</p>
+                            @include('schedule.sessions._slot-form', ['action' => route($routes.'.sessions.move', $session), 'method' => 'PUT', 'button' => 'Pindahkan', 'default' => $session, 'openings' => $openings])
                         </div>
                     </div>
                 </div>
@@ -172,7 +172,8 @@
                                 <a href="{{ route($routes.'.sessions.show', $attendance->makeupSession) }}" class="btn btn-sm btn-outline-secondary">Lihat sesi pengganti</a>
                             @else
                                 <p class="small text-muted">Murid izin. Buat sesi pengganti supaya pertemuannya tidak hilang.</p>
-                                @include('schedule.sessions._slot-form', ['action' => route($routes.'.sessions.makeup', [$session, $attendance]), 'method' => 'POST', 'button' => 'Buat Sesi Pengganti', 'default' => null])
+                                {{-- Sesi pengganti boleh keluar dari minggu ini, jadi tanggalnya tetap diisi bebas. --}}
+                                @include('schedule.sessions._slot-form', ['action' => route($routes.'.sessions.makeup', [$session, $attendance]), 'method' => 'POST', 'button' => 'Buat Sesi Pengganti', 'default' => null, 'openings' => null])
                             @endif
                         </div>
                     </div>

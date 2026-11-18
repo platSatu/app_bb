@@ -80,7 +80,7 @@
                 </div>
             @else
                 <div class="alert alert-light border small py-2 mb-3">
-                    Tiap pertemuan berdiri sendiri. <strong>Ganti hari</strong> hanya mengubah pertemuan di kotak itu &mdash; minggu lain tetap.
+                    Tiap pertemuan berdiri sendiri. Tombol <strong>pensil</strong> di sebuah kotak mengubah <strong>pertemuan minggu itu saja</strong> &mdash; minggu lain tetap.
                 </div>
 
                 <ul class="nav nav-pills gap-2 mb-3" role="tablist">
@@ -169,21 +169,25 @@
                                                                                 @endif
                                                                             @endif
                                                                             @if ($canManage)
-                                                                                {{-- Dari papan jadwal yang bisa dilakukan hanya satu: mengganti hari
-                                                                                     pertemuan ini. Mengubah jadwal rutin tidak ada di sini karena
-                                                                                     dampaknya sebulan, dan menambah murid bukan mengubah jadwal
-                                                                                     melainkan input baru -- keduanya lewat menu Grade. --}}
+                                                                                {{-- Tombol edit di sini mengubah PERTEMUAN MINGGU INI saja, bukan jadwal
+                                                                                     sebulan. Slot yang sudah berisi murid tidak lagi menawarkan Isi Murid
+                                                                                     maupun Hapus, supaya kelas berjalan tidak salah pencet. --}}
                                                                                 <div class="d-flex gap-1 mt-2">
+                                                                                    <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Semua pertemuan slot ini"><i class="ri-checkbox-multiple-line"></i></a>
+                                                                                    @if ($slot->students->isEmpty())
+                                                                                        <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $month->format('Y-m')]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Isi murid"><i class="ri-user-add-line"></i></a>
+                                                                                    @endif
                                                                                     @if ($session)
-                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}" class="btn btn-sm btn-light border w-100 py-1" style="font-size: .72rem" title="Ganti hari pertemuan ini &amp; absensi. Minggu lain tidak ikut.">
-                                                                                            <i class="ri-calendar-event-line me-1"></i>Ganti hari
-                                                                                        </a>
+                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Ubah pertemuan Minggu {{ $week }} saja &mdash; ganti hari, jam, pengajar, ruangan"><i class="ri-edit-line"></i></a>
                                                                                     @elseif ($slot->students->isEmpty())
-                                                                                        <form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="w-100"
+                                                                                        <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Ubah slot jam ini"><i class="ri-edit-line"></i></a>
+                                                                                    @endif
+                                                                                    @if ($slot->students->isEmpty())
+                                                                                        <form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="flex-fill d-flex"
                                                                                             onsubmit="return confirm('Hapus slot jam ini? Hanya slot yang belum ada muridnya yang bisa dihapus.');">
                                                                                             @csrf
                                                                                             @method('DELETE')
-                                                                                            <button type="submit" class="btn btn-sm btn-light border w-100 py-1 text-danger" style="font-size: .72rem"><i class="ri-delete-bin-line me-1"></i>Hapus slot</button>
+                                                                                            <button type="submit" class="btn btn-sm btn-light border w-100 p-1 text-danger" title="Hapus slot"><i class="ri-delete-bin-line"></i></button>
                                                                                         </form>
                                                                                     @endif
                                                                                 </div>
