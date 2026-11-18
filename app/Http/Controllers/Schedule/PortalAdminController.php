@@ -75,7 +75,7 @@ class PortalAdminController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        $next = $item->isStudent() ? 'Masukkan ke Jadwal Rutin supaya jadwalnya muncul di portal.' : 'Atur grade yang diajar di menu Pengajar.';
+        $next = $item->isStudent() ? 'Masukkan ke Jadwal supaya jadwalnya muncul di portal.' : 'Atur grade yang diajar di menu Pengajar.';
 
         return back()->with('success', "{$member->name} sudah disetujui dan bisa masuk ke portal. {$next}");
     }

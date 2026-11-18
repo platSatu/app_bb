@@ -10,7 +10,7 @@
 
     <div class="card">
         <div class="card-header">
-            <h5 class="mb-0">{{ $item->exists ? 'Edit Jadwal Rutin' : 'Buat Jadwal Rutin' }}</h5>
+            <h5 class="mb-0">{{ $item->exists ? 'Edit Jadwal' : 'Buat Jadwal' }}</h5>
             <div class="text-muted small">Sesi dibuat otomatis: grade bulanan tiap minggu sesuai pertemuan per bulan, grade paket sesuai jumlah pertemuan & pola yang dipilih. Pengajar, ruangan, dan murid yang bentrok jamnya akan ditolak.</div>
         </div>
         <div class="card-body">

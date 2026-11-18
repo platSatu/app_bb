@@ -48,7 +48,7 @@ abstract class ScheduleResourceController extends Controller
     public static function tabs(): array
     {
         return [
-            'routines' => ['label' => 'Jadwal Rutin', 'icon' => 'ri-calendar-2-line'],
+            'routines' => ['label' => 'Jadwal', 'icon' => 'ri-calendar-2-line'],
             'sessions' => ['label' => 'Sesi & Absensi', 'icon' => 'ri-checkbox-multiple-line'],
             ...self::RESOURCES,
         ];

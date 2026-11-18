@@ -102,7 +102,29 @@ class RoutineController extends Controller
             ->values();
 
         return view('schedule.routines.index', [...$this->shared($request),
-            'items' => $routines, 'board' => $board, 'month' => $month]);
+            'items' => $routines, 'board' => $board, 'month' => $month, 'copyPending' => $this->copyPending($request, $month)]);
+    }
+
+    /**
+     * Tombol "Salin ke bulan berikutnya": berapa jadwal bulanan aktif di bulan ini yang BELUM punya salinan di bulan
+     * berikutnya. Aturan "sudah ada" sama dengan ScheduleRoutineService::duplicate() (branch, grade, pengajar, hari, jam).
+     * 0 = sudah disalin semua (atau tidak ada yang bisa disalin), tombolnya dinonaktifkan.
+     */
+    private function copyPending(Request $request, Carbon $month): int
+    {
+        $next = $month->copy()->addMonthNoOverflow()->startOfMonth()->toDateString();
+
+        return ScheduleRoutine::accessibleBy($request->user(), Menu::ABILITY_MANAGE)->active()
+            ->whereNull('pattern')
+            ->whereDate('starts_on', '>=', $month)->whereDate('starts_on', '<=', $month->copy()->endOfMonth())
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('schedule_routines as copies')
+                ->whereColumn('copies.branch_id', 'schedule_routines.branch_id')
+                ->whereColumn('copies.grade_id', 'schedule_routines.grade_id')
+                ->whereColumn('copies.teacher_id', 'schedule_routines.teacher_id')
+                ->whereColumn('copies.day_of_week', 'schedule_routines.day_of_week')
+                ->whereColumn('copies.start_time', 'schedule_routines.start_time')
+                ->whereDate('copies.starts_on', $next))
+            ->count();
     }
 
     /** Salin satu jadwal ke bulan berikutnya (murid yang masih aktif ikut). */
@@ -542,7 +564,7 @@ class RoutineController extends Controller
 
             return ['routine' => $routine, 'session' => null, 'day' => $routine->day_of_week, 'time' => $time,
                 'date' => $nominal, 'from' => null, 'reason' => $routine->students->isEmpty()
-                    ? 'Belum ada murid di slot ini'
+                    ? 'Belum ada murid di jam ini'
                     : ($nominal->lt(today()) ? 'Tanggalnya sudah lewat' : 'Jatah pertemuan bulan ini sudah terpakai')];
         }
 

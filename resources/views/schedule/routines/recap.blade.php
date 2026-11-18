@@ -1,6 +1,6 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Rekap Jadwal '.$month->translatedFormat('F Y'))
+@section('title', 'Laporan Jadwal '.$month->translatedFormat('F Y'))
 @section('page-section', $isAdmin ? 'Superadmin' : 'Schedules')
 
 {{-- Arsip bulanan: siapa ikut kelas apa (tanggal masuk/keluar), kehadiran per tanggal, tagihan prorata & honor. --}}

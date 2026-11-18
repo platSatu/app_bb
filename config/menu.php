@@ -59,7 +59,7 @@ return [
                 'icon' => 'ri-calendar-2-line',
                 'items' => [
                     'schedules.routines' => [
-                        'label' => 'Jadwal Rutin',
+                        'label' => 'Jadwal',
                         'route' => 'schedules.routines.index',
                         'active' => 'schedules.routines.*',
                     ],

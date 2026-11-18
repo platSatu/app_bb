@@ -1,6 +1,6 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Jadwal Rutin')
+@section('title', 'Jadwal')
 @section('page-section', $isAdmin ? 'Superadmin' : 'Schedules')
 
 @php($filtered = request()->hasAny(['search', 'day', 'status', 'teacher', 'student', 'grade']))
@@ -20,17 +20,20 @@
                     <label for="month" class="text-muted small text-nowrap mb-0">Bulan</label>
                     <input type="month" id="month" name="month" class="form-control" style="width: 11rem" value="{{ $month->format('Y-m') }}" onchange="this.form.submit()">
                 </form>
-                <a href="{{ route($routes.'.routines.recap', ['month' => $month->format('Y-m')]) }}" class="btn btn-outline-secondary"><i class="ri-file-list-3-line me-1"></i>Rekap {{ $month->translatedFormat('F') }}</a>
+                <a href="{{ route($routes.'.routines.recap', ['month' => $month->format('Y-m')]) }}" class="btn btn-outline-secondary"><i class="ri-file-list-3-line me-1"></i>Laporan {{ $month->translatedFormat('F') }}</a>
                 @if ($canManage)
-                    <form method="POST" action="{{ route($routes.'.routines.duplicate-month', ['month' => $month->format('Y-m')]) }}"
-                        onsubmit="this.querySelector('button').disabled = true; return confirm('Salin semua jadwal aktif {{ $month->translatedFormat('F Y') }} ke {{ $next->translatedFormat('F Y') }}? Hanya murid yang masih aktif yang ikut.');">
-                        @csrf
-                        <button type="submit" class="btn btn-outline-primary"><i class="ri-file-copy-line me-1"></i>Salin ke {{ $next->translatedFormat('F') }}</button>
-                    </form>
-                @endif
-                @if ($canManage && ! $isAdmin)
-                    {{-- Jadwal dibuat dari form Grade (Pengajar & Jam), bukan dari sini. --}}
-                    <a href="{{ route($routes.'.grades.index') }}" class="btn btn-primary"><i class="ri-time-line me-1"></i>Atur Jam di Grade</a>
+                    {{-- Nonaktif kalau semua jadwal bulanan bulan ini sudah punya salinan di bulan berikutnya. --}}
+                    @if ($copyPending > 0)
+                        <form method="POST" action="{{ route($routes.'.routines.duplicate-month', ['month' => $month->format('Y-m')]) }}"
+                            onsubmit="this.querySelector('button').disabled = true; return confirm('Salin {{ $copyPending }} jadwal aktif {{ $month->translatedFormat('F Y') }} ke {{ $next->translatedFormat('F Y') }}? Hanya murid yang masih aktif yang ikut.');">
+                            @csrf
+                            <button type="submit" class="btn btn-outline-primary"><i class="ri-file-copy-line me-1"></i>Salin ke {{ $next->translatedFormat('F') }}</button>
+                        </form>
+                    @else
+                        <button type="button" class="btn btn-outline-secondary" disabled title="Semua jadwal {{ $month->translatedFormat('F') }} sudah ada di {{ $next->translatedFormat('F Y') }}">
+                            <i class="ri-check-line me-1"></i>Sudah disalin ke {{ $next->translatedFormat('F') }}
+                        </button>
+                    @endif
                 @endif
             </div>
 
@@ -155,23 +158,25 @@
                                                                             @endif
                                                                             @if ($canManage)
                                                                                 {{-- Pensil mengubah pertemuan di kotak ini saja. Isi Murid & Hapus hanya
-                                                                                     untuk slot yang belum berisi murid. --}}
+                                                                                     untuk jam yang belum berisi murid. --}}
                                                                                 <div class="d-flex gap-1 mt-2">
-                                                                                    <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Semua pertemuan slot ini"><i class="ri-checkbox-multiple-line"></i></a>
+                                                                                    <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Semua pertemuan jam ini"><i class="ri-checkbox-multiple-line"></i></a>
                                                                                     @if ($slot->students->isEmpty())
                                                                                         <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $month->format('Y-m')]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Isi murid"><i class="ri-user-add-line"></i></a>
                                                                                     @endif
                                                                                     @if ($session)
+                                                                                        {{-- Langsung ke bagian Absensi pertemuan ini. --}}
+                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}#absensi" class="btn btn-sm btn-light border flex-fill p-1" title="Absensi pertemuan ini"><i class="ri-user-follow-line"></i></a>
                                                                                         <a href="{{ route($routes.'.sessions.show', $session->id) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Ubah pertemuan ini saja"><i class="ri-edit-line"></i></a>
                                                                                     @elseif ($slot->students->isEmpty())
-                                                                                        <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Ubah slot jam ini"><i class="ri-edit-line"></i></a>
+                                                                                        <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Ubah jam ini"><i class="ri-edit-line"></i></a>
                                                                                     @endif
                                                                                     @if ($slot->students->isEmpty())
                                                                                         <form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="flex-fill d-flex"
-                                                                                            onsubmit="return confirm('Hapus slot jam ini? Hanya slot yang belum ada muridnya yang bisa dihapus.');">
+                                                                                            onsubmit="return confirm('Hapus jam ini? Hanya jam yang belum ada muridnya yang bisa dihapus.');">
                                                                                             @csrf
                                                                                             @method('DELETE')
-                                                                                            <button type="submit" class="btn btn-sm btn-light border w-100 p-1 text-danger" title="Hapus slot"><i class="ri-delete-bin-line"></i></button>
+                                                                                            <button type="submit" class="btn btn-sm btn-light border w-100 p-1 text-danger" title="Hapus jam ini"><i class="ri-delete-bin-line"></i></button>
                                                                                         </form>
                                                                                     @endif
                                                                                 </div>

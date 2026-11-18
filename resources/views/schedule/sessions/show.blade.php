@@ -5,6 +5,9 @@
 
 @php
     $rupiah = fn ($v) => 'Rp '.number_format($v, 0, ',', '.');
+    // Nominal disembunyikan dulu (xxxxxxx); ikon mata menampilkannya. Tidak disimpan, jadi tiap buka halaman tersembunyi lagi.
+    $secret = fn ($v) => '<span class="text-nowrap"><span data-secret="'.e($rupiah($v)).'">xxxxxxx</span>'
+        .' <button type="button" class="btn btn-link btn-sm p-0 align-baseline text-muted" data-secret-toggle title="Tampilkan nominal" aria-label="Tampilkan nominal"><i class="ri-eye-off-line"></i></button></span>';
     $scheduled = $session->status === \App\Models\ScheduleSession::STATUS_SCHEDULED;
     $started = $session->start_at->isPast();
     $canFill = $canManage && $session->status !== \App\Models\ScheduleSession::STATUS_CANCELLED && $started;
@@ -38,7 +41,7 @@
                         </dd>
                         <dt class="col-5">Ruangan</dt><dd class="col-7">{{ $session->room?->name }}</dd>
                         <dt class="col-5">Jenis</dt><dd class="col-7">{{ $session->isMakeup() ? 'Sesi pengganti' : ($session->routine?->isGroup() ? 'Kelas grup' : 'Privat') }}</dd>
-                        <dt class="col-5">Per murid</dt><dd class="col-7">{{ $rupiah($session->grade?->pricePerMeeting() ?? 0) }}</dd>
+                        <dt class="col-5">Per murid</dt><dd class="col-7">{!! $secret($session->grade?->pricePerMeeting() ?? 0) !!}</dd>
                         @if ($session->moved_at)
                             <dt class="col-5">Dipindah</dt><dd class="col-7">{{ $session->moved_at->translatedFormat('d M Y H:i') }}</dd>
                         @endif
@@ -54,7 +57,7 @@
         </div>
 
         <div class="col-lg-8">
-            <div class="card mb-0 h-100">
+            <div class="card mb-0 h-100" id="absensi" style="scroll-margin-top: 90px">
                 <div class="card-body">
                     <h6 class="mb-3">Absensi</h6>
                     @if (! $started && $scheduled)
@@ -111,11 +114,11 @@
                                                 @endif
                                             </td>
                                             @if ($session->status === 'done')
-                                                <td class="text-end small">{{ $rupiah($attendance->teacher_fee) }}</td>
+                                                <td class="text-end small">{!! $secret($attendance->teacher_fee) !!}</td>
                                             @endif
                                         </tr>
                                     @empty
-                                        <tr><td colspan="4" class="text-muted">Sesi ini belum punya murid. Tambahkan murid di Jadwal Rutin.</td></tr>
+                                        <tr><td colspan="4" class="text-muted">Sesi ini belum punya murid. Tambahkan murid di menu Jadwal.</td></tr>
                                     @endforelse
                                 </tbody>
                             </table>
@@ -182,3 +185,18 @@
         </div>
     @endif
 @endsection
+
+@push('scripts')
+    <script>
+        // Ikon mata: tampilkan / sembunyikan nominal (bawaan tersembunyi).
+        document.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-secret-toggle]');
+            if (!button) return;
+            const value = button.parentElement.querySelector('[data-secret]');
+            const shown = value.textContent !== 'xxxxxxx';
+            value.textContent = shown ? 'xxxxxxx' : value.dataset.secret;
+            button.querySelector('i').className = shown ? 'ri-eye-off-line' : 'ri-eye-line';
+            button.title = shown ? 'Tampilkan nominal' : 'Sembunyikan nominal';
+        });
+    </script>
+@endpush
