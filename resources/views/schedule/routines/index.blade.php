@@ -162,7 +162,12 @@
                                                                                         <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id, 'date_from' => today()->toDateString()]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Daftar sesi"><i class="ri-checkbox-multiple-line"></i></a>
                                                                                     @endif
                                                                                     @if ($slot->students->isEmpty())<a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $month->format('Y-m')]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Isi murid"><i class="ri-user-add-line"></i></a>@endif
-                                                                                    <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Ubah jadwal rutin — berlaku untuk SEMUA minggu di bulan ini"><i class="ri-edit-line"></i></a>
+                                                                                    {{-- Pensil mengubah pola rutinnya, jadi dampaknya sebulan penuh. Kalau minggu ini
+                                                                                         sudah ada pertemuan, ditanya dulu supaya tidak terpencet saat yang dimaksud
+                                                                                         hanya satu minggu. --}}
+                                                                                    <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border flex-fill p-1"
+                                                                                        title="Ubah jadwal rutin — berlaku untuk SEMUA minggu di bulan ini"
+                                                                                        @if ($session) onclick="return confirm('Ini mengubah JADWAL RUTIN, jadi Minggu 1 sampai 5 ikut berubah.\n\nKalau yang mau dipindah hanya Minggu {{ $week }}, batalkan dan pakai tombol kalender di kotak ini.\n\nLanjut ubah semua minggu?');" @endif><i class="ri-edit-line"></i></a>
                                                                                     @if ($slot->students->isEmpty())<form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="flex-fill d-flex"
                                                                                         onsubmit="return confirm('Hapus slot ini? Sesi yang belum berjalan ikut terhapus.');">
                                                                                         @csrf

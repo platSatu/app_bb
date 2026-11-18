@@ -170,6 +170,12 @@
                          mana yang terpakai. Slot yang sedang diedit diberi sorotan. --}}
                     @if ($availability ?? null)
                         <div class="col-12">
+                            {{-- Form ini mengubah pola rutinnya, jadi seluruh minggu ikut. Dikatakan terang-terangan
+                                 di sini karena papan di bawah terlihat seperti alat pindah per minggu. --}}
+                            <div class="alert alert-warning small py-2 mb-2">
+                                <i class="ri-alert-line me-1"></i>Memindahkan di sini berlaku untuk <strong>semua minggu</strong> di bulan ini &mdash; Minggu 1 sampai 5 ikut pindah.
+                                Kalau yang mau dipindah <strong>hanya satu minggu</strong>, kembali ke papan jadwal dan pakai tombol kalender di kotak minggu itu.
+                            </div>
                             <label class="form-label mb-1">Jam yang Sudah Terpakai · {{ $availability['room']?->name }} · {{ $availability['month']->translatedFormat('F Y') }}</label>
                             <div class="form-text mt-0 mb-2" data-move-note>Centang salah satu jam yang masih <strong>bebas</strong> untuk memindahkan slot ini ke sana &mdash; Hari dan Jam Mulai di atas ikut terisi sendiri. Yang bertanda biru adalah posisi slot ini sekarang.</div>
                             <div class="table-responsive border rounded">
@@ -283,7 +289,7 @@
                     const display = document.querySelector('[data-time-display]');
                     if (display) display.textContent = radio.dataset.moveTime.replace(':', '.');
                     const label = day.selectedOptions[0]?.textContent.trim() ?? '';
-                    note.innerHTML = `Hari dan Jam Mulai di atas sudah diubah ke <strong>${label} ${radio.dataset.moveTime.replace(':', '.')}</strong>. Tekan Simpan untuk memindahkannya.`;
+                    note.innerHTML = `Hari dan Jam Mulai di atas sudah diubah ke <strong>${label} ${radio.dataset.moveTime.replace(':', '.')}</strong>. Tekan Simpan untuk memindahkan <strong>semua minggu</strong> ke sana.`;
                     day.dispatchEvent(new Event('change', { bubbles: true }));
                 });
             });
