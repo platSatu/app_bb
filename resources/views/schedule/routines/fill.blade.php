@@ -35,7 +35,7 @@
                     <input type="hidden" name="month" value="{{ $month->format('Y-m') }}">
 
                     <div class="row g-3 align-items-end mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-6 fill-student">
                             <label for="student_id" class="form-label">Murid</label>
                             <select id="student_id" name="student_id" class="form-select @error('student_id') is-invalid @enderror" required data-student>
                                 <option value="">-- Pilih murid --</option>
@@ -108,7 +108,18 @@
     </div>
 @endsection
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('be') }}/assets/libs/choices.js/public/assets/styles/choices.min.css">
+    <style>
+        /* Dropdown murid bisa dicari: tinggi & sudut disamakan dengan input lain di halaman ini. */
+        .fill-student .choices__inner { min-height: 38px; padding: 4px 8px; border-radius: var(--bs-border-radius, .375rem); background: var(--bs-body-bg); }
+        .fill-student .choices__list--dropdown { z-index: 20; }
+        .fill-student .choices__list--dropdown .choices__item--selectable.is-highlighted { background: var(--bs-primary-bg-subtle, #eef2ff); }
+    </style>
+@endpush
+
 @push('scripts')
+    <script src="{{ asset('be') }}/assets/libs/choices.js/public/assets/scripts/choices.min.js"></script>
     <script>
         (() => {
             const form = document.getElementById('fill-form');
@@ -151,6 +162,22 @@
                     ? 'Pilih murid dulu untuk melihat jam mana yang masih bisa diambil.'
                     : `${taken} jam diambil murid ini · ${open} jam lain masih bisa dipilih.`;
             };
+
+            // Dropdown murid bisa dicari (ketik nama). Select aslinya tetap dipakai form & fungsi apply(),
+            // jadi kalau library gagal dimuat, dropdown biasa tetap berjalan.
+            if (window.Choices) {
+                new Choices(student, {
+                    searchEnabled: true,
+                    searchPlaceholderValue: 'Ketik nama murid...',
+                    searchResultLimit: 50,
+                    searchFields: ['label'],
+                    shouldSort: false,
+                    itemSelectText: '',
+                    noResultsText: 'Murid tidak ditemukan',
+                    noChoicesText: 'Tidak ada murid',
+                    allowHTML: false,
+                });
+            }
 
             student.addEventListener('change', apply);
             apply();
