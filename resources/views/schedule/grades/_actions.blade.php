@@ -10,3 +10,7 @@
     @endif
 @endif
 <a href="{{ route($routes.'.routines.index', ['grade' => $item->id]) }}" class="btn btn-sm rounded-pill btn-outline-primary"><i class="ri-calendar-2-line"></i> Lihat Jadwal</a>
+@if ($canManage)
+    {{-- Salin: buka form Tambah Grade yang sudah terisi dari grade ini (harga, pertemuan, durasi, persen, pengajar). --}}
+    <a href="{{ route($routes.'.grades.create', ['parent' => $item->category_id, 'copy' => $item->id]) }}" class="btn btn-sm rounded-pill btn-outline-dark" title="Salin grade ini"><i class="ri-file-copy-line"></i> Salin</a>
+@endif

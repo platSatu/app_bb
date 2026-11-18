@@ -168,12 +168,14 @@ class GradeController extends ScheduleResourceController
         return [
             'teachers' => ScheduleTeacher::accessibleBy($user)
                 ->with('branch:id,name')
-                ->when($item->exists, fn ($q) => $q->where('branch_id', $item->branch_id))
+                ->when($item->exists || $this->copySource, fn ($q) => $q->where('branch_id', $item->exists ? $item->branch_id : $this->copySource->branch_id))
                 // Superadmin membuat grade baru: branch belum tentu, jadi pilihannya menyusul lewat Edit.
                 ->when(! $item->exists && $user->isPlatformTeam(), fn ($q) => $q->whereRaw('1 = 0'))
                 ->orderBy('name')
                 ->get(),
-            'selectedTeacher' => $item->exists ? $item->teachers()->value('schedule_teachers.id') : null,
+            // Salin grade: pengajarnya ikut dipilihkan (jam buka tidak ikut, diisi ulang kalau perlu).
+            'selectedTeacher' => ($item->exists ? $item : $this->copySource)?->teachers()->value('schedule_teachers.id'),
+            'copySource' => $this->copySource,
             'slotCount' => $item->exists ? ScheduleRoutine::where('grade_id', $item->getKey())->whereNull('pattern')->count() : 0,
         ];
     }

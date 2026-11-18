@@ -65,6 +65,9 @@ abstract class ScheduleResourceController extends Controller
 
     protected bool $uniqueName = true;
 
+    /** Data yang sedang disalin lewat tombol Salin (?copy=id), supaya formData() anak bisa ikut mengisi. */
+    protected ?Model $copySource = null;
+
     /** Kolom di jadwal rutin & sesi yang menunjuk data ini; dipakai = tidak boleh dihapus. */
     protected ?string $usageColumn = null;
 
@@ -124,6 +127,7 @@ abstract class ScheduleResourceController extends Controller
             }
 
             $item->forceFill([$config['key'] => $parent?->getKey()]);
+            $this->fillFromCopy($request, $item);
         } elseif (! $this->isAdmin($request) && ! UserBranch::where('user_id', $request->user()->getKey())->exists()) {
             return $this->branchRequired();
         }
@@ -174,6 +178,24 @@ abstract class ScheduleResourceController extends Controller
         $item->delete();
 
         return back()->with('success', "{$label} {$item->name} sudah dihapus.");
+    }
+
+    /**
+     * Tombol Salin (18 November 2026): form Tambah diisi dari data yang sudah ada (?copy=id), namanya diberi
+     * akhiran "(salinan)". Belum tersimpan sampai admin menekan Simpan, jadi masih bisa diubah dulu.
+     * Data sumber dicari lewat accessibleBy(MANAGE), jadi id milik orang lain diabaikan.
+     */
+    private function fillFromCopy(Request $request, Model $item): void
+    {
+        $source = $request->query('copy') ? $this->model()::accessibleBy($request->user(), Menu::ABILITY_MANAGE)->find($request->query('copy')) : null;
+
+        if (! $source) {
+            return;
+        }
+
+        $this->copySource = $source;
+        $item->fill(Arr::except($source->only($item->getFillable()), ['name']));
+        $item->name = \Illuminate\Support\Str::limit($source->name.' (salinan)', 150, '');
     }
 
     protected function isUsed(Model $item): bool

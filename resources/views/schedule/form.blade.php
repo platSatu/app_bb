@@ -10,7 +10,12 @@
 
     <div class="card">
         <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <h5 class="mb-0">{{ $item->exists ? 'Edit '.$config['label'].' '.$item->name : 'Tambah '.$config['label'] }}</h5>
+            <div>
+                <h5 class="mb-0">{{ $item->exists ? 'Edit '.$config['label'].' '.$item->name : 'Tambah '.$config['label'] }}</h5>
+                @if (! $item->exists && ! empty($copySource))
+                    <div class="text-muted small">Salinan dari <strong>{{ $copySource->name }}</strong>. Ubah yang perlu, lalu Simpan. Jam buka tidak ikut disalin.</div>
+                @endif
+            </div>
             @if ($item->exists && $child)
                 <a href="{{ route($routes.'.'.$child.'.create', ['parent' => $item->id]) }}" class="btn btn-sm btn-outline-success">
                     <i class="ri-add-line"></i> {{ $resources[$child]['label'] }}
