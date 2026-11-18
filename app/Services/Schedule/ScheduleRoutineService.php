@@ -25,24 +25,6 @@ class ScheduleRoutineService
     {
     }
 
-    /**
-     * Potong satu jendela jam jadi slot selebar durasi grade: 13.00-15.00 dengan durasi 30 menit
-     * menghasilkan 13.00, 13.30, 14.00, 14.30. Sisa yang tidak muat penuh tidak dibuatkan slot.
-     */
-    public function slotTimes(string $from, string $until, int $minutes, int $max = 24): array
-    {
-        $cursor = Carbon::createFromFormat('H:i', $from);
-        $end = Carbon::createFromFormat('H:i', $until);
-        $times = [];
-
-        while ($minutes > 0 && count($times) < $max && $cursor->copy()->addMinutes($minutes)->lte($end)) {
-            $times[] = $cursor->format('H:i');
-            $cursor->addMinutes($minutes);
-        }
-
-        return $times;
-    }
-
     public function save(ScheduleRoutine $routine, array $data, array $studentIds): ScheduleRoutine
     {
         return DB::transaction(function () use ($routine, $data, $studentIds) {
@@ -170,21 +152,17 @@ class ScheduleRoutineService
     }
 
     /**
-     * Sesi mendatang yang belum disentuh dibuat ulang mengikuti jadwal terbaru (jam, pengajar, ruangan, murid).
-     * Sesi mendatang yang sudah sebagian diabsen/dipindah tetap ada: murid baru ditambahkan, murid yang keluar dilepas.
+     * Sesi yang sudah ada TIDAK ditimpa. Tiap pertemuan berdiri sendiri, jadi mengubah jadwal rutin
+     * tidak menggeser pertemuan yang sudah terbentuk -- pindah satu pertemuan lewat Sesi & Absensi.
+     * Yang disesuaikan hanya keanggotaan: murid baru ditambahkan, murid yang keluar dilepas.
      */
     private function refresh(ScheduleRoutine $routine, array $removed = [], bool $strict = false): void
     {
         $upcoming = fn () => $routine->sessions()->where('status', ScheduleSession::STATUS_SCHEDULED)->where('start_at', '>', now());
 
-        $upcoming()->whereNull('moved_at')
-            ->whereDoesntHave('attendances', fn ($q) => $q->where('status', '!=', ScheduleAttendance::STATUS_PENDING))
-            ->delete();
-
-        $active = $routine->students()->pluck('schedule_students.id')->all();
-
         foreach ($upcoming()->with('attendances:id,session_id,student_id')->get() as $session) {
             $session->attendances()->whereIn('student_id', $removed ?: ['-'])->where('status', ScheduleAttendance::STATUS_PENDING)->delete();
+            $active = $this->studentsOn($routine, $session->date);
 
             foreach (array_diff($active, $session->attendances->pluck('student_id')->all()) as $studentId) {
                 (new ScheduleAttendance())->forceFill(['session_id' => $session->getKey(), 'student_id' => $studentId, 'status' => ScheduleAttendance::STATUS_PENDING])->save();
@@ -205,8 +183,11 @@ class ScheduleRoutineService
             return $this->generatePackage($routine, $strict);
         }
 
-        $routine->loadMissing(['grade', 'students:id']);
-        $from = max(today(), $routine->starts_on->copy()->startOfDay());
+        $routine->loadMissing(['grade', 'students']);
+        // Empat pertemuan sebulan dibuat utuh sejak tanggal mulai, termasuk tanggal yang sudah lewat,
+        // supaya jadwalnya sama dilihat dari mana pun. Yang menentukan tagihan bukan jumlah sesi,
+        // melainkan absensi -- dan absensi hanya dibuat sejak tanggal murid bergabung.
+        $from = $routine->starts_on->copy()->startOfDay();
         $until = now()->addMonthNoOverflow()->endOfMonth();
         $until = $routine->ends_on && $routine->ends_on->lt($until) ? $routine->ends_on->copy()->endOfDay() : $until;
         $studentIds = $routine->students->pluck('id')->all();
@@ -230,18 +211,20 @@ class ScheduleRoutineService
             for ($day = $this->firstWeekday($month, $routine->day_of_week); $quota > 0 && $day->lte($until) && $day->month === $month->month; $day->addWeek()) {
                 $start = $day->copy()->setTimeFromTimeString($routine->start_time);
 
-                if ($day->lt($from) || $start->lte(now()) || in_array($day->toDateString(), $taken, true)) {
+                if ($day->lt($from) || in_array($day->toDateString(), $taken, true)) {
                     continue;
                 }
+
+                $joined = $this->studentsOn($routine, $day);
 
                 $end = $start->copy()->addMinutes($routine->duration_minutes);
 
                 // Bentrok dengan sesi pengganti/pindahan: lewati, pakai minggu berikutnya di bulan yang sama.
-                if ($this->conflict->forSession($routine->branch_id, $start, $end, $routine->teacher_id, $routine->room_id, $studentIds)) {
+                if ($this->conflict->forSession($routine->branch_id, $start, $end, $routine->teacher_id, $routine->room_id, $joined)) {
                     continue;
                 }
 
-                $this->createSession($routine, $period, $start, $end, $studentIds);
+                $this->createSession($routine, $period, $start, $end, $joined);
                 $quota--;
                 $created++;
             }
@@ -343,6 +326,18 @@ class ScheduleRoutineService
             $attendance = new ScheduleAttendance();
             $attendance->forceFill(['session_id' => $session->getKey(), 'student_id' => $studentId, 'status' => ScheduleAttendance::STATUS_PENDING])->save();
         }
+    }
+
+    /**
+     * Murid yang sudah bergabung pada tanggal itu. Dipakai saat membuat sesi dan saat menyesuaikan
+     * absensi, supaya murid yang masuk di tengah bulan tidak tercatat hadir di pertemuan sebelum dia ada
+     * -- prorata di rekap tetap benar walau sesinya dibuat utuh sebulan.
+     */
+    private function studentsOn(ScheduleRoutine $routine, CarbonInterface $date): array
+    {
+        return $routine->students
+            ->filter(fn ($student) => blank($student->pivot->joined_on) || $date->toDateString() >= Carbon::parse($student->pivot->joined_on)->toDateString())
+            ->pluck('id')->all();
     }
 
     private function firstWeekday(CarbonInterface $month, int $isoDay): Carbon
