@@ -34,6 +34,11 @@ $routineRead = function () {
 };
 
 $routineWrite = function () {
+    // Didaftarkan sebelum Route::resource di bawah, supaya 'slots' tidak tertangkap sebagai {routine}.
+    Route::get('routines/slots', [RoutineController::class, 'slots'])->name('routines.slots');
+    Route::post('routines/slots', [RoutineController::class, 'storeSlots'])->middleware('throttle:10,1')->name('routines.slots.store');
+    Route::get('routines/isi-murid', [RoutineController::class, 'fill'])->name('routines.fill');
+    Route::post('routines/isi-murid', [RoutineController::class, 'storeFill'])->middleware('throttle:30,1')->name('routines.fill.store');
     Route::post('routines/duplicate-month', [RoutineController::class, 'duplicateMonth'])->middleware('throttle:10,1')->name('routines.duplicate-month');
     Route::post('routines/{routine}/duplicate', [RoutineController::class, 'duplicate'])->middleware('throttle:30,1')->name('routines.duplicate');
 };

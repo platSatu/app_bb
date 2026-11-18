@@ -20,6 +20,7 @@ use App\Support\XlsxExport;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -30,6 +31,9 @@ use RuntimeException;
 class RoutineController extends Controller
 {
     use InScheduleArea;
+
+    /** Batas slot sekali buat; menjaga jendela jam yang kelewat lebar tidak membanjiri jadwal. */
+    private const MAX_SLOTS = 24;
 
     public function __construct(private readonly ScheduleRoutineService $routines)
     {
@@ -199,6 +203,224 @@ class RoutineController extends Controller
     public function store(Request $request): RedirectResponse
     {
         return $this->save($request, new ScheduleRoutine(), 'Jadwal berhasil dibuat dan sesinya sudah disiapkan sampai akhir bulan depan.');
+    }
+
+    /**
+     * Isi Jam: satu jendela jam (mis. 13.00-15.00) dipecah mengikuti durasi grade menjadi beberapa slot
+     * kosong sekaligus, supaya kelas privat tidak perlu diisi satu formulir penuh per murid.
+     * Tiap slot disimpan sebagai jadwal biasa lewat save() yang sama -- tidak ada tabel atau model baru,
+     * jadi rekap, duplikat bulan, portal murid, dan tagihan tetap bekerja seperti sebelumnya.
+     * Grade paket tidak lewat sini karena polanya per tanggal, bukan per jam.
+     */
+    public function slots(Request $request): View|RedirectResponse
+    {
+        $grade = $request->query('grade')
+            ? ScheduleGrade::accessibleBy($request->user(), Menu::ABILITY_MANAGE)->findOrFail($request->query('grade'))
+            : null;
+
+        if (! $grade && $this->isAdmin($request)) {
+            return redirect()->route('superadmin.schedules.grades.index')->with('info', 'Pilih grade dulu, lalu klik tombol Isi Jam di barisnya.');
+        }
+
+        if ($grade?->isPackage()) {
+            return redirect()->route($this->routes($request).'.routines.create', ['grade' => $grade->getKey()])
+                ->with('info', 'Grade paket memakai pola tanggal, bukan jendela jam, jadi dibuat lewat form ini.');
+        }
+
+        $options = $this->options($request, $grade?->branch_id);
+
+        if ($options['grades']->isEmpty()) {
+            return redirect()->route($this->routes($request).'.grades.index')->with('info', 'Buat grade dulu ya (Ruangan › Bidang › Kategori › Grade), setelah itu jadwal bisa dibuat.');
+        }
+
+        return view('schedule.routines.slots', [
+            ...$this->shared($request),
+            ...$options,
+            'grade' => $grade,
+            'month' => $this->month($request),
+        ]);
+    }
+
+    /** Semua slot dibuat, atau tidak sama sekali: setengah jadwal lebih merepotkan daripada mengulang isian. */
+    public function storeSlots(Request $request): RedirectResponse
+    {
+        $grade = ScheduleGrade::accessibleBy($request->user(), Menu::ABILITY_MANAGE)->find((string) $request->input('grade_id'));
+
+        if (! $grade || $grade->isPackage()) {
+            throw ValidationException::withMessages(['grade_id' => 'Pilih grade bulanan dari daftar yang tersedia.']);
+        }
+
+        $branchId = $grade->branch_id;
+        $inBranch = fn (string $table) => Rule::exists($table, 'id')->where('branch_id', $branchId)->where('status', 'active');
+
+        $data = $request->validate([
+            'teacher_id' => ['required', 'string', $inBranch('schedule_teachers')],
+            'room_id' => ['required', 'string', $inBranch('schedule_rooms')],
+            'day_of_week' => ['required', 'integer', Rule::in(array_keys(ScheduleRoutine::DAYS))],
+            'month' => ['required', 'date_format:Y-m'],
+            'start_time' => ['required', 'date_format:H:i'],
+            'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
+            'capacity' => ['required', 'integer', 'min:1', 'max:100'],
+        ], [
+            'teacher_id.exists' => 'Pengajar tidak ditemukan atau sedang tidak aktif.',
+            'room_id.exists' => 'Ruangan tidak ditemukan atau sedang tidak aktif.',
+            'end_time.after' => 'Jam selesai harus lebih besar dari jam mulai.',
+        ], [
+            'teacher_id' => 'pengajar', 'room_id' => 'ruangan', 'day_of_week' => 'hari', 'month' => 'bulan',
+            'start_time' => 'jam mulai', 'end_time' => 'jam selesai', 'capacity' => 'kapasitas',
+        ]);
+
+        if (! $grade->teachers()->whereKey($data['teacher_id'])->exists()) {
+            throw ValidationException::withMessages(['teacher_id' => 'Pengajar ini belum ditugaskan di grade '.$grade->name.'. Centang dulu lewat tombol Pengajar di tab Grade.']);
+        }
+
+        $times = $this->slotTimes($data['start_time'], $data['end_time'], $grade->duration_minutes);
+
+        if ($times === []) {
+            throw ValidationException::withMessages(['end_time' => 'Jendela jamnya belum cukup untuk satu pertemuan '.$grade->duration_minutes.' menit.']);
+        }
+
+        $month = Carbon::createFromFormat('!Y-m', $data['month']);
+
+        try {
+            DB::transaction(function () use ($times, $grade, $data, $branchId, $month) {
+                foreach ($times as $time) {
+                    $routine = new ScheduleRoutine();
+                    $routine->forceFill(['branch_id' => $branchId]);
+
+                    // Murid sengaja kosong: slot diisi belakangan, dan slot kosong belum membuat sesi.
+                    $this->routines->save($routine, [
+                        'grade_id' => $grade->getKey(),
+                        'teacher_id' => $data['teacher_id'],
+                        'room_id' => $data['room_id'],
+                        'day_of_week' => $data['day_of_week'],
+                        'capacity' => $data['capacity'],
+                        'duration_minutes' => $grade->duration_minutes,
+                        'start_time' => $time,
+                        'pattern' => null,
+                        'starts_on' => $month->toDateString(),
+                        'ends_on' => $month->copy()->endOfMonth()->toDateString(),
+                        'status' => ScheduleRoutine::STATUS_ACTIVE,
+                    ], []);
+                }
+            });
+        } catch (RuntimeException $e) {
+            return back()->withInput()->with('error', 'Tidak ada slot yang dibuat, supaya tidak tertinggal setengah jadwal. '.$e->getMessage());
+        }
+
+        return redirect()->route($this->routes($request).'.routines.index', ['month' => $data['month']])
+            ->with('success', count($times).' slot dibuat ('.implode(' · ', $times).'). Muridnya tinggal diisi lewat tombol Edit di tiap baris.');
+    }
+
+    /**
+     * Isi Murid: pilih satu murid, lalu centang jam mana saja yang dia ambil di grade & bulan ini.
+     * Kebalikan dari form jadwal (yang mulai dari jadwal lalu mencari murid), supaya mendaftarkan
+     * murid baru tidak perlu membuka jadwal satu per satu.
+     */
+    public function fill(Request $request): View|RedirectResponse
+    {
+        $grade = $request->query('grade')
+            ? ScheduleGrade::accessibleBy($request->user(), Menu::ABILITY_MANAGE)->find($request->query('grade'))
+            : null;
+
+        if (! $grade) {
+            return redirect()->route($this->routes($request).'.grades.index')->with('info', 'Pilih grade dulu, lalu klik tombol Murid di barisnya.');
+        }
+
+        $month = $this->month($request);
+
+        return view('schedule.routines.fill', [
+            ...$this->shared($request),
+            'grade' => $grade,
+            'month' => $month,
+            'routines' => $this->slotsOf($request, $grade, $month),
+            'students' => ScheduleStudent::accessibleBy($request->user())
+                ->where('branch_id', $grade->branch_id)
+                ->orderBy('name')
+                ->get(['id', 'name', 'status']),
+        ]);
+    }
+
+    /** Simpan isian murid: hanya slot yang berubah yang disentuh, supaya sesi & absensi lain tidak ikut dibongkar. */
+    public function storeFill(Request $request): RedirectResponse
+    {
+        $grade = ScheduleGrade::accessibleBy($request->user(), Menu::ABILITY_MANAGE)->find((string) $request->input('grade_id'));
+
+        if (! $grade) {
+            throw ValidationException::withMessages(['grade_id' => 'Grade tidak ditemukan.']);
+        }
+
+        $data = $request->validate([
+            'student_id' => ['required', 'string', Rule::exists('schedule_students', 'id')->where('branch_id', $grade->branch_id)->where('status', 'active')],
+            'month' => ['required', 'date_format:Y-m'],
+            'routine_ids' => ['nullable', 'array'],
+            'routine_ids.*' => ['string'],
+        ], [
+            'student_id.required' => 'Pilih muridnya dulu ya.',
+            'student_id.exists' => 'Murid tidak ditemukan atau sedang tidak aktif.',
+        ], ['student_id' => 'murid', 'month' => 'bulan']);
+
+        $studentId = $data['student_id'];
+        $chosen = $data['routine_ids'] ?? [];
+        $month = Carbon::createFromFormat('!Y-m', $data['month']);
+        $changed = 0;
+
+        try {
+            DB::transaction(function () use ($request, $grade, $month, $studentId, $chosen, &$changed) {
+                foreach ($this->slotsOf($request, $grade, $month) as $routine) {
+                    $ids = $routine->students->pluck('id')->all();
+                    $has = in_array($studentId, $ids, true);
+                    $want = in_array($routine->getKey(), $chosen, true);
+
+                    if ($has === $want) {
+                        continue;
+                    }
+
+                    $this->routines->save(
+                        $routine,
+                        $routine->only(['grade_id', 'teacher_id', 'room_id', 'day_of_week', 'capacity', 'duration_minutes', 'start_time', 'pattern', 'starts_on', 'ends_on', 'status', 'notes']),
+                        $want ? [...$ids, $studentId] : array_values(array_diff($ids, [$studentId]))
+                    );
+                    $changed++;
+                }
+            });
+        } catch (RuntimeException $e) {
+            return back()->withInput()->with('error', 'Tidak ada yang diubah. '.$e->getMessage());
+        }
+
+        return redirect()->route($this->routes($request).'.routines.fill', ['grade' => $grade->getKey(), 'month' => $data['month']])
+            ->with($changed ? 'success' : 'info', $changed
+                ? $changed.' slot diperbarui. Sesinya ikut disesuaikan, dan tagihan bulan ini dihitung dari sisa pertemuan.'
+                : 'Tidak ada perubahan.');
+    }
+
+    /** Slot satu grade di satu bulan, urut hari lalu jam. */
+    private function slotsOf(Request $request, ScheduleGrade $grade, Carbon $month)
+    {
+        return ScheduleRoutine::accessibleBy($request->user(), Menu::ABILITY_MANAGE)
+            ->where('grade_id', $grade->getKey())
+            ->whereNull('pattern')
+            ->whereDate('starts_on', '>=', $month->copy()->startOfMonth())
+            ->whereDate('starts_on', '<=', $month->copy()->endOfMonth())
+            ->with(['teacher:id,name', 'room:id,name', 'students:id,name'])
+            ->orderBy('day_of_week')
+            ->orderBy('start_time')
+            ->get();
+    }
+
+    /** Potong jendela jam jadi slot selebar durasi grade. Sisa yang tidak muat penuh tidak dibuat. */
+    private function slotTimes(string $from, string $until, int $minutes): array
+    {
+        $cursor = Carbon::createFromFormat('H:i', $from);
+        $end = Carbon::createFromFormat('H:i', $until);
+        $times = [];
+
+        while (count($times) < self::MAX_SLOTS && $cursor->copy()->addMinutes($minutes)->lte($end)) {
+            $times[] = $cursor->format('H:i');
+            $cursor->addMinutes($minutes);
+        }
+
+        return $times;
     }
 
     public function edit(Request $request, string $routine): View

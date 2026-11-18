@@ -43,6 +43,51 @@
     <div class="bg-light rounded p-2 small" data-grade="summary"></div>
 </div>
 
+{{-- Pengajar ditugaskan dari sini (sebelumnya dari form Pengajar). Tabel penghubungnya sama,
+     jadi data lama tetap terbaca dan tidak perlu dipindahkan. --}}
+<div class="col-12" id="pengajar">
+    <label class="form-label">Pengajar yang Mengajar Grade Ini</label>
+    @error('teacher_ids.*') <div class="text-danger small mb-1">{{ $message }}</div> @enderror
+    @forelse ($teachers as $branchId => $branchTeachers)
+        <div class="border rounded p-2 mb-2" data-branch-teachers="{{ $branchId }}">
+            @if ($teachers->count() > 1)
+                <div class="small text-muted mb-1">{{ $branchTeachers->first()->branch?->name }}</div>
+            @endif
+            <div class="row g-1">
+                @foreach ($branchTeachers as $teacher)
+                    <div class="col-md-6 col-xl-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="teacher_ids[]" value="{{ $teacher->id }}" id="teacher-{{ $teacher->id }}" @checked($selectedTeachers->contains($teacher->id))>
+                            <label class="form-check-label" for="teacher-{{ $teacher->id }}">{{ $teacher->name }}{{ $teacher->isActive() ? '' : ' (tidak aktif)' }}</label>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @empty
+        <div class="text-muted small">Belum ada pengajar yang bisa dipilih. Tambahkan dulu di tab Pengajar, lalu tugaskan di sini.</div>
+    @endforelse
+    <div class="form-text">Saat membuat jadwal untuk grade ini, hanya pengajar yang dicentang di sini yang muncul.</div>
+</div>
+
+@push('scripts')
+    <script>
+        // Superadmin ganti branch: hanya pengajar branch itu yang tampil, centang branch lain dilepas
+        // supaya tidak ikut tersimpan. Pola sama seperti pemilih grade di form Pengajar.
+        (() => {
+            const select = document.querySelector('[data-branch-select]');
+            if (!select) return;
+            const sync = () => document.querySelectorAll('[data-branch-teachers]').forEach(box => {
+                const show = box.dataset.branchTeachers === select.value;
+                box.classList.toggle('d-none', !show);
+                if (!show) box.querySelectorAll('input').forEach(input => input.checked = false);
+            });
+            select.addEventListener('change', sync);
+            sync();
+        })();
+    </script>
+@endpush
+
 @push('scripts')
     <script>
         (() => {

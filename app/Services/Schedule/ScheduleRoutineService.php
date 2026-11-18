@@ -192,6 +192,16 @@ class ScheduleRoutineService
         $until = now()->addMonthNoOverflow()->endOfMonth();
         $until = $routine->ends_on && $routine->ends_on->lt($until) ? $routine->ends_on->copy()->endOfDay() : $until;
         $studentIds = $routine->students->pluck('id')->all();
+
+        // Slot yang belum berisi murid sengaja belum dibuatkan sesi. Sesinya terbentuk sendiri begitu
+        // murid pertama dicentang (simpan jadwal -> refresh() -> generate() lagi), dan karena tanggal
+        // yang sudah lewat dilewati, murid yang masuk di tengah bulan tetap dapat prorata yang benar.
+        // Tanpa ini, slot kosong membanjiri Sesi & Absensi, rekap bulanan, dan dashboard pengajar
+        // dengan sesi tanpa murid.
+        if ($studentIds === []) {
+            return 0;
+        }
+
         $created = 0;
 
         for ($month = $from->copy()->startOfMonth(); $month->lte($until); $month->addMonthNoOverflow()) {

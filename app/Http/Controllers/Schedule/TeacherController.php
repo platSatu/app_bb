@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Schedule;
 
-use App\Models\ScheduleGrade;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -37,34 +36,16 @@ class TeacherController extends ScheduleResourceController
         return [
             'email' => ['nullable', 'email', 'max:255', $unique('email')],
             'phone' => ['nullable', 'string', 'min:10', 'max:20', $unique('phone')],
-            'grade_ids' => ['nullable', 'array'],
-            // Grade harus dari branch yang sama dengan pengajar.
-            'grade_ids.*' => ['string', Rule::exists('schedule_grades', 'id')->where('branch_id', $branchId)],
         ];
     }
 
     protected function attributes(): array
     {
-        return ['phone' => 'nomor WhatsApp', 'grade_ids.*' => 'grade'];
+        return ['phone' => 'nomor WhatsApp'];
     }
 
-    protected function saved(Request $request, Model $item, array $data): void
-    {
-        $item->grades()->sync($data['grade_ids'] ?? []);
-    }
-
-    protected function formData(Request $request, Model $item): array
-    {
-        return [
-            'grades' => ScheduleGrade::accessibleBy($request->user())
-                ->with(['branch:id,name', ...ScheduleGrade::LABEL_WITH])
-                ->when($item->exists, fn ($q) => $q->where('branch_id', $item->branch_id))
-                // Superadmin membuat pengajar baru: grade dipilih setelah branch tersimpan (lewat Edit).
-                ->when(! $item->exists && $request->user()->isPlatformTeam(), fn ($q) => $q->whereRaw('1 = 0'))
-                ->get()
-                ->sortBy(fn ($grade) => $grade->label())
-                ->groupBy('branch_id'),
-            'selectedGrades' => collect(old('grade_ids', $item->exists ? $item->grades()->pluck('schedule_grades.id')->all() : [])),
-        ];
-    }
+    // Grade yang diajar TIDAK lagi dipilih di sini, tapi di form Grade (tombol Pengajar di tabel Grade).
+    // Penyimpannya ikut dicabut bersama pemilihnya: kalau hanya pemilihnya yang dihapus, setiap simpan
+    // pengajar akan mengirim grade_ids kosong dan menghapus seluruh grade yang sudah ditugaskan.
+    // Kolom "Grade yang Diajar" di tabel tetap ditampilkan, hanya sudah tidak bisa diubah dari sini.
 }
