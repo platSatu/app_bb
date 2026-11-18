@@ -65,10 +65,23 @@ class RoutineController extends Controller
             ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
             ->orderBy('day_of_week')
             ->orderBy('start_time')
-            ->paginate(20)
-            ->withQueryString();
+            ->get();
 
-        return view('schedule.routines.index', [...$this->shared($request), 'items' => $routines, 'month' => $month]);
+        // Papan mingguan per ruangan. Jadwal rutin berulang tiap minggu, jadi satu minggu sudah
+        // mewakili seluruh bulan -- tidak perlu daftar memanjang ke bawah. Dikelompokkan per
+        // ruangan supaya tiap ruangan punya tabnya sendiri.
+        $board = $routines->groupBy(fn ($routine) => (string) $routine->room_id)
+            ->map(fn ($rows) => [
+                'room' => $rows->first()->room,
+                'days' => $rows->pluck('day_of_week')->unique()->sort()->values(),
+                'times' => $rows->pluck('start_time')->unique()->sort()->values(),
+                'cells' => $rows->groupBy(fn ($routine) => $routine->day_of_week.'@'.$routine->start_time),
+                'count' => $rows->count(),
+            ])
+            ->sortBy(fn ($group) => $group['room']?->name ?? '')
+            ->values();
+
+        return view('schedule.routines.index', [...$this->shared($request), 'items' => $routines, 'board' => $board, 'month' => $month]);
     }
 
     /** Salin satu jadwal ke bulan berikutnya (murid yang masih aktif ikut). */
