@@ -47,37 +47,27 @@
      jadi data lama tetap terbaca dan tidak perlu dipindahkan. --}}
 <div class="col-12" id="pengajar">
     <label class="form-label">Pengajar yang Mengajar Grade Ini</label>
-    @error('teacher_ids.*') <div class="text-danger small mb-1">{{ $message }}</div> @enderror
-    {{-- $teachers datang sebagai daftar datar (dipakai juga oleh dropdown di baris Jam Buka),
-         jadi pengelompokan per branch dikerjakan di sini saja. --}}
-    @php($byBranch = $teachers->groupBy('branch_id'))
-    @forelse ($byBranch as $branchId => $branchTeachers)
-        <div class="border rounded p-2 mb-2" data-branch-teachers="{{ $branchId }}">
-            @if ($byBranch->count() > 1)
-                <div class="small text-muted mb-1">{{ $branchTeachers->first()->branch?->name }}</div>
-            @endif
-            <div class="row g-1">
-                @foreach ($branchTeachers as $teacher)
-                    <div class="col-md-6 col-xl-4">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="teacher_ids[]" value="{{ $teacher->id }}" id="teacher-{{ $teacher->id }}" @checked($selectedTeachers->contains($teacher->id))>
-                            <label class="form-check-label" for="teacher-{{ $teacher->id }}">{{ $teacher->name }}{{ $teacher->isActive() ? '' : ' (tidak aktif)' }}</label>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-    @empty
-        <div class="text-muted small">Belum ada pengajar yang bisa dipilih. Tambahkan dulu di tab Pengajar, lalu tugaskan di sini.</div>
-    @endforelse
-    <div class="form-text">Centang dulu pengajarnya, baru namanya bisa dipakai di jam buka di bawah.</div>
+    @error('teacher_id') <div class="text-danger small mb-1">{{ $message }}</div> @enderror
+    <select id="teacher_id" name="teacher_id" class="form-select @error('teacher_id') is-invalid @enderror" data-grade-teacher>
+        <option value="">-- Pilih pengajar --</option>
+        @foreach ($teachers as $teacher)
+            <option value="{{ $teacher->id }}" data-branch="{{ $teacher->branch_id }}" @selected(old('teacher_id', $selectedTeacher) === $teacher->id)>
+                {{ $teacher->name }}{{ $teacher->isActive() ? '' : ' (tidak aktif)' }}{{ $teachers->pluck('branch_id')->unique()->count() > 1 ? ' — '.$teacher->branch?->name : '' }}
+            </option>
+        @endforeach
+    </select>
+    @if ($teachers->isEmpty())
+        <div class="form-text text-warning">Belum ada pengajar. Tambahkan dulu di tab Pengajar.</div>
+    @else
+        <div class="form-text">Satu grade diampu satu pengajar. Jam buka di bawah otomatis memakai pengajar ini.</div>
+    @endif
 </div>
 
 {{-- Jam buka: tiap baris dipecah sendiri mengikuti Durasi di atas. Sekali simpan, grade jadi,
      pengajarnya ditugaskan, dan slotnya langsung terbentuk -- muridnya diisi lewat tombol Isi Murid. --}}
 <div class="col-12" data-slots-block>
     <label class="form-label mb-1">Jam Buka</label>
-    <div class="form-text mt-0 mb-2">Tulis jendela jamnya, misalnya Senin 13.00–15.00. Sistem memecahnya sendiri sesuai durasi grade.</div>
+    <div class="form-text mt-0 mb-2">Tulis jendela jamnya, misalnya Senin 13.00–15.00. Sistem memecahnya sendiri sesuai durasi grade. Ruangannya ikut Bidang, jadi tidak perlu dipilih lagi.</div>
 
     @if (($slotCount ?? 0) > 0)
         <div class="alert alert-light border small py-2">Grade ini sudah punya <strong>{{ $slotCount }} slot</strong>. Baris di bawah hanya <em>menambah</em> slot baru; yang sudah ada diatur lewat tombol Isi Murid di tabel Grade.</div>
@@ -100,9 +90,9 @@
     </div>
 
     <div data-slot-rows>
-        @foreach (old('slots', [['day' => 1, 'from' => '', 'until' => '', 'teacher' => '', 'room' => '']]) as $i => $row)
+        @foreach (old('slots', [['day' => 1, 'from' => '', 'until' => '']]) as $i => $row)
             <div class="row g-2 align-items-end mb-2" data-slot-row>
-                <div class="col-6 col-md-2">
+                <div class="col-6 col-md-3">
                     <label class="form-label small mb-1">Hari</label>
                     <select name="slots[{{ $i }}][day]" class="form-select form-select-sm">
                         @foreach (\App\Models\ScheduleRoutine::DAYS as $value => $label)
@@ -110,31 +100,13 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-3 col-md-2">
+                <div class="col-3 col-md-3">
                     <label class="form-label small mb-1">Mulai</label>
                     <input type="time" name="slots[{{ $i }}][from]" class="form-control form-control-sm @error('slots.'.$i.'.from') is-invalid @enderror" value="{{ $row['from'] ?? '' }}" data-slot-from>
                 </div>
-                <div class="col-3 col-md-2">
+                <div class="col-3 col-md-3">
                     <label class="form-label small mb-1">Selesai</label>
                     <input type="time" name="slots[{{ $i }}][until]" class="form-control form-control-sm @error('slots.'.$i.'.until') is-invalid @enderror" value="{{ $row['until'] ?? '' }}" data-slot-until>
-                </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label small mb-1">Pengajar</label>
-                    <select name="slots[{{ $i }}][teacher]" class="form-select form-select-sm @error('slots.'.$i.'.teacher') is-invalid @enderror" data-slot-teacher>
-                        <option value="">--</option>
-                        @foreach ($teachers as $teacher)
-                            <option value="{{ $teacher->id }}" data-branch="{{ $teacher->branch_id }}" @selected(($row['teacher'] ?? '') === $teacher->id)>{{ $teacher->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label small mb-1">Ruangan</label>
-                    <select name="slots[{{ $i }}][room]" class="form-select form-select-sm @error('slots.'.$i.'.room') is-invalid @enderror">
-                        <option value="">--</option>
-                        @foreach ($rooms as $room)
-                            <option value="{{ $room->id }}" data-branch="{{ $room->branch_id }}" @selected(($row['room'] ?? '') === $room->id)>{{ $room->name }}</option>
-                        @endforeach
-                    </select>
                 </div>
                 <div class="col-md-2 d-flex gap-2">
                     <span class="badge bg-light text-body border flex-grow-1 text-center py-2" data-slot-count>—</span>
@@ -142,8 +114,6 @@
                 </div>
                 @error('slots.'.$i.'.from') <div class="col-12"><div class="text-danger small">{{ $message }}</div></div> @enderror
                 @error('slots.'.$i.'.until') <div class="col-12"><div class="text-danger small">{{ $message }}</div></div> @enderror
-                @error('slots.'.$i.'.teacher') <div class="col-12"><div class="text-danger small">{{ $message }}</div></div> @enderror
-                @error('slots.'.$i.'.room') <div class="col-12"><div class="text-danger small">{{ $message }}</div></div> @enderror
                 @error('slots.'.$i.'.day') <div class="col-12"><div class="text-danger small">{{ $message }}</div></div> @enderror
             </div>
         @endforeach
@@ -225,15 +195,16 @@
 
 @push('scripts')
     <script>
-        // Superadmin ganti branch: hanya pengajar branch itu yang tampil, centang branch lain dilepas
-        // supaya tidak ikut tersimpan. Pola sama seperti pemilih grade di form Pengajar.
+        // Superadmin ganti branch: hanya pengajar branch itu yang bisa dipilih; pilihan dari branch
+        // lain dilepas supaya tidak ikut tersimpan.
         (() => {
             const select = document.querySelector('[data-branch-select]');
             if (!select) return;
-            const sync = () => document.querySelectorAll('[data-branch-teachers]').forEach(box => {
-                const show = box.dataset.branchTeachers === select.value;
-                box.classList.toggle('d-none', !show);
-                if (!show) box.querySelectorAll('input').forEach(input => input.checked = false);
+            const teacher = document.querySelector('[data-grade-teacher]');
+            const sync = () => [...(teacher?.options || [])].forEach(option => {
+                if (!option.value) return;
+                option.hidden = option.dataset.branch !== select.value;
+                if (option.hidden && option.selected) teacher.value = '';
             });
             select.addEventListener('change', sync);
             sync();

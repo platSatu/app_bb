@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Schedule;
 
 use App\Models\ScheduleGrade;
-use App\Models\ScheduleRoom;
 use App\Models\ScheduleRoutine;
 use App\Models\ScheduleTeacher;
 use App\Services\Schedule\ScheduleRoutineService;
@@ -36,7 +35,6 @@ class GradeController extends ScheduleResourceController
     protected function extraRules(Request $request, string $branchId, Model $item): array
     {
         $package = $request->input('billing') === ScheduleGrade::BILLING_PACKAGE;
-        $inBranch = fn (string $table) => Rule::exists($table, 'id')->where('branch_id', $branchId)->where('status', 'active');
 
         return [
             'billing' => ['required', Rule::in(array_keys(ScheduleGrade::BILLING_LABELS))],
@@ -45,20 +43,18 @@ class GradeController extends ScheduleResourceController
             'meetings_per_month' => ['required', 'integer', 'min:1', 'max:'.($package ? 200 : 31)],
             'duration_minutes' => ['required', 'integer', 'min:15', 'max:600'],
             'teacher_percent' => ['required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
-            'teacher_ids' => ['nullable', 'array'],
-            // Pengajar harus dari branch yang sama dengan grade-nya.
-            'teacher_ids.*' => ['string', $inBranch('schedule_teachers')],
+            // Satu grade diampu satu pengajar. Disimpan lewat tabel penghubung yang sudah ada,
+            // jadi tidak perlu migrasi dan $grade->teachers() tetap terbaca di tempat lain.
+            'teacher_id' => ['nullable', 'string', Rule::exists('schedule_teachers', 'id')->where('branch_id', $branchId)->where('status', 'active')],
 
-            // Jam buka: tiap baris dipecah sendiri mengikuti durasi grade. Baris kosong dilewati,
-            // baris setengah terisi ditolak di createSlots() dengan pesan yang menyebut nomor barisnya.
+            // Jam buka: tiap baris dipecah sendiri mengikuti durasi grade. Pengajar ikut grade,
+            // ruangan ikut Bidang, jadi barisnya cukup hari + jam mulai + jam selesai.
             'slot_month' => ['nullable', 'date_format:Y-m'],
             'slot_capacity' => ['nullable', 'integer', 'min:1', 'max:100'],
             'slots' => ['nullable', 'array', 'max:'.self::MAX_ROWS],
             'slots.*.day' => ['nullable', 'integer', Rule::in(array_keys(ScheduleRoutine::DAYS))],
             'slots.*.from' => ['nullable', 'date_format:H:i'],
             'slots.*.until' => ['nullable', 'date_format:H:i'],
-            'slots.*.teacher' => ['nullable', 'string', $inBranch('schedule_teachers')],
-            'slots.*.room' => ['nullable', 'string', $inBranch('schedule_rooms')],
         ];
     }
 
@@ -75,7 +71,7 @@ class GradeController extends ScheduleResourceController
             'meetings_per_month' => 'jumlah pertemuan',
             'duration_minutes' => 'durasi',
             'teacher_percent' => 'bagian pengajar',
-            'teacher_ids.*' => 'pengajar',
+            'teacher_id' => 'pengajar',
             'slot_month' => 'bulan jam buka',
             'slot_capacity' => 'kapasitas murid',
         ];
@@ -83,19 +79,20 @@ class GradeController extends ScheduleResourceController
 
     protected function saved(Request $request, Model $item, array $data): void
     {
-        $item->teachers()->sync($data['teacher_ids'] ?? []);
+        $item->teachers()->sync(array_filter([$data['teacher_id'] ?? null]));
         $this->createSlots($item, $data);
     }
 
     /**
-     * Jam buka -> slot. Tiap baris (hari, jam mulai, jam selesai, pengajar, ruangan) dipecah sesuai
-     * durasi grade, lalu tiap potongan disimpan sebagai jadwal biasa lewat service yang sama.
-     * Muridnya kosong dulu dan diisi lewat tombol Isi Murid; slot kosong belum membuat sesi.
+     * Jam buka -> slot. Tiap baris (hari, jam mulai, jam selesai) dipecah sesuai durasi grade, lalu
+     * tiap potongan disimpan sebagai jadwal biasa lewat service yang sama. Pengajarnya pengajar grade
+     * ini, ruangannya ruangan Bidang -- keduanya sudah ditentukan dari awal rangkaian, jadi tidak
+     * ditanyakan ulang. Murid dikosongkan dulu; slot kosong belum membuat sesi.
      */
     private function createSlots(ScheduleGrade $grade, array $data): void
     {
         $rows = collect($data['slots'] ?? [])
-            ->filter(fn ($row) => collect($row)->contains(fn ($value) => filled($value)))
+            ->filter(fn ($row) => filled($row['from'] ?? null) || filled($row['until'] ?? null))
             ->values();
 
         if ($rows->isEmpty()) {
@@ -106,21 +103,29 @@ class GradeController extends ScheduleResourceController
             throw ValidationException::withMessages(['slots' => 'Grade paket memakai pola tanggal, bukan jam buka. Kosongkan baris jamnya.']);
         }
 
-        $teacherIds = $data['teacher_ids'] ?? [];
+        $teacherId = $data['teacher_id'] ?? null;
+
+        if (! $teacherId) {
+            throw ValidationException::withMessages(['teacher_id' => 'Pilih pengajarnya dulu sebelum mengisi jam buka.']);
+        }
+
+        $grade->loadMissing('category.subject');
+        $roomId = $grade->category?->subject?->room_id;
+
+        if (! $roomId) {
+            throw ValidationException::withMessages(['slots' => 'Bidang untuk grade ini belum punya ruangan. Isi dulu ruangannya di menu Bidang, baru jam bukanya bisa dibuat.']);
+        }
+
         $capacity = (int) ($data['slot_capacity'] ?? 1) ?: 1;
         $month = Carbon::createFromFormat('!Y-m', $data['slot_month'] ?? now()->format('Y-m'));
 
         foreach ($rows as $index => $row) {
             $number = $index + 1;
 
-            foreach (['day' => 'hari', 'from' => 'jam mulai', 'until' => 'jam selesai', 'teacher' => 'pengajar', 'room' => 'ruangan'] as $key => $label) {
+            foreach (['from' => 'jam mulai', 'until' => 'jam selesai'] as $key => $label) {
                 if (blank($row[$key] ?? null)) {
                     throw ValidationException::withMessages(["slots.{$index}.{$key}" => "Baris jam ke-{$number} belum lengkap: {$label} masih kosong."]);
                 }
-            }
-
-            if (! in_array($row['teacher'], $teacherIds, true)) {
-                throw ValidationException::withMessages(["slots.{$index}.teacher" => "Pengajar di baris jam ke-{$number} belum dicentang di daftar pengajar grade ini."]);
             }
 
             $times = $this->routines->slotTimes($row['from'], $row['until'], $grade->duration_minutes, self::MAX_SLOTS);
@@ -136,9 +141,9 @@ class GradeController extends ScheduleResourceController
                 try {
                     $this->routines->save($routine, [
                         'grade_id' => $grade->getKey(),
-                        'teacher_id' => $row['teacher'],
-                        'room_id' => $row['room'],
-                        'day_of_week' => (int) $row['day'],
+                        'teacher_id' => $teacherId,
+                        'room_id' => $roomId,
+                        'day_of_week' => (int) ($row['day'] ?? 1),
                         'capacity' => $capacity,
                         'duration_minutes' => $grade->duration_minutes,
                         'start_time' => $time,
@@ -155,19 +160,20 @@ class GradeController extends ScheduleResourceController
         }
     }
 
-    /** Pengajar, ruangan, dan jam buka dipilih di sini supaya satu grade selesai dalam satu formulir. */
+    /** Pengajar & jam buka dipilih di sini supaya satu grade selesai dalam satu formulir. */
     protected function formData(Request $request, Model $item): array
     {
         $user = $request->user();
-        $scoped = fn ($query) => $query->accessibleBy($user)
-            ->when($item->exists, fn ($q) => $q->where('branch_id', $item->branch_id))
-            // Superadmin membuat grade baru: branch belum tentu, jadi pilihannya menyusul lewat Edit.
-            ->when(! $item->exists && $user->isPlatformTeam(), fn ($q) => $q->whereRaw('1 = 0'));
 
         return [
-            'teachers' => $scoped(ScheduleTeacher::query())->with('branch:id,name')->orderBy('name')->get(),
-            'rooms' => $scoped(ScheduleRoom::query())->orderBy('name')->get(['id', 'name', 'branch_id', 'status']),
-            'selectedTeachers' => collect(old('teacher_ids', $item->exists ? $item->teachers()->pluck('schedule_teachers.id')->all() : [])),
+            'teachers' => ScheduleTeacher::accessibleBy($user)
+                ->with('branch:id,name')
+                ->when($item->exists, fn ($q) => $q->where('branch_id', $item->branch_id))
+                // Superadmin membuat grade baru: branch belum tentu, jadi pilihannya menyusul lewat Edit.
+                ->when(! $item->exists && $user->isPlatformTeam(), fn ($q) => $q->whereRaw('1 = 0'))
+                ->orderBy('name')
+                ->get(),
+            'selectedTeacher' => $item->exists ? $item->teachers()->value('schedule_teachers.id') : null,
             'slotCount' => $item->exists ? ScheduleRoutine::where('grade_id', $item->getKey())->whereNull('pattern')->count() : 0,
         ];
     }
