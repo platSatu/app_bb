@@ -4,51 +4,43 @@
     @if ($method !== 'POST') @method($method) @endif
 
     @if ($openings)
-        {{-- Jam dipilih dari papan, bukan diketik: yang bisa dicentang hanya jam yang benar-benar
-             kosong untuk pengajar, ruangan, dan murid pertemuan ini. --}}
+        {{-- Jam dipilih, bukan diketik. Disusun ke bawah per hari supaya lega di kartu yang sempit:
+             tiap baris satu hari, isinya jam yang benar-benar kosong untuk pengajar, ruangan,
+             dan murid pertemuan ini. Jam yang terpakai atau sudah lewat tidak ditawarkan. --}}
         <div class="col-12">
-            <div class="table-responsive border rounded">
-                <table class="table table-sm table-bordered align-middle mb-0 text-center" style="table-layout: fixed">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="width: 5.5rem" class="small text-start">Jam</th>
-                            @foreach ($openings['days'] as $day)
-                                <th class="small">
-                                    {{ $day['label'] }}
-                                    <span class="d-block fw-normal text-muted" style="font-size: .7rem">{{ $day['date']->translatedFormat('d M') }}</span>
-                                </th>
-                            @endforeach
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($openings['times'] as $time)
-                            <tr>
-                                <td class="small fw-semibold text-nowrap text-start">{{ str_replace(':', '.', $time) }}</td>
-                                @foreach ($openings['days'] as $day)
-                                    @php($cell = $day['cells'][$time])
-                                    <td class="p-1 {{ $cell['current'] ? 'bg-primary-subtle' : '' }}">
-                                        @if ($cell['current'])
-                                            <span class="text-primary fw-semibold" style="font-size: .72rem">sekarang</span>
-                                        @elseif ($cell['taken'] || $cell['past'])
-                                            <span class="text-muted" style="font-size: .72rem">{{ $cell['taken'] ? 'terpakai' : 'lewat' }}</span>
-                                        @else
-                                            <label class="d-flex align-items-center justify-content-center gap-1 text-muted mb-0" style="font-size: .72rem; cursor: pointer">
-                                                <input type="radio" name="pilih_jam" class="form-check-input m-0 flex-shrink-0"
-                                                    data-pick-date="{{ $cell['date'] }}" data-pick-time="{{ $cell['time'] }}"
-                                                    data-pick-label="{{ $day['date']->translatedFormat('l, d M') }} jam {{ str_replace(':', '.', $cell['time']) }}">
-                                                bisa
-                                            </label>
-                                        @endif
-                                    </td>
-                                @endforeach
-                            </tr>
-                        @empty
-                            <tr><td colspan="8" class="small text-muted py-3">Belum ada jam buka di ruangan ini.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
+            <div class="list-group">
+                @foreach ($openings['days'] as $day)
+                    @php($cells = collect($day['cells']))
+                    @php($current = $cells->firstWhere('current', true))
+                    @php($free = $cells->filter(fn ($cell) => ! $cell['taken'] && ! $cell['past'] && ! $cell['current'])->values())
+                    <div class="list-group-item d-flex flex-wrap align-items-center gap-2 py-2">
+                        <div class="flex-shrink-0" style="min-width: 7.5rem">
+                            <span class="fw-semibold">{{ $day['date']->translatedFormat('l') }}</span>
+                            <span class="d-block text-muted" style="font-size: .75rem">{{ $day['date']->translatedFormat('d M Y') }}</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 flex-grow-1">
+                            @if ($current)
+                                <span class="d-inline-flex align-items-center gap-1 border border-primary bg-primary-subtle text-primary rounded-pill px-2 py-1" style="font-size: .78rem">
+                                    <i class="ri-map-pin-time-line"></i>{{ str_replace(':', '.', $current['time']) }} &middot; sekarang
+                                </span>
+                            @endif
+                            @forelse ($free as $cell)
+                                <label class="d-inline-flex align-items-center gap-1 border rounded-pill px-2 py-1 bg-white mb-0" style="font-size: .78rem; cursor: pointer">
+                                    <input type="radio" name="pilih_jam" class="form-check-input m-0 flex-shrink-0"
+                                        data-pick-date="{{ $cell['date'] }}" data-pick-time="{{ $cell['time'] }}"
+                                        data-pick-label="{{ $day['date']->translatedFormat('l, d M') }} jam {{ str_replace(':', '.', $cell['time']) }}">
+                                    {{ str_replace(':', '.', $cell['time']) }}
+                                </label>
+                            @empty
+                                @unless ($current)
+                                    <span class="text-muted" style="font-size: .78rem">Tidak ada jam kosong</span>
+                                @endunless
+                            @endforelse
+                        </div>
+                    </div>
+                @endforeach
             </div>
-            <div class="form-text" data-pick-note>Centang salah satu jam yang masih bisa dipakai.</div>
+            <div class="form-text" data-pick-note>Pilih salah satu jam untuk memindahkan pertemuan ini.</div>
         </div>
         <input type="hidden" name="date" value="{{ old('date', $default?->date->toDateString()) }}" data-pick-field="date">
         <input type="hidden" name="time" value="{{ old('time', $default?->start_at->format('H:i')) }}" data-pick-field="time">
