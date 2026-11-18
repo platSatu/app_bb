@@ -80,8 +80,7 @@
                 </div>
             @else
                 <div class="alert alert-light border small py-2 mb-3">
-                    Memindahkan <strong>satu pertemuan saja</strong> (mis. hanya Minggu 2) lewat tombol kalender di kotaknya.
-                    Tombol pensil mengubah <strong>jadwal rutin</strong>, dan itu berlaku untuk semua minggu di bulan ini.
+                    Tiap pertemuan berdiri sendiri. <strong>Ganti hari</strong> hanya mengubah pertemuan di kotak itu &mdash; minggu lain tetap.
                 </div>
 
                 <ul class="nav nav-pills gap-2 mb-3" role="tablist">
@@ -143,12 +142,11 @@
                                                                                     {{ $slot->students->pluck('name')->join(', ') }}@if ($slot->isGroup()) <span class="text-muted">({{ $slot->students->count() }}/{{ $slot->capacity }})</span>@endif
                                                                                 @endif
                                                                             </div>
-                                                                            {{-- Tanggal nyata pertemuan minggu ini. Kalau pertemuannya pernah dipindah sendiri,
-                                                                                 hari & jam barunya ditulis di sini supaya kotak ini tidak terbaca salah:
-                                                                                 polanya tetap di kolom ini, yang berubah hanya minggu ini. --}}
+                                                                            {{-- Tanggal pertemuan minggu ini. Kalau harinya sudah diganti, hari & jam barunya
+                                                                                 ditulis di sini supaya kotak ini tidak terbaca salah. --}}
                                                                             @unless ($session)
-                                                                                {{-- Tidak ada pertemuan di minggu ini. Sesi tidak dibuat mundur ke tanggal yang
-                                                                                     sudah lewat, karena tagihan dihitung dari jumlah sesi yang diikuti murid. --}}
+                                                                                {{-- Minggu ini tidak punya pertemuan: harinya memang tidak ada di minggu itu,
+                                                                                     slotnya belum berisi murid, atau jatah bulanannya sudah terpakai. --}}
                                                                                 <div class="text-muted mt-1" style="font-size: .72rem">
                                                                                     @if (! $cellInMonth)
                                                                                         Tidak ada {{ \App\Models\ScheduleRoutine::DAYS[$day] }} di minggu ini
@@ -171,29 +169,23 @@
                                                                                 @endif
                                                                             @endif
                                                                             @if ($canManage)
-                                                                                {{-- Slot yang sudah ada muridnya: cukup absensi & ubah jadwal. Isi Murid dan Hapus
-                                                                                     disembunyikan supaya kelas yang sedang berjalan tidak salah dipencet. --}}
+                                                                                {{-- Dari papan jadwal yang bisa dilakukan hanya satu: mengganti hari
+                                                                                     pertemuan ini. Mengubah jadwal rutin tidak ada di sini karena
+                                                                                     dampaknya sebulan, dan menambah murid bukan mengubah jadwal
+                                                                                     melainkan input baru -- keduanya lewat menu Grade. --}}
                                                                                 <div class="d-flex gap-1 mt-2">
-                                                                                    {{-- Ada pertemuan minggu ini: langsung ke sesinya, tempat absensi DAN pindah
-                                                                                         satu pertemuan (tanpa menggeser minggu lain). Kalau tidak ada, ke daftar sesi. --}}
                                                                                     @if ($session)
-                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Absensi & pindah pertemuan minggu ini saja"><i class="ri-calendar-check-line"></i></a>
-                                                                                    @else
-                                                                                        <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id, 'date_from' => today()->toDateString()]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Daftar sesi"><i class="ri-checkbox-multiple-line"></i></a>
+                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}" class="btn btn-sm btn-light border w-100 py-1" style="font-size: .72rem" title="Ganti hari pertemuan ini &amp; absensi. Minggu lain tidak ikut.">
+                                                                                            <i class="ri-calendar-event-line me-1"></i>Ganti hari
+                                                                                        </a>
+                                                                                    @elseif ($slot->students->isEmpty())
+                                                                                        <form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="w-100"
+                                                                                            onsubmit="return confirm('Hapus slot jam ini? Hanya slot yang belum ada muridnya yang bisa dihapus.');">
+                                                                                            @csrf
+                                                                                            @method('DELETE')
+                                                                                            <button type="submit" class="btn btn-sm btn-light border w-100 py-1 text-danger" style="font-size: .72rem"><i class="ri-delete-bin-line me-1"></i>Hapus slot</button>
+                                                                                        </form>
                                                                                     @endif
-                                                                                    @if ($slot->students->isEmpty())<a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $month->format('Y-m')]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Isi murid"><i class="ri-user-add-line"></i></a>@endif
-                                                                                    {{-- Pensil mengubah pola rutinnya, jadi dampaknya sebulan penuh. Kalau minggu ini
-                                                                                         sudah ada pertemuan, ditanya dulu supaya tidak terpencet saat yang dimaksud
-                                                                                         hanya satu minggu. --}}
-                                                                                    <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border flex-fill p-1"
-                                                                                        title="Ubah jadwal rutin — berlaku untuk SEMUA minggu di bulan ini"
-                                                                                        onclick="return confirm('Ini mengubah JADWAL RUTIN, jadi Minggu 1 sampai 5 ikut berubah.\n\nUntuk memindahkan MURID ke hari lain yang slotnya sudah dibuka, pakai Isi Murid.\nUntuk memindahkan HANYA Minggu {{ $week }}, pakai tombol kalender di kotak ini.\n\nLanjut ubah semua minggu?');"><i class="ri-edit-line"></i></a>
-                                                                                    @if ($slot->students->isEmpty())<form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="flex-fill d-flex"
-                                                                                        onsubmit="return confirm('Hapus slot ini? Sesi yang belum berjalan ikut terhapus.');">
-                                                                                        @csrf
-                                                                                        @method('DELETE')
-                                                                                        <button type="submit" class="btn btn-sm btn-light border w-100 p-1 text-danger" title="Hapus slot"><i class="ri-delete-bin-line"></i></button>
-                                                                                    </form>@endif
                                                                                 </div>
                                                                             @endif
                                                                         </div>
