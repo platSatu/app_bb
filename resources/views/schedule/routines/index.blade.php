@@ -89,6 +89,9 @@
                     Tiap pertemuan berdiri sendiri. Tombol <strong>pensil</strong> mengubah <strong>pertemuan itu saja</strong> &mdash; minggu lain tetap.
                 </div>
 
+                <style>
+                    .schedule-board > :not(caption) > * > * { padding: 10px; }
+                </style>
                 <ul class="nav nav-pills gap-2 mb-3" role="tablist">
                     @foreach ($board as $i => $group)
                         <li class="nav-item">
@@ -124,10 +127,11 @@
                                     <div class="tab-pane fade {{ $week === $activeWeek ? 'show active' : '' }}" id="room-{{ $i }}-w{{ $week }}" role="tabpanel">
                                         <div class="table-responsive">
                                             {{-- Lebar minimum: di layar sempit papan digeser ke samping, bukan dijepit sampai teks & tombol berantakan. --}}
-                                            <table class="table table-bordered align-middle mb-0" style="table-layout: fixed; min-width: 1120px">
+                                            {{-- Jarak dalam sel sama rata (10px) di semua sel: header, kolom Jam, dan isi kartu. --}}
+                                            <table class="table table-bordered align-middle mb-0 schedule-board" style="table-layout: fixed; min-width: 1180px">
                                                 <thead class="table-light">
                                                     <tr>
-                                                        <th style="width: 7.5rem">Jam</th>
+                                                        <th style="width: 8rem">Jam</th>
                                                         @foreach ($weekDays as $day)
                                                             @php($label = \App\Models\ScheduleRoutine::DAYS[$day])
                                                             @php($headDate = $weekStart->copy()->addDays($day % 7))
@@ -147,10 +151,10 @@
                                                             @foreach ($weekDays as $day)
                                                                 @if (! $weekStart->copy()->addDays($day % 7)->isSameMonth($month))
                                                                     {{-- Di luar bulan ini: nonaktif, tidak berisi jadwal. --}}
-                                                                    <td class="p-1 bg-light" title="Di luar {{ $month->translatedFormat('F') }}" style="background-image: repeating-linear-gradient(135deg, transparent 0 8px, rgba(0,0,0,.03) 8px 16px)"></td>
+                                                                    <td class="bg-light" title="Di luar {{ $month->translatedFormat('F') }}" style="background-image: repeating-linear-gradient(135deg, transparent 0 8px, rgba(0,0,0,.03) 8px 16px)"></td>
                                                                     @continue
                                                                 @endif
-                                                                <td class="p-1 align-top">
+                                                                <td class="align-top">
                                                                     @forelse (($entries[$day] ?? collect())->where('time', $time) as $entry)
                                                                         @php($slot = $entry['routine'])
                                                                         @php($session = $entry['session'])
