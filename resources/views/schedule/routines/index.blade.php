@@ -150,8 +150,7 @@
                                                                     <td class="p-1 bg-light" title="Di luar {{ $month->translatedFormat('F') }}" style="background-image: repeating-linear-gradient(135deg, transparent 0 8px, rgba(0,0,0,.03) 8px 16px)"></td>
                                                                     @continue
                                                                 @endif
-                                                                {{-- height:1px supaya kartu tunggal bisa setinggi baris (h-100): semua kartu dalam satu baris jam sama rata. --}}
-                                                                <td class="p-1 align-top" style="height: 1px">
+                                                                <td class="p-1 align-top">
                                                                     @forelse (($entries[$day] ?? collect())->where('time', $time) as $entry)
                                                                         @php($slot = $entry['routine'])
                                                                         @php($session = $entry['session'])
@@ -159,7 +158,7 @@
                                                                              Warna ditulis langsung supaya tidak berubah oleh tema; teks selalu gelap agar mudah dibaca. --}}
                                                                         @php($empty = $slot->students->isEmpty())
                                                                         @php([$bg, $edge, $chip, $chipText] = $session ? ['#e3f6ea', '#2e9e5b', '#c8eed5', 'Terisi'] : ($empty ? ['#fff6d6', '#e0a106', '#ffe69c', 'Kosong'] : ['#f3f4f6', '#adb5bd', '#e5e7eb', 'Cadangan']))
-                                                                        <div class="rounded-3 p-2 shadow-sm d-flex flex-column {{ $loop->count === 1 ? 'h-100' : '' }} {{ $loop->last ? '' : 'mb-2' }}" style="background:{{ $bg }}; border:1px solid {{ $edge }}40; border-left:4px solid {{ $edge }}; color:#212529">
+                                                                        <div class="rounded-3 p-2 shadow-sm {{ $loop->last ? '' : 'mb-2' }}" style="background:{{ $bg }}; border:1px solid {{ $edge }}40; border-left:4px solid {{ $edge }}; color:#212529">
                                                                             <div class="d-flex align-items-start gap-1">
                                                                                 <div class="flex-grow-1 text-truncate lh-sm" title="{{ $slot->grade?->label() }}">
                                                                                     <span class="d-block text-uppercase" style="font-size:.6rem; letter-spacing:.05em; color:#6c757d">Grade</span>
@@ -177,20 +176,18 @@
                                                                                     <span class="fw-semibold"><i class="ri-group-line"></i> {{ $slot->students->pluck('name')->join(', ') }}</span>@if ($slot->isGroup()) <span style="color:#495057">({{ $slot->students->count() }}/{{ $slot->capacity }})</span>@endif
                                                                                 @endif
                                                                             </div>
-                                                                            @if ($entry['from'])
-                                                                                <div class="fw-semibold mt-1" style="font-size:.72rem; color:#8a4b00"><i class="ri-arrow-right-up-line"></i> Dipindah dari {{ $entry['from'] }}</div>
-                                                                            @elseif ($entry['reason'] && ! $empty)
-                                                                                <div class="mt-1" style="font-size:.72rem; color:#495057">{{ $entry['reason'] }}</div>
-                                                                            @endif
+                                                                            {{-- Baris keterangan selalu ada (kosong pun tetap memakan tempat) & satu baris, supaya tinggi semua kartu sama rata. --}}
+                                                                            @php($note = $entry['from'] ? 'Dipindah dari '.$entry['from'] : ($empty ? '' : $entry['reason']))
+                                                                            <div class="mt-1 text-truncate {{ $entry['from'] ? 'fw-semibold' : '' }}" style="font-size:.72rem; line-height:1.1rem; height:1.1rem; color:{{ $entry['from'] ? '#8a4b00' : '#495057' }}" title="{{ $note }}">
+                                                                                @if ($entry['from'])<i class="ri-arrow-right-up-line"></i>@endif {{ $note }}
+                                                                            </div>
                                                                             @if ($canManage)
                                                                                 {{-- Tombol ikon bundar; keterangannya muncul saat kursor diarahkan (title) & dibaca pembaca layar (aria-label).
                                                                                      Pensil mengubah pertemuan di kotak ini saja. Isi Murid & Hapus hanya untuk jam yang belum berisi murid. --}}
                                                                                 @php($btn = 'btn btn-sm bg-white border rounded-circle d-inline-flex align-items-center justify-content-center p-0')
                                                                                 @php($size = 'width:28px; height:28px')
                                                                                 {{-- Satu baris, kolom sama lebar: semua tombol (termasuk hapus) selalu sejajar, berapa pun lebar kartunya. --}}
-                                                                                {{-- Pengisi: mendorong tombol ke dasar kartu, minimal sedikit jarak dari teks. --}}
-                                                                                <div class="flex-grow-1" style="min-height: .5rem"></div>
-                                                                                <div class="pt-2" style="border-top:1px dashed {{ $edge }}55; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0, 1fr); gap:4px; justify-items:center">
+                                                                                <div class="mt-2 pt-2" style="border-top:1px dashed {{ $edge }}55; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0, 1fr); gap:4px; justify-items:center">
                                                                                     <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="{{ $btn }}" style="{{ $size }}" title="Lihat semua pertemuan jam ini" aria-label="Lihat semua pertemuan jam ini"><i class="ri-calendar-schedule-line"></i></a>
                                                                                     @if ($empty)
                                                                                         <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $slot->starts_on->format('Y-m')]) }}" class="{{ $btn }}" style="{{ $size }}" title="Isi murid ke jam ini" aria-label="Isi murid ke jam ini"><i class="ri-user-add-line"></i></a>
