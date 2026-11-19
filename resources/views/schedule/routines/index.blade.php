@@ -5,6 +5,8 @@
 
 @php($filtered = request()->hasAny(['search', 'day', 'status', 'teacher', 'student', 'grade']))
 @php($next = $month->copy()->addMonthNoOverflow())
+{{-- Urutan kolom papan seperti kalender laptop: Minggu dulu (7 = Minggu, 1 = Senin, ...). --}}
+@php($weekDays = [7, 1, 2, 3, 4, 5, 6])
 
 @section('content')
     @include('schedule._tabs')
@@ -71,7 +73,7 @@
             </form>
 
             {{-- Papan mingguan: tab ruangan, di dalamnya tab Minggu 1-5. Isinya kartu yang disusun
-                 kolomnya selalu Senin-Minggu supaya posisi harinya tidak bergeser. Kartu diletakkan
+                 kolomnya selalu Minggu-Sabtu (seperti kalender laptop) supaya posisi harinya tidak bergeser. Kartu diletakkan
                  di kolom TANGGAL SESINYA, bukan menurut pola, jadi pertemuan yang dipindah ikut
                  berpindah kolomnya lengkap dengan keterangan asalnya. --}}
             @if ($board->isEmpty())
@@ -102,7 +104,7 @@
                     @foreach ($board as $i => $group)
                         <div class="tab-pane fade {{ $i === 0 ? 'show active' : '' }}" id="room-{{ $i }}" role="tabpanel">
                             <ul class="nav nav-tabs mb-3" role="tablist">
-                                {{-- Minggu kalender Senin-Minggu; Minggu 1 = minggu yang memuat tanggal 1. Tanggal bulan lain tampil tapi nonaktif. --}}
+                                {{-- Minggu kalender Minggu-Sabtu; Minggu 1 = minggu yang memuat tanggal 1. Tanggal bulan lain tampil tapi nonaktif. --}}
                                 @foreach ($weekStarts as $week => $weekStart)
                                     @php($from = $weekStart->copy())
                                     @php($to = $weekStart->copy()->addDays(6))
@@ -125,8 +127,9 @@
                                                 <thead class="table-light">
                                                     <tr>
                                                         <th style="width: 8.5rem">Jam</th>
-                                                        @foreach (\App\Models\ScheduleRoutine::DAYS as $day => $label)
-                                                            @php($headDate = $weekStart->copy()->addDays($day - 1))
+                                                        @foreach ($weekDays as $day)
+                                                            @php($label = \App\Models\ScheduleRoutine::DAYS[$day])
+                                                            @php($headDate = $weekStart->copy()->addDays($day % 7))
                                                             {{-- Patokan tetap bulan ini: hari milik bulan lain tetap terlihat tanggalnya, tapi nonaktif. --}}
                                                             <th class="text-center small {{ $headDate->isSameMonth($month) ? '' : 'text-muted fw-normal opacity-50' }}">
                                                                 {{ $label }}
@@ -140,8 +143,8 @@
                                                         <tr>
                                                             @php($rowSlot = $entries->flatten(1)->firstWhere('time', $time)['routine'])
                                                             <td class="text-nowrap fw-semibold small">{{ str_replace(':', '.', $time) }} s/d {{ \Carbon\Carbon::createFromFormat('H:i', $time)->addMinutes($rowSlot->duration_minutes)->format('H.i') }}</td>
-                                                            @foreach (\App\Models\ScheduleRoutine::DAYS as $day => $label)
-                                                                @if (! $weekStart->copy()->addDays($day - 1)->isSameMonth($month))
+                                                            @foreach ($weekDays as $day)
+                                                                @if (! $weekStart->copy()->addDays($day % 7)->isSameMonth($month))
                                                                     {{-- Di luar bulan ini: nonaktif, tidak berisi jadwal. --}}
                                                                     <td class="p-1 bg-light" title="Di luar {{ $month->translatedFormat('F') }}" style="background-image: repeating-linear-gradient(135deg, transparent 0 8px, rgba(0,0,0,.03) 8px 16px)"></td>
                                                                     @continue

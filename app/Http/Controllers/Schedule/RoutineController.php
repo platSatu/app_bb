@@ -71,15 +71,14 @@ class RoutineController extends Controller
         // kartu yang disusun ke bawah per hari. Kartu diletakkan menurut TANGGAL SESINYA, bukan
         // menurut pola -- jadi pertemuan yang dipindah muncul di hari barunya, lengkap dengan
         // keterangan asalnya. Satu sumber, satu tempat: jadwal sama dilihat dari mana pun.
-        // Minggu = minggu kalender Senin-Minggu (18 November 2026). Dulu blok tanggal 1-7, 8-14, ..., sehingga
-        // kolom Senin bisa berisi tanggal 7 sesudah Minggu tanggal 6. Minggu 1 = minggu yang memuat tanggal 1;
-        // tanggal di luar bulan ini dibiarkan kosong. Satu bulan bisa 4-6 minggu.
-        $firstMonday = $month->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
+        // Minggu = minggu kalender Minggu-Sabtu, sama seperti kalender di laptop/HP (19 November 2026; sebelumnya
+        // Senin-Minggu). Minggu 1 = minggu yang memuat tanggal 1; tanggal di luar bulan ini tampil tapi nonaktif.
+        $firstSunday = $month->copy()->startOfMonth()->startOfWeek(Carbon::SUNDAY);
         // Patokan tempat kursus: Minggu 1 s/d Minggu 5 saja (19 November 2026). Bulan yang butuh baris ke-6
         // (mis. Nov 2026: 1 Nov hari Minggu, 30 Nov hari Senin) tidak dibuatkan tab ke-6; tanggal sisanya tetap ada
         // di menu Sesi & Absensi.
-        $weekCount = min(5, (int) ceil(((int) round($firstMonday->diffInDays($month->copy()->endOfMonth()->startOfDay())) + 1) / 7));
-        $weekOf = fn (Carbon $date) => intdiv((int) round($firstMonday->diffInDays($date->copy()->startOfDay())), 7) + 1;
+        $weekCount = min(5, (int) ceil(((int) round($firstSunday->diffInDays($month->copy()->endOfMonth()->startOfDay())) + 1) / 7));
+        $weekOf = fn (Carbon $date) => intdiv((int) round($firstSunday->diffInDays($date->copy()->startOfDay())), 7) + 1;
 
         $sessions = ScheduleSession::whereIn('routine_id', $routines->pluck('id'))
             ->whereBetween('date', [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()])
@@ -89,11 +88,11 @@ class RoutineController extends Controller
             ->groupBy(fn ($session) => $session->routine_id.'@'.$weekOf($session->date));
 
         $board = $routines->groupBy(fn ($routine) => (string) $routine->room_id)
-            ->map(function ($rows) use ($sessions, $month, $firstMonday, $weekCount) {
+            ->map(function ($rows) use ($sessions, $month, $firstSunday, $weekCount) {
                 $weeks = [];
 
                 for ($week = 1; $week <= $weekCount; $week++) {
-                    $weekStart = $firstMonday->copy()->addWeeks($week - 1);
+                    $weekStart = $firstSunday->copy()->addWeeks($week - 1);
                     $days = [];
 
                     foreach ($rows as $routine) {
@@ -119,7 +118,7 @@ class RoutineController extends Controller
         return view('schedule.routines.index', [...$this->shared($request),
             'items' => $routines, 'board' => $board, 'month' => $month, 'copyPending' => $this->copyPending($request, $month),
             // Tab minggu: Senin awal tiap minggu, dan minggu yang dibuka pertama (minggu ini kalau bulannya bulan ini).
-            'weekStarts' => collect(range(1, $weekCount))->mapWithKeys(fn ($week) => [$week => $firstMonday->copy()->addWeeks($week - 1)]),
+            'weekStarts' => collect(range(1, $weekCount))->mapWithKeys(fn ($week) => [$week => $firstSunday->copy()->addWeeks($week - 1)]),
             'activeWeek' => $month->isSameMonth(today()) ? min($weekCount, $weekOf(today())) : 1]);
     }
 
