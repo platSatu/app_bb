@@ -153,7 +153,9 @@
                                                                     @forelse (($entries[$day] ?? collect())->where('time', $time) as $entry)
                                                                         @php($slot = $entry['routine'])
                                                                         @php($session = $entry['session'])
-                                                                        <div class="border rounded p-2 {{ $loop->last ? '' : 'mb-1' }} {{ $session ? 'bg-success-subtle' : 'bg-light' }}">
+                                                                        {{-- Warna kartu: hijau = pertemuan terisi, kuning = jam kosong (belum ada murid), abu = jatah bulan ini sudah terpakai / lewat. --}}
+                                                                        @php($tone = $session ? 'bg-success bg-opacity-25 border-success border-opacity-50' : ($slot->students->isEmpty() ? 'bg-warning bg-opacity-25 border-warning border-opacity-50' : 'bg-light'))
+                                                                        <div class="border rounded p-2 {{ $loop->last ? '' : 'mb-1' }} {{ $tone }}">
                                                                             <div class="small fw-semibold text-truncate">{{ $slot->grade?->name ?? '-' }}</div>
                                                                             <div class="text-muted text-truncate" style="font-size: .75rem">{{ $slot->grade?->category?->subject?->name }} &rsaquo; {{ $slot->teacher?->name }}</div>
                                                                             <div class="small text-truncate mt-1">
@@ -171,24 +173,25 @@
                                                                             @if ($canManage)
                                                                                 {{-- Pensil mengubah pertemuan di kotak ini saja. Isi Murid & Hapus hanya
                                                                                      untuk jam yang belum berisi murid. --}}
-                                                                                <div class="d-flex gap-1 mt-2">
-                                                                                    <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Semua pertemuan jam ini"><i class="ri-checkbox-multiple-line"></i></a>
+                                                                                {{-- Grid kolom sama lebar: tombol selalu muat di dalam kartu, tidak keluar di kolom yang sempit. --}}
+                                                                                <div class="mt-2" style="display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: .25rem">
+                                                                                    <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="btn btn-sm btn-light border px-0 py-1" title="Semua pertemuan jam ini"><i class="ri-checkbox-multiple-line"></i></a>
                                                                                     @if ($slot->students->isEmpty())
-                                                                                        <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $slot->starts_on->format('Y-m')]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Isi murid"><i class="ri-user-add-line"></i></a>
+                                                                                        <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $slot->starts_on->format('Y-m')]) }}" class="btn btn-sm btn-light border px-0 py-1" title="Isi murid"><i class="ri-user-add-line"></i></a>
                                                                                     @endif
                                                                                     @if ($session)
                                                                                         {{-- Langsung ke bagian Absensi pertemuan ini. --}}
-                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}#absensi" class="btn btn-sm btn-light border flex-fill p-1" title="Absensi pertemuan ini"><i class="ri-user-follow-line"></i></a>
-                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Ubah pertemuan ini saja"><i class="ri-edit-line"></i></a>
+                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}#absensi" class="btn btn-sm btn-light border px-0 py-1" title="Absensi pertemuan ini"><i class="ri-user-follow-line"></i></a>
+                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}" class="btn btn-sm btn-light border px-0 py-1" title="Ubah pertemuan ini saja"><i class="ri-edit-line"></i></a>
                                                                                     @elseif ($slot->students->isEmpty())
-                                                                                        <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Ubah jam ini"><i class="ri-edit-line"></i></a>
+                                                                                        <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border px-0 py-1" title="Ubah jam ini"><i class="ri-edit-line"></i></a>
                                                                                     @endif
                                                                                     @if ($slot->students->isEmpty())
-                                                                                        <form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="flex-fill d-flex"
+                                                                                        <form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="d-flex"
                                                                                             onsubmit="return confirm('Hapus jam ini? Hanya jam yang belum ada muridnya yang bisa dihapus.');">
                                                                                             @csrf
                                                                                             @method('DELETE')
-                                                                                            <button type="submit" class="btn btn-sm btn-light border w-100 p-1 text-danger" title="Hapus jam ini"><i class="ri-delete-bin-line"></i></button>
+                                                                                            <button type="submit" class="btn btn-sm btn-light border w-100 px-0 py-1 text-danger" title="Hapus jam ini"><i class="ri-delete-bin-line"></i></button>
                                                                                         </form>
                                                                                     @endif
                                                                                 </div>
