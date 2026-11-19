@@ -153,45 +153,48 @@
                                                                     @forelse (($entries[$day] ?? collect())->where('time', $time) as $entry)
                                                                         @php($slot = $entry['routine'])
                                                                         @php($session = $entry['session'])
-                                                                        {{-- Warna kartu: hijau = pertemuan terisi, kuning = jam kosong (belum ada murid), abu = jatah bulan ini sudah terpakai / lewat. --}}
-                                                                        @php($tone = $session ? 'bg-success bg-opacity-25 border-success border-opacity-50' : ($slot->students->isEmpty() ? 'bg-warning bg-opacity-25 border-warning border-opacity-50' : 'bg-light'))
-                                                                        <div class="border rounded p-2 {{ $loop->last ? '' : 'mb-1' }} {{ $tone }}">
+                                                                        {{-- Warna kartu: hijau = pertemuan terisi, kuning = jam kosong (belum ada murid), abu = jatah bulan ini sudah terpakai / lewat.
+                                                                             Warna ditulis langsung supaya tidak berubah oleh tema; teks selalu gelap agar mudah dibaca. --}}
+                                                                        @php($tone = $session ? 'background:#c8eed5;border-color:#2e9e5b !important' : ($slot->students->isEmpty() ? 'background:#ffeeb3;border-color:#e0a106 !important' : 'background:#f1f3f5'))
+                                                                        <div class="border rounded p-2 {{ $loop->last ? '' : 'mb-1' }}" style="{{ $tone }}; color:#212529">
                                                                             <div class="small fw-semibold text-truncate">{{ $slot->grade?->name ?? '-' }}</div>
-                                                                            <div class="text-muted text-truncate" style="font-size: .75rem">{{ $slot->grade?->category?->subject?->name }} &rsaquo; {{ $slot->teacher?->name }}</div>
-                                                                            <div class="small text-truncate mt-1">
+                                                                            <div class="text-truncate" style="font-size: .75rem; color:#495057">{{ $slot->grade?->category?->subject?->name }} &rsaquo; {{ $slot->teacher?->name }}</div>
+                                                                            <div class="small text-truncate mt-1 fw-semibold">
                                                                                 @if ($slot->students->isEmpty())
-                                                                                    <span class="text-muted">Belum ada murid</span>
+                                                                                    <span style="color:#7a5a00">Belum ada murid</span>
                                                                                 @else
-                                                                                    {{ $slot->students->pluck('name')->join(', ') }}@if ($slot->isGroup()) <span class="text-muted">({{ $slot->students->count() }}/{{ $slot->capacity }})</span>@endif
+                                                                                    {{ $slot->students->pluck('name')->join(', ') }}@if ($slot->isGroup()) <span class="fw-normal" style="color:#495057">({{ $slot->students->count() }}/{{ $slot->capacity }})</span>@endif
                                                                                 @endif
                                                                             </div>
                                                                             @if ($entry['from'])
-                                                                                <div class="text-warning-emphasis fw-semibold mt-1" style="font-size: .72rem"><i class="ri-arrow-right-up-line"></i> Dipindah dari {{ $entry['from'] }}</div>
-                                                                            @elseif ($entry['reason'])
-                                                                                <div class="text-muted mt-1" style="font-size: .72rem">{{ $entry['reason'] }}</div>
+                                                                                <div class="fw-semibold mt-1" style="font-size: .72rem; color:#8a4b00"><i class="ri-arrow-right-up-line"></i> Dipindah dari {{ $entry['from'] }}</div>
+                                                                            @elseif ($entry['reason'] && $slot->students->isNotEmpty())
+                                                                                <div class="mt-1" style="font-size: .72rem; color:#495057">{{ $entry['reason'] }}</div>
                                                                             @endif
                                                                             @if ($canManage)
-                                                                                {{-- Pensil mengubah pertemuan di kotak ini saja. Isi Murid & Hapus hanya
-                                                                                     untuk jam yang belum berisi murid. --}}
-                                                                                {{-- Grid kolom sama lebar: tombol selalu muat di dalam kartu, tidak keluar di kolom yang sempit. --}}
+                                                                                {{-- Tiap tombol diberi tulisan kecil + keterangan (title/aria-label), supaya jelas fungsinya.
+                                                                                     Pensil mengubah pertemuan di kotak ini saja. Isi Murid & Hapus hanya untuk jam yang belum berisi murid.
+                                                                                     Grid kolom sama lebar: tombol selalu muat di dalam kartu, tidak keluar di kolom yang sempit. --}}
+                                                                                @php($btn = 'btn btn-sm btn-light border px-0 py-1 lh-1 text-body')
+                                                                                @php($caption = 'd-block mt-1 text-truncate')
                                                                                 <div class="mt-2" style="display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: .25rem">
-                                                                                    <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="btn btn-sm btn-light border px-0 py-1" title="Semua pertemuan jam ini"><i class="ri-checkbox-multiple-line"></i></a>
+                                                                                    <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="{{ $btn }}" title="Lihat semua pertemuan jam ini" aria-label="Lihat semua pertemuan jam ini"><i class="ri-checkbox-multiple-line"></i><span class="{{ $caption }}" style="font-size:.62rem">Sesi</span></a>
                                                                                     @if ($slot->students->isEmpty())
-                                                                                        <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $slot->starts_on->format('Y-m')]) }}" class="btn btn-sm btn-light border px-0 py-1" title="Isi murid"><i class="ri-user-add-line"></i></a>
+                                                                                        <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $slot->starts_on->format('Y-m')]) }}" class="{{ $btn }}" title="Isi murid ke jam ini" aria-label="Isi murid ke jam ini"><i class="ri-user-add-line"></i><span class="{{ $caption }}" style="font-size:.62rem">Murid</span></a>
                                                                                     @endif
                                                                                     @if ($session)
                                                                                         {{-- Langsung ke bagian Absensi pertemuan ini. --}}
-                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}#absensi" class="btn btn-sm btn-light border px-0 py-1" title="Absensi pertemuan ini"><i class="ri-user-follow-line"></i></a>
-                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}" class="btn btn-sm btn-light border px-0 py-1" title="Ubah pertemuan ini saja"><i class="ri-edit-line"></i></a>
+                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}#absensi" class="{{ $btn }}" title="Isi absensi pertemuan ini" aria-label="Isi absensi pertemuan ini"><i class="ri-user-follow-line"></i><span class="{{ $caption }}" style="font-size:.62rem">Absen</span></a>
+                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}" class="{{ $btn }}" title="Ubah pertemuan ini saja (pindah, batal, pengganti)" aria-label="Ubah pertemuan ini saja"><i class="ri-edit-line"></i><span class="{{ $caption }}" style="font-size:.62rem">Ubah</span></a>
                                                                                     @elseif ($slot->students->isEmpty())
-                                                                                        <a href="{{ route($routes.'.routines.edit', $slot) }}" class="btn btn-sm btn-light border px-0 py-1" title="Ubah jam ini"><i class="ri-edit-line"></i></a>
+                                                                                        <a href="{{ route($routes.'.routines.edit', $slot) }}" class="{{ $btn }}" title="Ubah hari / jam slot ini" aria-label="Ubah hari atau jam slot ini"><i class="ri-edit-line"></i><span class="{{ $caption }}" style="font-size:.62rem">Ubah</span></a>
                                                                                     @endif
                                                                                     @if ($slot->students->isEmpty())
                                                                                         <form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="d-flex"
                                                                                             onsubmit="return confirm('Hapus jam ini? Hanya jam yang belum ada muridnya yang bisa dihapus.');">
                                                                                             @csrf
                                                                                             @method('DELETE')
-                                                                                            <button type="submit" class="btn btn-sm btn-light border w-100 px-0 py-1 text-danger" title="Hapus jam ini"><i class="ri-delete-bin-line"></i></button>
+                                                                                            <button type="submit" class="{{ $btn }} w-100 text-danger" title="Hapus slot jam ini" aria-label="Hapus slot jam ini"><i class="ri-delete-bin-line"></i><span class="{{ $caption }}" style="font-size:.62rem">Hapus</span></button>
                                                                                         </form>
                                                                                     @endif
                                                                                 </div>
