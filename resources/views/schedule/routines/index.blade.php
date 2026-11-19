@@ -123,10 +123,11 @@
                                     @php($times = $entries->flatten(1)->pluck('time')->unique()->sort()->values())
                                     <div class="tab-pane fade {{ $week === $activeWeek ? 'show active' : '' }}" id="room-{{ $i }}-w{{ $week }}" role="tabpanel">
                                         <div class="table-responsive">
-                                            <table class="table table-bordered align-middle mb-0" style="table-layout: fixed">
+                                            {{-- Lebar minimum: di layar sempit papan digeser ke samping, bukan dijepit sampai teks & tombol berantakan. --}}
+                                            <table class="table table-bordered align-middle mb-0" style="table-layout: fixed; min-width: 1120px">
                                                 <thead class="table-light">
                                                     <tr>
-                                                        <th style="width: 8.5rem">Jam</th>
+                                                        <th style="width: 7.5rem">Jam</th>
                                                         @foreach ($weekDays as $day)
                                                             @php($label = \App\Models\ScheduleRoutine::DAYS[$day])
                                                             @php($headDate = $weekStart->copy()->addDays($day % 7))
@@ -153,47 +154,53 @@
                                                                     @forelse (($entries[$day] ?? collect())->where('time', $time) as $entry)
                                                                         @php($slot = $entry['routine'])
                                                                         @php($session = $entry['session'])
-                                                                        {{-- Warna kartu: hijau = pertemuan terisi, kuning = jam kosong (belum ada murid), abu = jatah bulan ini sudah terpakai / lewat.
+                                                                        {{-- Kartu: hijau = pertemuan terisi, kuning = jam kosong (belum ada murid), abu = jatah bulan ini sudah terpakai / lewat.
                                                                              Warna ditulis langsung supaya tidak berubah oleh tema; teks selalu gelap agar mudah dibaca. --}}
-                                                                        @php($tone = $session ? 'background:#c8eed5;border-color:#2e9e5b !important' : ($slot->students->isEmpty() ? 'background:#ffeeb3;border-color:#e0a106 !important' : 'background:#f1f3f5'))
-                                                                        <div class="border rounded p-2 {{ $loop->last ? '' : 'mb-1' }}" style="{{ $tone }}; color:#212529">
-                                                                            <div class="small fw-semibold text-truncate">{{ $slot->grade?->name ?? '-' }}</div>
-                                                                            <div class="text-truncate" style="font-size: .75rem; color:#495057">{{ $slot->grade?->category?->subject?->name }} &rsaquo; {{ $slot->teacher?->name }}</div>
-                                                                            <div class="small text-truncate mt-1 fw-semibold">
-                                                                                @if ($slot->students->isEmpty())
-                                                                                    <span style="color:#7a5a00">Belum ada murid</span>
+                                                                        @php($empty = $slot->students->isEmpty())
+                                                                        @php([$bg, $edge, $chip, $chipText] = $session ? ['#e3f6ea', '#2e9e5b', '#c8eed5', 'Terisi'] : ($empty ? ['#fff6d6', '#e0a106', '#ffe69c', 'Kosong'] : ['#f3f4f6', '#adb5bd', '#e5e7eb', 'Cadangan']))
+                                                                        <div class="rounded-3 p-2 shadow-sm {{ $loop->last ? '' : 'mb-2' }}" style="background:{{ $bg }}; border:1px solid {{ $edge }}40; border-left:4px solid {{ $edge }}; color:#212529">
+                                                                            <div class="d-flex align-items-start gap-1">
+                                                                                <div class="fw-semibold small flex-grow-1 text-truncate" title="{{ $slot->grade?->label() }}">{{ $slot->grade?->name ?? '-' }}</div>
+                                                                                <span class="badge rounded-pill fw-medium" style="background:{{ $chip }}; color:#212529; font-size:.65rem">{{ $chipText }}</span>
+                                                                            </div>
+                                                                            <div class="text-truncate" style="font-size:.75rem; color:#495057" title="{{ $slot->grade?->category?->subject?->name }} › {{ $slot->teacher?->name }}">
+                                                                                <i class="ri-music-2-line"></i> {{ $slot->grade?->category?->subject?->name }} &middot; <i class="ri-user-star-line"></i> {{ $slot->teacher?->name }}
+                                                                            </div>
+                                                                            <div class="mt-1" style="font-size:.8rem">
+                                                                                @if ($empty)
+                                                                                    <span style="color:#7a5a00"><i class="ri-user-unfollow-line"></i> Belum ada murid</span>
                                                                                 @else
-                                                                                    {{ $slot->students->pluck('name')->join(', ') }}@if ($slot->isGroup()) <span class="fw-normal" style="color:#495057">({{ $slot->students->count() }}/{{ $slot->capacity }})</span>@endif
+                                                                                    <span class="fw-semibold"><i class="ri-group-line"></i> {{ $slot->students->pluck('name')->join(', ') }}</span>@if ($slot->isGroup()) <span style="color:#495057">({{ $slot->students->count() }}/{{ $slot->capacity }})</span>@endif
                                                                                 @endif
                                                                             </div>
                                                                             @if ($entry['from'])
-                                                                                <div class="fw-semibold mt-1" style="font-size: .72rem; color:#8a4b00"><i class="ri-arrow-right-up-line"></i> Dipindah dari {{ $entry['from'] }}</div>
-                                                                            @elseif ($entry['reason'] && $slot->students->isNotEmpty())
-                                                                                <div class="mt-1" style="font-size: .72rem; color:#495057">{{ $entry['reason'] }}</div>
+                                                                                <div class="fw-semibold mt-1" style="font-size:.72rem; color:#8a4b00"><i class="ri-arrow-right-up-line"></i> Dipindah dari {{ $entry['from'] }}</div>
+                                                                            @elseif ($entry['reason'] && ! $empty)
+                                                                                <div class="mt-1" style="font-size:.72rem; color:#495057">{{ $entry['reason'] }}</div>
                                                                             @endif
                                                                             @if ($canManage)
-                                                                                {{-- Ikon PNG transparan (public/images/icons/schedule, dari Remix Icon) dengan alt + title, supaya jelas fungsinya.
-                                                                                     Pensil mengubah pertemuan di kotak ini saja. Isi Murid & Hapus hanya untuk jam yang belum berisi murid.
-                                                                                     Grid kolom sama lebar: tombol selalu muat di dalam kartu, tidak keluar di kolom yang sempit. --}}
-                                                                                @php($btn = 'btn btn-sm btn-light border px-0 py-1 lh-1')
-                                                                                <div class="mt-2" style="display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: .25rem">
-                                                                                    <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="{{ $btn }}" title="Lihat semua pertemuan jam ini" aria-label="Lihat semua pertemuan jam ini"><img src="{{ asset('images/icons/schedule/sesi.png') }}" alt="Lihat semua pertemuan jam ini" width="18" height="18"></a>
-                                                                                    @if ($slot->students->isEmpty())
-                                                                                        <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $slot->starts_on->format('Y-m')]) }}" class="{{ $btn }}" title="Isi murid ke jam ini" aria-label="Isi murid ke jam ini"><img src="{{ asset('images/icons/schedule/murid.png') }}" alt="Isi murid ke jam ini" width="18" height="18"></a>
+                                                                                {{-- Tombol ikon bundar; keterangannya muncul saat kursor diarahkan (title) & dibaca pembaca layar (aria-label).
+                                                                                     Pensil mengubah pertemuan di kotak ini saja. Isi Murid & Hapus hanya untuk jam yang belum berisi murid. --}}
+                                                                                @php($btn = 'btn btn-sm bg-white border rounded-circle d-inline-flex align-items-center justify-content-center p-0')
+                                                                                @php($size = 'width:30px; height:30px')
+                                                                                <div class="d-flex flex-wrap gap-1 mt-2 pt-2" style="border-top:1px dashed {{ $edge }}55">
+                                                                                    <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="{{ $btn }}" style="{{ $size }}" title="Lihat semua pertemuan jam ini" aria-label="Lihat semua pertemuan jam ini"><i class="ri-calendar-schedule-line"></i></a>
+                                                                                    @if ($empty)
+                                                                                        <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $slot->starts_on->format('Y-m')]) }}" class="{{ $btn }}" style="{{ $size }}" title="Isi murid ke jam ini" aria-label="Isi murid ke jam ini"><i class="ri-user-add-line"></i></a>
                                                                                     @endif
                                                                                     @if ($session)
                                                                                         {{-- Langsung ke bagian Absensi pertemuan ini. --}}
-                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}#absensi" class="{{ $btn }}" title="Isi absensi pertemuan ini" aria-label="Isi absensi pertemuan ini"><img src="{{ asset('images/icons/schedule/absen.png') }}" alt="Isi absensi pertemuan ini" width="18" height="18"></a>
-                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}" class="{{ $btn }}" title="Ubah pertemuan ini saja (pindah, batal, pengganti)" aria-label="Ubah pertemuan ini saja"><img src="{{ asset('images/icons/schedule/ubah.png') }}" alt="Ubah pertemuan ini saja" width="18" height="18"></a>
-                                                                                    @elseif ($slot->students->isEmpty())
-                                                                                        <a href="{{ route($routes.'.routines.edit', $slot) }}" class="{{ $btn }}" title="Ubah hari / jam slot ini" aria-label="Ubah hari atau jam slot ini"><img src="{{ asset('images/icons/schedule/ubah.png') }}" alt="Ubah hari atau jam slot ini" width="18" height="18"></a>
+                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}#absensi" class="{{ $btn }}" style="{{ $size }}" title="Isi absensi pertemuan ini" aria-label="Isi absensi pertemuan ini"><i class="ri-user-follow-line"></i></a>
+                                                                                        <a href="{{ route($routes.'.sessions.show', $session->id) }}" class="{{ $btn }}" style="{{ $size }}" title="Ubah pertemuan ini saja (pindah, batal, pengganti)" aria-label="Ubah pertemuan ini saja"><i class="ri-pencil-line"></i></a>
+                                                                                    @elseif ($empty)
+                                                                                        <a href="{{ route($routes.'.routines.edit', $slot) }}" class="{{ $btn }}" style="{{ $size }}" title="Ubah hari / jam slot ini" aria-label="Ubah hari atau jam slot ini"><i class="ri-pencil-line"></i></a>
                                                                                     @endif
-                                                                                    @if ($slot->students->isEmpty())
-                                                                                        <form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="d-flex"
+                                                                                    @if ($empty)
+                                                                                        <form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="ms-auto"
                                                                                             onsubmit="return confirm('Hapus jam ini? Hanya jam yang belum ada muridnya yang bisa dihapus.');">
                                                                                             @csrf
                                                                                             @method('DELETE')
-                                                                                            <button type="submit" class="{{ $btn }} w-100 text-danger" title="Hapus slot jam ini" aria-label="Hapus slot jam ini"><img src="{{ asset('images/icons/schedule/hapus.png') }}" alt="Hapus slot jam ini" width="18" height="18"></button>
+                                                                                            <button type="submit" class="{{ $btn }} text-danger" style="{{ $size }}" title="Hapus slot jam ini" aria-label="Hapus slot jam ini"><i class="ri-delete-bin-6-line"></i></button>
                                                                                         </form>
                                                                                     @endif
                                                                                 </div>
