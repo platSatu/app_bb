@@ -75,7 +75,10 @@ class RoutineController extends Controller
         // kolom Senin bisa berisi tanggal 7 sesudah Minggu tanggal 6. Minggu 1 = minggu yang memuat tanggal 1;
         // tanggal di luar bulan ini dibiarkan kosong. Satu bulan bisa 4-6 minggu.
         $firstMonday = $month->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
-        $weekCount = (int) ceil(((int) round($firstMonday->diffInDays($month->copy()->endOfMonth()->startOfDay())) + 1) / 7);
+        // Patokan tempat kursus: Minggu 1 s/d Minggu 5 saja (19 November 2026). Bulan yang butuh baris ke-6
+        // (mis. Nov 2026: 1 Nov hari Minggu, 30 Nov hari Senin) tidak dibuatkan tab ke-6; tanggal sisanya tetap ada
+        // di menu Sesi & Absensi.
+        $weekCount = min(5, (int) ceil(((int) round($firstMonday->diffInDays($month->copy()->endOfMonth()->startOfDay())) + 1) / 7));
         $weekOf = fn (Carbon $date) => intdiv((int) round($firstMonday->diffInDays($date->copy()->startOfDay())), 7) + 1;
 
         $sessions = ScheduleSession::whereIn('routine_id', $routines->pluck('id'))
@@ -117,7 +120,7 @@ class RoutineController extends Controller
             'items' => $routines, 'board' => $board, 'month' => $month, 'copyPending' => $this->copyPending($request, $month),
             // Tab minggu: Senin awal tiap minggu, dan minggu yang dibuka pertama (minggu ini kalau bulannya bulan ini).
             'weekStarts' => collect(range(1, $weekCount))->mapWithKeys(fn ($week) => [$week => $firstMonday->copy()->addWeeks($week - 1)]),
-            'activeWeek' => $month->isSameMonth(today()) ? $weekOf(today()) : 1]);
+            'activeWeek' => $month->isSameMonth(today()) ? min($weekCount, $weekOf(today())) : 1]);
     }
 
     /**

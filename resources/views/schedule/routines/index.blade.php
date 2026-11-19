@@ -102,7 +102,7 @@
                     @foreach ($board as $i => $group)
                         <div class="tab-pane fade {{ $i === 0 ? 'show active' : '' }}" id="room-{{ $i }}" role="tabpanel">
                             <ul class="nav nav-tabs mb-3" role="tablist">
-                                {{-- Minggu kalender Senin-Minggu apa adanya, termasuk tanggal bulan sebelum/sesudahnya. --}}
+                                {{-- Minggu kalender Senin-Minggu; Minggu 1 = minggu yang memuat tanggal 1. Tanggal bulan lain tampil tapi nonaktif. --}}
                                 @foreach ($weekStarts as $week => $weekStart)
                                     @php($from = $weekStart->copy())
                                     @php($to = $weekStart->copy()->addDays(6))
@@ -127,8 +127,8 @@
                                                         <th style="width: 8.5rem">Jam</th>
                                                         @foreach (\App\Models\ScheduleRoutine::DAYS as $day => $label)
                                                             @php($headDate = $weekStart->copy()->addDays($day - 1))
-                                                            {{-- Hari milik bulan lain tetap ditampilkan (kalender sebenarnya), diberi warna lebih pudar. --}}
-                                                            <th class="text-center small {{ $headDate->isSameMonth($month) ? '' : 'text-muted opacity-75' }}">
+                                                            {{-- Patokan tetap bulan ini: hari milik bulan lain tetap terlihat tanggalnya, tapi nonaktif. --}}
+                                                            <th class="text-center small {{ $headDate->isSameMonth($month) ? '' : 'text-muted fw-normal opacity-50' }}">
                                                                 {{ $label }}
                                                                 <span class="d-block fw-normal text-muted" style="font-size: .7rem">{{ $headDate->translatedFormat('d M') }}</span>
                                                             </th>
@@ -141,15 +141,16 @@
                                                             @php($rowSlot = $entries->flatten(1)->firstWhere('time', $time)['routine'])
                                                             <td class="text-nowrap fw-semibold small">{{ str_replace(':', '.', $time) }} s/d {{ \Carbon\Carbon::createFromFormat('H:i', $time)->addMinutes($rowSlot->duration_minutes)->format('H.i') }}</td>
                                                             @foreach (\App\Models\ScheduleRoutine::DAYS as $day => $label)
+                                                                @if (! $weekStart->copy()->addDays($day - 1)->isSameMonth($month))
+                                                                    {{-- Di luar bulan ini: nonaktif, tidak berisi jadwal. --}}
+                                                                    <td class="p-1 bg-light" title="Di luar {{ $month->translatedFormat('F') }}" style="background-image: repeating-linear-gradient(135deg, transparent 0 8px, rgba(0,0,0,.03) 8px 16px)"></td>
+                                                                    @continue
+                                                                @endif
                                                                 <td class="p-1 align-top">
                                                                     @forelse (($entries[$day] ?? collect())->where('time', $time) as $entry)
                                                                         @php($slot = $entry['routine'])
                                                                         @php($session = $entry['session'])
-                                                                        @php($otherMonth = ! $entry['date']->isSameMonth($month))
-                                                                        <div class="border rounded p-2 {{ $loop->last ? '' : 'mb-1' }} {{ $session ? 'bg-success-subtle' : 'bg-light' }} {{ $otherMonth ? 'opacity-75' : '' }}">
-                                                                            @if ($otherMonth)
-                                                                                <div class="text-muted" style="font-size: .7rem"><i class="ri-calendar-line"></i> Jadwal {{ $entry['date']->translatedFormat('F') }}</div>
-                                                                            @endif
+                                                                        <div class="border rounded p-2 {{ $loop->last ? '' : 'mb-1' }} {{ $session ? 'bg-success-subtle' : 'bg-light' }}">
                                                                             <div class="small fw-semibold text-truncate">{{ $slot->grade?->name ?? '-' }}</div>
                                                                             <div class="text-muted text-truncate" style="font-size: .75rem">{{ $slot->grade?->category?->subject?->name }} &rsaquo; {{ $slot->teacher?->name }}</div>
                                                                             <div class="small text-truncate mt-1">
