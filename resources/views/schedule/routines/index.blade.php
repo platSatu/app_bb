@@ -150,7 +150,8 @@
                                                                     <td class="p-1 bg-light" title="Di luar {{ $month->translatedFormat('F') }}" style="background-image: repeating-linear-gradient(135deg, transparent 0 8px, rgba(0,0,0,.03) 8px 16px)"></td>
                                                                     @continue
                                                                 @endif
-                                                                <td class="p-1 align-top">
+                                                                {{-- height:1px supaya kartu tunggal bisa setinggi baris (h-100): semua kartu dalam satu baris jam sama rata. --}}
+                                                                <td class="p-1 align-top" style="height: 1px">
                                                                     @forelse (($entries[$day] ?? collect())->where('time', $time) as $entry)
                                                                         @php($slot = $entry['routine'])
                                                                         @php($session = $entry['session'])
@@ -158,7 +159,7 @@
                                                                              Warna ditulis langsung supaya tidak berubah oleh tema; teks selalu gelap agar mudah dibaca. --}}
                                                                         @php($empty = $slot->students->isEmpty())
                                                                         @php([$bg, $edge, $chip, $chipText] = $session ? ['#e3f6ea', '#2e9e5b', '#c8eed5', 'Terisi'] : ($empty ? ['#fff6d6', '#e0a106', '#ffe69c', 'Kosong'] : ['#f3f4f6', '#adb5bd', '#e5e7eb', 'Cadangan']))
-                                                                        <div class="rounded-3 p-2 shadow-sm {{ $loop->last ? '' : 'mb-2' }}" style="background:{{ $bg }}; border:1px solid {{ $edge }}40; border-left:4px solid {{ $edge }}; color:#212529">
+                                                                        <div class="rounded-3 p-2 shadow-sm d-flex flex-column {{ $loop->count === 1 ? 'h-100' : '' }} {{ $loop->last ? '' : 'mb-2' }}" style="background:{{ $bg }}; border:1px solid {{ $edge }}40; border-left:4px solid {{ $edge }}; color:#212529">
                                                                             <div class="d-flex align-items-start gap-1">
                                                                                 <div class="flex-grow-1 text-truncate lh-sm" title="{{ $slot->grade?->label() }}">
                                                                                     <span class="d-block text-uppercase" style="font-size:.6rem; letter-spacing:.05em; color:#6c757d">Grade</span>
@@ -169,7 +170,7 @@
                                                                             <div class="text-truncate" style="font-size:.75rem; color:#495057" title="{{ $slot->grade?->category?->subject?->name }} › {{ $slot->teacher?->name }}">
                                                                                 <i class="ri-music-2-line"></i> {{ $slot->grade?->category?->subject?->name }} &middot; <i class="ri-user-star-line"></i> {{ $slot->teacher?->name }}
                                                                             </div>
-                                                                            <div class="mt-1" style="font-size:.8rem">
+                                                                            <div class="mt-1 text-truncate" style="font-size:.8rem" title="{{ $slot->students->pluck('name')->join(', ') ?: 'Belum ada murid' }}">
                                                                                 @if ($empty)
                                                                                     <span style="color:#7a5a00"><i class="ri-user-unfollow-line"></i> Belum ada murid</span>
                                                                                 @else
@@ -187,7 +188,9 @@
                                                                                 @php($btn = 'btn btn-sm bg-white border rounded-circle d-inline-flex align-items-center justify-content-center p-0')
                                                                                 @php($size = 'width:28px; height:28px')
                                                                                 {{-- Satu baris, kolom sama lebar: semua tombol (termasuk hapus) selalu sejajar, berapa pun lebar kartunya. --}}
-                                                                                <div class="mt-2 pt-2" style="border-top:1px dashed {{ $edge }}55; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0, 1fr); gap:4px; justify-items:center">
+                                                                                {{-- Pengisi: mendorong tombol ke dasar kartu, minimal sedikit jarak dari teks. --}}
+                                                                                <div class="flex-grow-1" style="min-height: .5rem"></div>
+                                                                                <div class="pt-2" style="border-top:1px dashed {{ $edge }}55; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0, 1fr); gap:4px; justify-items:center">
                                                                                     <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="{{ $btn }}" style="{{ $size }}" title="Lihat semua pertemuan jam ini" aria-label="Lihat semua pertemuan jam ini"><i class="ri-calendar-schedule-line"></i></a>
                                                                                     @if ($empty)
                                                                                         <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $slot->starts_on->format('Y-m')]) }}" class="{{ $btn }}" style="{{ $size }}" title="Isi murid ke jam ini" aria-label="Isi murid ke jam ini"><i class="ri-user-add-line"></i></a>
