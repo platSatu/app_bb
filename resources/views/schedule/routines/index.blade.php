@@ -160,7 +160,10 @@
                                                                         @php([$bg, $edge, $chip, $chipText] = $session ? ['#e3f6ea', '#2e9e5b', '#c8eed5', 'Terisi'] : ($empty ? ['#fff6d6', '#e0a106', '#ffe69c', 'Kosong'] : ['#f3f4f6', '#adb5bd', '#e5e7eb', 'Cadangan']))
                                                                         <div class="rounded-3 p-2 shadow-sm {{ $loop->last ? '' : 'mb-2' }}" style="background:{{ $bg }}; border:1px solid {{ $edge }}40; border-left:4px solid {{ $edge }}; color:#212529">
                                                                             <div class="d-flex align-items-start gap-1">
-                                                                                <div class="fw-semibold small flex-grow-1 text-truncate" title="{{ $slot->grade?->label() }}">{{ $slot->grade?->name ?? '-' }}</div>
+                                                                                <div class="flex-grow-1 text-truncate lh-sm" title="{{ $slot->grade?->label() }}">
+                                                                                    <span class="d-block text-uppercase" style="font-size:.6rem; letter-spacing:.05em; color:#6c757d">Grade</span>
+                                                                                    <span class="fw-semibold small">{{ $slot->grade?->name ?? '-' }}</span>
+                                                                                </div>
                                                                                 <span class="badge rounded-pill fw-medium" style="background:{{ $chip }}; color:#212529; font-size:.65rem">{{ $chipText }}</span>
                                                                             </div>
                                                                             <div class="text-truncate" style="font-size:.75rem; color:#495057" title="{{ $slot->grade?->category?->subject?->name }} › {{ $slot->teacher?->name }}">
@@ -182,8 +185,9 @@
                                                                                 {{-- Tombol ikon bundar; keterangannya muncul saat kursor diarahkan (title) & dibaca pembaca layar (aria-label).
                                                                                      Pensil mengubah pertemuan di kotak ini saja. Isi Murid & Hapus hanya untuk jam yang belum berisi murid. --}}
                                                                                 @php($btn = 'btn btn-sm bg-white border rounded-circle d-inline-flex align-items-center justify-content-center p-0')
-                                                                                @php($size = 'width:30px; height:30px')
-                                                                                <div class="d-flex flex-wrap gap-1 mt-2 pt-2" style="border-top:1px dashed {{ $edge }}55">
+                                                                                @php($size = 'width:28px; height:28px')
+                                                                                {{-- Satu baris, kolom sama lebar: semua tombol (termasuk hapus) selalu sejajar, berapa pun lebar kartunya. --}}
+                                                                                <div class="mt-2 pt-2" style="border-top:1px dashed {{ $edge }}55; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0, 1fr); gap:4px; justify-items:center">
                                                                                     <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="{{ $btn }}" style="{{ $size }}" title="Lihat semua pertemuan jam ini" aria-label="Lihat semua pertemuan jam ini"><i class="ri-calendar-schedule-line"></i></a>
                                                                                     @if ($empty)
                                                                                         <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $slot->starts_on->format('Y-m')]) }}" class="{{ $btn }}" style="{{ $size }}" title="Isi murid ke jam ini" aria-label="Isi murid ke jam ini"><i class="ri-user-add-line"></i></a>
@@ -196,7 +200,7 @@
                                                                                         <a href="{{ route($routes.'.routines.edit', $slot) }}" class="{{ $btn }}" style="{{ $size }}" title="Ubah hari / jam slot ini" aria-label="Ubah hari atau jam slot ini"><i class="ri-pencil-line"></i></a>
                                                                                     @endif
                                                                                     @if ($empty)
-                                                                                        <form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="ms-auto"
+                                                                                        <form action="{{ route($routes.'.routines.destroy', $slot) }}" method="POST" class="m-0"
                                                                                             onsubmit="return confirm('Hapus jam ini? Hanya jam yang belum ada muridnya yang bisa dihapus.');">
                                                                                             @csrf
                                                                                             @method('DELETE')
