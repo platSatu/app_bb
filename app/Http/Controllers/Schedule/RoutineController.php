@@ -81,7 +81,9 @@ class RoutineController extends Controller
         $sessions = ScheduleSession::whereIn('routine_id', $routines->pluck('id'))
             ->whereBetween('date', [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()])
             ->get(['id', 'routine_id', 'date', 'start_at', 'end_at', 'status', 'moved_at'])
-            ->keyBy(fn ($session) => $session->routine_id.'@'.$weekOf($session->date));
+            // groupBy, bukan keyBy: satu jadwal bisa punya 2 pertemuan di minggu yang sama (mis. pertemuan
+            // minggu 2 dipindah ke minggu 3). Dengan keyBy salah satunya tertimpa dan hilang dari papan.
+            ->groupBy(fn ($session) => $session->routine_id.'@'.$weekOf($session->date));
 
         $board = $routines->groupBy(fn ($routine) => (string) $routine->room_id)
             ->map(function ($rows) use ($sessions, $month, $firstMonday, $weekCount) {
@@ -92,10 +94,13 @@ class RoutineController extends Controller
                     $days = [];
 
                     foreach ($rows as $routine) {
-                        $entry = $this->weekEntry($routine, $sessions->get($routine->id.'@'.$week), $weekStart, $month);
+                        // Tiap pertemuan di minggu ini jadi satu kartu; tanpa pertemuan = satu kartu pola (null).
+                        foreach ($sessions->get($routine->id.'@'.$week)?->all() ?? [null] as $session) {
+                            $entry = $this->weekEntry($routine, $session, $weekStart, $month);
 
-                        if ($entry) {
-                            $days[$entry['day']][] = $entry;
+                            if ($entry) {
+                                $days[$entry['day']][] = $entry;
+                            }
                         }
                     }
 

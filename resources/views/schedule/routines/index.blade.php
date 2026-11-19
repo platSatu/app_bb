@@ -102,14 +102,14 @@
                     @foreach ($board as $i => $group)
                         <div class="tab-pane fade {{ $i === 0 ? 'show active' : '' }}" id="room-{{ $i }}" role="tabpanel">
                             <ul class="nav nav-tabs mb-3" role="tablist">
-                                {{-- Minggu kalender Senin-Minggu; label tanggalnya dibatasi ke bulan ini. --}}
+                                {{-- Minggu kalender Senin-Minggu apa adanya, termasuk tanggal bulan sebelum/sesudahnya. --}}
                                 @foreach ($weekStarts as $week => $weekStart)
-                                    @php($from = $weekStart->copy()->max($month->copy()->startOfMonth()))
-                                    @php($to = $weekStart->copy()->addDays(6)->min($month->copy()->endOfMonth()))
+                                    @php($from = $weekStart->copy())
+                                    @php($to = $weekStart->copy()->addDays(6))
                                     <li class="nav-item">
                                         <button class="nav-link {{ $week === $activeWeek ? 'active' : '' }}" data-bs-toggle="tab" data-bs-target="#room-{{ $i }}-w{{ $week }}" type="button" role="tab">
                                             Minggu {{ $week }}
-                                            <span class="d-block fw-normal text-muted" style="font-size: .7rem">{{ $from->format('d') }}{{ $from->isSameDay($to) ? '' : '–'.$to->format('d') }} {{ $month->translatedFormat('M') }}</span>
+                                            <span class="d-block fw-normal text-muted" style="font-size: .7rem">{{ $from->isSameMonth($to) ? $from->format('d') : $from->translatedFormat('d M') }}–{{ $to->translatedFormat('d M') }}</span>
                                         </button>
                                     </li>
                                 @endforeach
@@ -127,11 +127,10 @@
                                                         <th style="width: 8.5rem">Jam</th>
                                                         @foreach (\App\Models\ScheduleRoutine::DAYS as $day => $label)
                                                             @php($headDate = $weekStart->copy()->addDays($day - 1))
-                                                            <th class="text-center small">
+                                                            {{-- Hari milik bulan lain tetap ditampilkan (kalender sebenarnya), diberi warna lebih pudar. --}}
+                                                            <th class="text-center small {{ $headDate->isSameMonth($month) ? '' : 'text-muted opacity-75' }}">
                                                                 {{ $label }}
-                                                                @if ($headDate->month === $month->month)
-                                                                    <span class="d-block fw-normal text-muted" style="font-size: .7rem">{{ $headDate->translatedFormat('d M') }}</span>
-                                                                @endif
+                                                                <span class="d-block fw-normal text-muted" style="font-size: .7rem">{{ $headDate->translatedFormat('d M') }}</span>
                                                             </th>
                                                         @endforeach
                                                     </tr>
@@ -146,7 +145,11 @@
                                                                     @forelse (($entries[$day] ?? collect())->where('time', $time) as $entry)
                                                                         @php($slot = $entry['routine'])
                                                                         @php($session = $entry['session'])
-                                                                        <div class="border rounded p-2 {{ $loop->last ? '' : 'mb-1' }} {{ $session ? 'bg-success-subtle' : 'bg-light' }}">
+                                                                        @php($otherMonth = ! $entry['date']->isSameMonth($month))
+                                                                        <div class="border rounded p-2 {{ $loop->last ? '' : 'mb-1' }} {{ $session ? 'bg-success-subtle' : 'bg-light' }} {{ $otherMonth ? 'opacity-75' : '' }}">
+                                                                            @if ($otherMonth)
+                                                                                <div class="text-muted" style="font-size: .7rem"><i class="ri-calendar-line"></i> Jadwal {{ $entry['date']->translatedFormat('F') }}</div>
+                                                                            @endif
                                                                             <div class="small fw-semibold text-truncate">{{ $slot->grade?->name ?? '-' }}</div>
                                                                             <div class="text-muted text-truncate" style="font-size: .75rem">{{ $slot->grade?->category?->subject?->name }} &rsaquo; {{ $slot->teacher?->name }}</div>
                                                                             <div class="small text-truncate mt-1">
@@ -167,7 +170,7 @@
                                                                                 <div class="d-flex gap-1 mt-2">
                                                                                     <a href="{{ route($routes.'.sessions.index', ['routine' => $slot->id]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Semua pertemuan jam ini"><i class="ri-checkbox-multiple-line"></i></a>
                                                                                     @if ($slot->students->isEmpty())
-                                                                                        <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $month->format('Y-m')]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Isi murid"><i class="ri-user-add-line"></i></a>
+                                                                                        <a href="{{ route($routes.'.routines.fill', ['grade' => $slot->grade_id, 'month' => $slot->starts_on->format('Y-m')]) }}" class="btn btn-sm btn-light border flex-fill p-1" title="Isi murid"><i class="ri-user-add-line"></i></a>
                                                                                     @endif
                                                                                     @if ($session)
                                                                                         {{-- Langsung ke bagian Absensi pertemuan ini. --}}

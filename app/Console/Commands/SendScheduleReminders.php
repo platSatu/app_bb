@@ -34,9 +34,17 @@ class SendScheduleReminders extends Command
             ->chunkById(100, function ($sessions) use (&$sent) {
                 foreach ($sessions as $session) {
                     foreach ($session->attendances as $attendance) {
-                        if ($attendance->student?->phone && Cache::add('schedule-remind:'.$attendance->getKey(), 1, now()->addDays(2))
-                            && SendWaNotification::lesson($session, $attendance->student)) {
+                        $key = 'schedule-remind:'.$attendance->getKey();
+
+                        if (! $attendance->student?->phone || ! Cache::add($key, 1, now()->addDays(2))) {
+                            continue;
+                        }
+
+                        if (SendWaNotification::lesson($session, $attendance->student)) {
                             $sent++;
+                        } else {
+                            // Gagal kirim: tanda dilepas lagi, supaya menjalankan ulang perintah ini mencoba murid ini lagi.
+                            Cache::forget($key);
                         }
                     }
                 }

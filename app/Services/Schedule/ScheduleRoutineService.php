@@ -54,6 +54,10 @@ class ScheduleRoutineService
 
             $routine->save();
             $removed = $this->syncParticipants($routine, $studentIds);
+            // Daftar murid yang mungkin sudah dimuat pemanggil (mis. Isi Murid memuat 'students' sebelum
+            // menyimpan) sudah basi setelah sync di atas. Dibuang supaya refresh()/generate() membaca ulang
+            // peserta terbaru: murid baru langsung dapat sesinya, murid yang keluar tidak ikut sesi baru.
+            $routine->unsetRelation('students')->unsetRelation('participants');
             $this->refresh($routine, $removed, strict: true);
 
             return $routine;
@@ -130,6 +134,37 @@ class ScheduleRoutineService
         (clone $table)->whereIn('student_id', $removed ?: ['-'])->update(['left_on' => $date, 'updated_at' => now()]);
 
         return $removed;
+    }
+
+    /**
+     * Jam buka -> jam mulai tiap slot (format H:i), dipakai form Grade.
+     * Hitungannya sama persis dengan penghitung slot di form (grades/_fields): slot ditambah selama jam
+     * selesainya tidak melewati jam tutup, maksimal $max slot. Contoh 13:00-15:00 durasi 30 menit =
+     * 13:00, 13:30, 14:00, 14:30. Kosong = jendela jamnya kurang untuk satu pertemuan.
+     *
+     * @return list<string>
+     */
+    public function slotTimes(string $from, string $until, int $minutes, int $max = 24): array
+    {
+        $toMinutes = function (string $time): ?int {
+            return preg_match('/^(\d{1,2}):(\d{2})/', trim($time), $m) ? ((int) $m[1]) * 60 + (int) $m[2] : null;
+        };
+
+        $start = $toMinutes($from);
+        $end = $toMinutes($until);
+
+        if ($start === null || $end === null || $minutes <= 0) {
+            return [];
+        }
+
+        $times = [];
+
+        for ($slot = 0; $slot < $max && $start + $minutes * ($slot + 1) <= $end; $slot++) {
+            $at = $start + $minutes * $slot;
+            $times[] = sprintf('%02d:%02d', intdiv($at, 60), $at % 60);
+        }
+
+        return $times;
     }
 
     public function delete(ScheduleRoutine $routine): void

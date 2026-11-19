@@ -38,8 +38,8 @@ class SessionController extends Controller
         }
 
         // Tanpa filter tanggal: tampilkan minggu ini.
-        $from = $request->date('date_from') ?? ($request->hasAny(['date_from', 'date_to']) ? null : today()->startOfWeek());
-        $to = $request->date('date_to') ?? ($request->hasAny(['date_from', 'date_to']) ? null : today()->endOfWeek());
+        $from = $this->dateFilter($request, 'date_from') ?? ($request->hasAny(['date_from', 'date_to']) ? null : today()->startOfWeek());
+        $to = $this->dateFilter($request, 'date_to') ?? ($request->hasAny(['date_from', 'date_to']) ? null : today()->endOfWeek());
 
         $sessions = ScheduleSession::accessibleBy($user)
             ->with(['branch:id,name,company_id', 'branch.company:id,name', 'teacher:id,name', 'room:id,name', 'attendances.student:id,name', ...self::GRADE_WITH])
@@ -207,6 +207,16 @@ class SessionController extends Controller
     private function shared(Request $request): array
     {
         return ['resource' => 'sessions', 'routes' => $this->routes($request), 'isAdmin' => $this->isAdmin($request), 'canManage' => $this->canManage($request)];
+    }
+
+    /** Tanggal filter dari URL (Y-m-d). Isian yang bukan tanggal diabaikan, tidak membuat error 500. */
+    private function dateFilter(Request $request, string $key): ?\Carbon\Carbon
+    {
+        $value = (string) $request->query($key);
+
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) && checkdate((int) substr($value, 5, 2), (int) substr($value, 8, 2), (int) substr($value, 0, 4))
+            ? \Carbon\Carbon::createFromFormat('!Y-m-d', $value)
+            : null;
     }
 
     private function find(Request $request, string $id): ScheduleSession
