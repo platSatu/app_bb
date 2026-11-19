@@ -63,6 +63,16 @@
                             </div>
                         </div>
                     @endforeach
+                    @if ($hasSchedules)
+                        {{-- Notifikasi Jadwal (murid, pengajar, admin) punya halaman sendiri. --}}
+                        <div class="d-flex align-items-center gap-3 py-3 border-top">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">Jadwal</div>
+                                <div class="small text-muted">Pengingat les ke murid, rekap & info perubahan ke pengajar, kabar absen. Diatur di menu Schedules.</div>
+                            </div>
+                            <a href="{{ route('schedules.notifications.index') }}#branch-{{ $branch->id }}" class="btn btn-sm btn-outline-success rounded-pill text-nowrap">Atur <i class="ri-arrow-right-line"></i></a>
+                        </div>
+                    @endif
                     <div class="d-flex justify-content-end mt-3">
                         <button type="submit" class="btn btn-success"><i class="ri-save-line me-1"></i>Simpan Notifikasi</button>
                     </div>

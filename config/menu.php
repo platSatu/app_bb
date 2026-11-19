@@ -98,6 +98,12 @@ return [
                         'route' => 'schedules.students.index',
                         'active' => 'schedules.students.*',
                     ],
+                    // Sakelar & isi pesan WhatsApp Jadwal (murid, pengajar, admin), per branch.
+                    'schedules.notifications' => [
+                        'label' => 'Notifikasi',
+                        'route' => 'schedules.notifications.index',
+                        'active' => 'schedules.notifications.*',
+                    ],
                     'schedules.portal' => [
                         'label' => 'Portal Murid & Pengajar',
                         'route' => 'schedules.portal.requests',

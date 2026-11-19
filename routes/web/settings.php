@@ -12,7 +12,8 @@ Route::middleware('auth')
         Route::get('company/edit', [CompanyController::class, 'edit'])->name('company.edit');
         Route::put('company', [CompanyController::class, 'update'])->middleware('throttle:20,1')->name('company.update');
 
-        Route::resource('branches', BranchController::class)->except('show');
+        // Tanpa destroy: hapus branch hanya oleh superadmin. Owner menonaktifkan lewat Edit.
+        Route::resource('branches', BranchController::class)->except(['show', 'destroy']);
         Route::put('branches/{branch}/wa-notify', [BranchController::class, 'waNotify'])->middleware('throttle:20,1')->name('branches.wa-notify');
         Route::put('branches/{branch}/place-qr', [BranchController::class, 'placeQr'])->middleware('throttle:10,1')->name('branches.place-qr');
     });

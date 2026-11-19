@@ -58,14 +58,6 @@
                                     <a href="{{ route('settings.branches.edit', $branch) }}" class="btn btn-sm rounded-pill btn-outline-secondary">
                                         <i class="ri-edit-line"></i> Edit
                                     </a>
-                                    <form action="{{ route('settings.branches.destroy', $branch) }}" method="POST" class="d-inline"
-                                        onsubmit="return confirm({{ \Illuminate\Support\Js::from('Hapus branch '.$branch->name.'? Tindakan ini tidak bisa dibatalkan.') }});">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-sm rounded-pill btn-outline-danger">
-                                            <i class="ri-delete-bin-line"></i> Hapus
-                                        </button>
-                                    </form>
                                 </td>
                             </tr>
                         @empty

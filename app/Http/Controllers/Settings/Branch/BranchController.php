@@ -16,6 +16,8 @@ use Illuminate\View\View;
 /**
  * Branch selalu milik perusahaan user yang login. company_id & user_id
  * diambil dari sesi login, tidak pernah dari form atau URL.
+ * Owner tidak bisa menghapus branch (hapus ikut menghapus semua datanya); cukup ubah status ke Tidak Aktif.
+ * Hapus branch hanya lewat superadmin (Superadmin\Branch\BranchController::destroy).
  */
 class BranchController extends Controller
 {
@@ -67,6 +69,7 @@ class BranchController extends Controller
             // Sakelar notifikasi WhatsApp hanya ditampilkan selama paket WhatsApp branch ini aktif.
             'hasWhatsapp' => app(AppAccess::class)->branchActive($model->getKey(), 'whatsapp'),
             'waConnected' => WaDevice::connectedByBranch($model->getKey()) !== [],
+            'hasSchedules' => $hasSchedules,
             // QR tempat untuk absen pengajar, hanya selama paket Jadwal branch ini aktif.
             'placeQr' => $hasSchedules ? $qr->dataUri($model->placeQr(), 10) : null,
         ]);
@@ -90,7 +93,8 @@ class BranchController extends Controller
         $model = $this->ownedBranch($request, $branch);
         abort_unless(app(AppAccess::class)->branchActive($model->getKey(), 'whatsapp'), 403);
 
-        $model->forceFill(['wa_notify' => collect(UserBranch::WA_NOTIFY)->map(fn ($meta, $kind) => $request->boolean("wa_notify.{$kind}"))->all()])->save();
+        // Digabung, bukan ditimpa: pengaturan Jadwal (Schedules › Notifikasi) ada di kolom yang sama.
+        $model->forceFill(['wa_notify' => [...($model->wa_notify ?? []), ...collect(UserBranch::WA_NOTIFY)->map(fn ($meta, $kind) => $request->boolean("wa_notify.{$kind}"))->all()]])->save();
 
         return back()->with('success', 'Pengaturan notifikasi WhatsApp '.$model->name.' tersimpan.');
     }
@@ -102,15 +106,6 @@ class BranchController extends Controller
 
         return redirect()->route('settings.branches.index')
             ->with('success', "Branch {$model->name} berhasil diperbarui.");
-    }
-
-    public function destroy(Request $request, string $branch): RedirectResponse
-    {
-        $model = $this->ownedBranch($request, $branch);
-        $model->delete();
-
-        return redirect()->route('settings.branches.index')
-            ->with('success', "Branch {$model->name} sudah dihapus.");
     }
 
     private function ownedBranch(Request $request, string $id): UserBranch

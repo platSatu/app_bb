@@ -15,12 +15,23 @@ class UserBranch extends Model
     public const STATUS_ACTIVE = 'active';
     public const STATUS_INACTIVE = 'inactive';
 
-    /** Notifikasi WhatsApp yang bisa dinyalakan per branch (bawaan mati), isinya sama dengan email. */
+    /**
+     * Notifikasi WhatsApp di Settings › Branch (bawaan mati), isinya sama dengan email.
+     * Notifikasi Jadwal disimpan di kolom yang sama tapi diatur di Schedules › Notifikasi (App\Support\ScheduleNotice).
+     */
     public const WA_NOTIFY = [
         'invoice' => ['Invoice', 'Tagihan baru, pengingat jatuh tempo & bukti lunas ke customer.'],
         'ticket' => ['Tiket', 'E-ticket ke pembeli setelah pembayaran berhasil.'],
-        'schedule' => ['Jadwal', 'Pengingat les sehari sebelumnya (H-1) ke murid / orang tua.'],
     ];
+
+    /** Label aplikasi per awalan nama tabel, untuk pesan "masih menyimpan data ..."; tabel lain memakai namanya sendiri. */
+    private const DATA_LABELS = [
+        'schedule_' => 'Jadwal', 'invoice' => 'Invoice', 'wa_' => 'WhatsApp', 'ticket' => 'Tiket', 'catalog' => 'Katalog',
+        'customer' => 'Buku Kontak', 'page' => 'Halaman', 'quiz' => 'Kuis', 'branch_subscription' => 'Paket langganan',
+    ];
+
+    /** Tabel yang dibuat otomatis oleh sistem (bukan data owner), tidak menghalangi hapus branch. */
+    private const DELETE_IGNORED = ['schedule_portal_links'];
 
     // user_id, company_id & slug diisi sistem, tidak pernah dari form. wa_notify diubah lewat form sakelar sendiri.
     protected $fillable = ['name', 'phone', 'handphone', 'address', 'city', 'description', 'status'];
@@ -92,6 +103,31 @@ class UserBranch extends Model
     private static function placeSignature(string $id, int $version): string
     {
         return substr(hash_hmac('sha256', "schedule-place|{$id}|{$version}", (string) config('app.key')), 0, 16);
+    }
+
+    /**
+     * Alasan branch ini belum boleh dihapus, atau null kalau aman. Hapus branch ikut menghapus (cascade) semua data
+     * yang menempel padanya, jadi branch yang masih menyimpan data cukup dibuat Tidak Aktif.
+     * Dibaca dari foreign key ke tabel branch, sehingga tabel baru otomatis ikut terlindungi tanpa didaftarkan.
+     */
+    public function deleteBlockedReason(): ?string
+    {
+        $db = $this->getConnection();
+        $schema = $db->getSchemaBuilder();
+        $labels = [];
+
+        foreach (array_diff($schema->getTableListing($schema->getCurrentSchemaName(), false), self::DELETE_IGNORED) as $table) {
+            foreach ($schema->getForeignKeys($table) as $key) {
+                if ($key['foreign_table'] === $this->getTable() && strtolower((string) $key['on_delete']) === 'cascade'
+                    && $db->table($table)->where($key['columns'][0], $this->getKey())->exists()) {
+                    $labels[] = collect(self::DATA_LABELS)->first(fn ($label, $prefix) => str_starts_with($table, $prefix)) ?? Str::headline($table);
+                }
+            }
+        }
+
+        return $labels
+            ? 'Branch '.$this->name.' masih menyimpan data '.implode(', ', array_unique($labels)).'. Supaya data ini tidak ikut terhapus, ubah status branch menjadi Tidak Aktif saja.'
+            : null;
     }
 
     public function scopeSearch(Builder $query, ?string $keyword): Builder

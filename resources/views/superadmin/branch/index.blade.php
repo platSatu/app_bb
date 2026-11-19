@@ -60,7 +60,7 @@
                                             <i class="ri-edit-line"></i> Edit
                                         </a>
                                         <form action="{{ route('superadmin.branches.destroy', $branch) }}" method="POST" class="d-inline"
-                                            onsubmit="return confirm({{ \Illuminate\Support\Js::from('Hapus branch '.$branch->name.'? Tindakan ini tidak bisa dibatalkan.') }});">
+                                            onsubmit="return confirm({{ \Illuminate\Support\Js::from('Hapus branch '.$branch->name.'? Branch yang masih menyimpan data (jadwal, invoice, dll) akan ditolak; yang kosong terhapus permanen.') }});">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="btn btn-sm rounded-pill btn-outline-danger">

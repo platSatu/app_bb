@@ -1,0 +1,79 @@
+<?php
+
+namespace App\Http\Controllers\Schedule;
+
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\Schedule\Concerns\InScheduleArea;
+use App\Models\UserBranch;
+use App\Models\WaDevice;
+use App\Services\Subscription\AppAccess;
+use App\Support\ScheduleNotice;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
+
+/**
+ * Schedules › Notifikasi (owner): sakelar on/off, jam kirim, dan isi pesan WhatsApp Jadwal per branch.
+ * Hanya branch dengan paket Jadwal & WhatsApp aktif yang bisa diatur. Disimpan di user_branches.wa_notify.
+ */
+class NotificationController extends Controller
+{
+    use InScheduleArea;
+
+    public function index(Request $request): View|RedirectResponse
+    {
+        $branches = $this->branches($request)->orderBy('name')->get(['id', 'name', 'status', 'wa_notify']);
+
+        if ($branches->isEmpty()) {
+            return $this->branchRequired();
+        }
+
+        $whatsapp = UserBranch::whereKey($branches->modelKeys())->whereIn('id', AppAccess::activeBranches('whatsapp'))->pluck('id')->all();
+
+        return view('schedule.notifications', [
+            'resource' => 'notifications',
+            'routes' => 'schedules',
+            'branches' => $branches->filter(fn (UserBranch $branch) => in_array($branch->id, $whatsapp, true))->values(),
+            'connected' => WaDevice::connectedByBranch(),
+            'adminPhone' => $request->user()->handphone,
+        ]);
+    }
+
+    public function update(Request $request, string $branch): RedirectResponse
+    {
+        $model = $this->branches($request)->findOrFail($branch);
+        abort_unless(app(AppAccess::class)->branchActive($model->getKey(), 'whatsapp'), 403);
+
+        $data = $request->validate([
+            'schedule_at' => ['required', 'date_format:H:i'],
+            'teacher_recap_at' => ['required', 'date_format:H:i'],
+            'schedule_soon_minutes' => ['required', 'integer', Rule::in(array_keys(ScheduleNotice::SOON_OPTIONS))],
+            'templates' => ['nullable', 'array'],
+            'templates.*' => ['nullable', 'string', 'max:'.ScheduleNotice::TEMPLATE_MAX],
+        ], ['templates.*.max' => 'Isi pesan maksimal :max karakter.'], ['schedule_at' => 'jam pengingat murid', 'teacher_recap_at' => 'jam rekap pengajar']);
+
+        // Pesan yang dikosongkan / sama persis dengan bawaan disimpan kosong = ikut template bawaan.
+        $templates = collect(ScheduleNotice::KINDS)->map(function ($meta, $kind) use ($data) {
+            $text = trim(str_replace("\r\n", "\n", (string) ($data['templates'][$kind] ?? '')));
+
+            return $text === '' || $text === $meta[3] ? null : $text;
+        })->filter()->all();
+
+        $model->forceFill(['wa_notify' => [
+            ...($model->wa_notify ?? []),
+            ...collect(ScheduleNotice::KINDS)->map(fn ($meta, $kind) => $request->boolean("notify.{$kind}"))->all(),
+            ...collect($data)->only(array_keys(ScheduleNotice::TIMES))->all(),
+            'templates' => $templates,
+        ]])->save();
+
+        return redirect()->to(route('schedules.notifications.index').'#branch-'.$model->getKey())
+            ->with('success', "Pengaturan notifikasi {$model->name} tersimpan.");
+    }
+
+    /** Branch milik owner yang paket Jadwal-nya aktif. */
+    private function branches(Request $request)
+    {
+        return UserBranch::where('user_id', $request->user()->getKey())->whereIn('id', AppAccess::activeBranches('schedules'));
+    }
+}

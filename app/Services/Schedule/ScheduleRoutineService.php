@@ -2,9 +2,11 @@
 
 namespace App\Services\Schedule;
 
+use App\Jobs\SendWaNotification;
 use App\Models\ScheduleAttendance;
 use App\Models\ScheduleRoutine;
 use App\Models\ScheduleSession;
+use App\Models\ScheduleStudent;
 use App\Models\UserBranch;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -25,9 +27,10 @@ class ScheduleRoutineService
     {
     }
 
-    public function save(ScheduleRoutine $routine, array $data, array $studentIds): ScheduleRoutine
+    /** $notify = false untuk salinan bulan berikutnya: muridnya sama, jadi pengajar tidak perlu dikabari "murid bergabung". */
+    public function save(ScheduleRoutine $routine, array $data, array $studentIds, bool $notify = true): ScheduleRoutine
     {
-        return DB::transaction(function () use ($routine, $data, $studentIds) {
+        return DB::transaction(function () use ($routine, $data, $studentIds, $notify) {
             UserBranch::whereKey($routine->branch_id)->lockForUpdate()->first();
 
             $routine->fill($data);
@@ -53,15 +56,31 @@ class ScheduleRoutineService
             }
 
             $routine->save();
-            $removed = $this->syncParticipants($routine, $studentIds);
+            [$added, $removed] = $this->syncParticipants($routine, $studentIds);
             // Daftar murid yang mungkin sudah dimuat pemanggil (mis. Isi Murid memuat 'students' sebelum
             // menyimpan) sudah basi setelah sync di atas. Dibuang supaya refresh()/generate() membaca ulang
             // peserta terbaru: murid baru langsung dapat sesinya, murid yang keluar tidak ikut sesi baru.
             $routine->unsetRelation('students')->unsetRelation('participants');
             $this->refresh($routine, $removed, strict: true);
+            $notify && $this->noticeMembers($routine, $added, $removed);
 
             return $routine;
         });
+    }
+
+    /** Info ke pengajar kalau murid di jadwal ini berubah dan pertemuan berikutnya sudah dekat (lihat SendWaNotification::teacherChange). */
+    private function noticeMembers(ScheduleRoutine $routine, array $added, array $removed): void
+    {
+        $next = ($added || $removed) ? $routine->sessions()->where('status', ScheduleSession::STATUS_SCHEDULED)->where('start_at', '>', now())->orderBy('start_at')->first() : null;
+
+        if (! $next) {
+            return;
+        }
+
+        $names = fn (array $ids) => ScheduleStudent::whereKey($ids)->orderBy('name')->pluck('name')->join(', ');
+        $change = collect([$added ? '➕ Murid bergabung: '.$names($added) : null, $removed ? '➖ Murid keluar: '.$names($removed) : null])->filter()->join("\n");
+
+        SendWaNotification::teacherChange($next, "👥 Daftar murid berubah.\n{$change}\nBerikut pertemuan terdekatnya:");
     }
 
     /**
@@ -93,7 +112,7 @@ class ScheduleRoutineService
             'starts_on' => $start->toDateString(),
             'ends_on' => $start->copy()->endOfMonth()->toDateString(),
             'status' => ScheduleRoutine::STATUS_ACTIVE,
-        ], $routine->students()->where('schedule_students.status', 'active')->pluck('schedule_students.id')->all());
+        ], $routine->students()->where('schedule_students.status', 'active')->pluck('schedule_students.id')->all(), notify: false);
     }
 
     /**
@@ -112,7 +131,7 @@ class ScheduleRoutineService
 
     /**
      * Peserta dicatat masuk/keluar per tanggal, tidak dihapus: murid baru joined_on = tanggal mulai ikut, murid yang
-     * dikeluarkan diberi left_on. Mengembalikan id murid yang baru keluar.
+     * dikeluarkan diberi left_on. Mengembalikan [id murid yang baru masuk, id murid yang baru keluar].
      */
     private function syncParticipants(ScheduleRoutine $routine, array $studentIds): array
     {
@@ -132,8 +151,9 @@ class ScheduleRoutineService
 
         $removed = $rows->filter(fn ($row) => ! $row->left_on && ! in_array($row->student_id, $studentIds, true))->keys()->all();
         (clone $table)->whereIn('student_id', $removed ?: ['-'])->update(['left_on' => $date, 'updated_at' => now()]);
+        $added = array_values(array_filter($studentIds, fn ($id) => ! $rows->get($id) || $rows->get($id)->left_on));
 
-        return $removed;
+        return [$added, $removed];
     }
 
     /**

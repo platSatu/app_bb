@@ -2,6 +2,7 @@
 
 namespace App\Services\Schedule;
 
+use App\Jobs\SendWaNotification;
 use App\Models\ScheduleAttendance;
 use App\Models\ScheduleSession;
 use App\Models\ScheduleTeacher;
@@ -113,7 +114,7 @@ class ScheduleSessionService
      */
     public function checkIn(string $studentId, array $teacherIds, User $actor): ScheduleAttendance
     {
-        return DB::transaction(function () use ($studentId, $teacherIds, $actor) {
+        $attendance = DB::transaction(function () use ($studentId, $teacherIds, $actor) {
             $today = ScheduleSession::whereIn('teacher_id', $teacherIds)->where('status', ScheduleSession::STATUS_SCHEDULED)
                 ->whereBetween('start_at', [today(), today()->endOfDay()]);
 
@@ -146,6 +147,11 @@ class ScheduleSessionService
 
             return $attendance;
         });
+
+        // Kabar hadir ke murid / orang tua & laporan ke admin (kalau sakelarnya nyala).
+        SendWaNotification::checkedIn($attendance);
+
+        return $attendance;
     }
 
     public function cancel(ScheduleSession $session, string $reason): void
@@ -160,6 +166,8 @@ class ScheduleSessionService
             $locked->forceFill(['status' => ScheduleSession::STATUS_CANCELLED, 'cancel_reason' => $reason])->save();
         });
 
+        SendWaNotification::teacherChange($session->refresh(), "❌ Pertemuan ini DIBATALKAN.\nAlasan: {$reason}");
+
         // Paket: pertemuan yang dibatalkan langsung diganti di tanggal pola berikutnya, jatah paket tetap utuh.
         if ($session->routine?->isPackage()) {
             app(ScheduleRoutineService::class)->extend($session->routine);
@@ -169,7 +177,7 @@ class ScheduleSessionService
     /** Pindah tanggal/jam/pengajar/ruangan satu sesi saja. Jatah bulannya tetap (period tidak berubah). */
     public function move(ScheduleSession $session, string $date, string $time, string $teacherId, string $roomId): void
     {
-        DB::transaction(function () use ($session, $date, $time, $teacherId, $roomId) {
+        [$oldTeacher, $oldStart] = DB::transaction(function () use ($session, $date, $time, $teacherId, $roomId) {
             UserBranch::whereKey($session->branch_id)->lockForUpdate()->first();
             $locked = ScheduleSession::with('attendances')->whereKey($session->getKey())->lockForUpdate()->firstOrFail();
 
@@ -184,6 +192,8 @@ class ScheduleSessionService
                 throw new RuntimeException('Jadwal ini sudah punya sesi lain di tanggal tersebut. Pilih tanggal lain.');
             }
 
+            $before = [$locked->teacher, $locked->start_at->copy()];
+
             $locked->forceFill([
                 'date' => $start->toDateString(),
                 'start_at' => $start,
@@ -194,13 +204,26 @@ class ScheduleSessionService
                 // Ganti pengajar: pengajar baru harus absen sendiri.
                 'teacher_checked_in_at' => $teacherId === $locked->teacher_id ? $locked->teacher_checked_in_at : null,
             ])->save();
+
+            return $before;
         });
+
+        // Info ke pengajar: yang lama (kalau diganti) dan yang mengajar sekarang.
+        $session = $session->refresh()->unsetRelation('teacher');
+        $from = 'Sebelumnya: '.$oldStart->translatedFormat('l, d M Y').' pukul '.$oldStart->format('H.i').'.';
+
+        if ($oldTeacher && $oldTeacher->getKey() !== $teacherId) {
+            SendWaNotification::teacherChange($session, "🔁 Pertemuan Anda ({$oldStart->translatedFormat('l, d M')} pukul {$oldStart->format('H.i')}) dialihkan ke pengajar lain. Anda tidak perlu mengajar di jadwal ini.", $oldTeacher, $oldStart);
+            SendWaNotification::teacherChange($session, "🙋 Anda ditugaskan mengajar pertemuan ini.\n{$from}", null, $oldStart);
+        } else {
+            SendWaNotification::teacherChange($session, "📅 Jadwal pertemuan dipindah.\n{$from}", null, $oldStart);
+        }
     }
 
     /** Sesi pengganti untuk murid yang izin. Honor dihitung di sesi pengganti saat diselesaikan. */
     public function makeup(ScheduleAttendance $attendance, string $date, string $time, string $teacherId, string $roomId): ScheduleSession
     {
-        return DB::transaction(function () use ($attendance, $date, $time, $teacherId, $roomId) {
+        $session = DB::transaction(function () use ($attendance, $date, $time, $teacherId, $roomId) {
             $original = $attendance->session;
             UserBranch::whereKey($original->branch_id)->lockForUpdate()->first();
             $locked = ScheduleAttendance::whereKey($attendance->getKey())->lockForUpdate()->firstOrFail();
@@ -241,6 +264,10 @@ class ScheduleSessionService
 
             return $session;
         });
+
+        SendWaNotification::teacherChange($session, '➕ Ada sesi pengganti baru untuk murid yang sebelumnya izin.');
+
+        return $session;
     }
 
     private function slot(string $date, string $time, int $minutes): array

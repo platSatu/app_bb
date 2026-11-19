@@ -51,6 +51,8 @@ abstract class ScheduleResourceController extends Controller
             'routines' => ['label' => 'Jadwal', 'icon' => 'ri-calendar-2-line'],
             'sessions' => ['label' => 'Sesi & Absensi', 'icon' => 'ri-checkbox-multiple-line'],
             ...self::RESOURCES,
+            // Hanya area owner (tab dilewati kalau rutenya tidak ada, mis. di superadmin).
+            'notifications' => ['label' => 'Notifikasi', 'icon' => 'ri-notification-3-line'],
         ];
     }
 

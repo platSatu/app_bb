@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Schedule\CategoryController;
 use App\Http\Controllers\Schedule\GradeController;
+use App\Http\Controllers\Schedule\NotificationController;
 use App\Http\Controllers\Schedule\RoomController;
 use App\Http\Controllers\Schedule\RoutineController;
 use App\Http\Controllers\Schedule\SessionController;
@@ -73,6 +74,12 @@ Route::middleware('auth')->prefix('schedules')->name('schedules.')->group(functi
     Route::middleware('permission:schedules.sessions')->group(function () use ($sessionRead, $sessionWrite) {
         $sessionRead();
         $sessionWrite();
+    });
+
+    // Notifikasi WhatsApp Jadwal per branch (owner saja; superadmin tidak punya tab ini).
+    Route::middleware('permission:schedules.notifications')->group(function () {
+        Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+        Route::put('notifications/{branch}', [NotificationController::class, 'update'])->middleware('throttle:20,1')->name('notifications.update');
     });
 });
 

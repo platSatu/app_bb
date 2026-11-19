@@ -65,8 +65,13 @@ class BranchController extends Controller
             ->with('success', "Branch {$branch->name} berhasil diperbarui.");
     }
 
+    /** Hanya superadmin yang bisa menghapus branch, dan hanya branch yang sudah tidak menyimpan data. */
     public function destroy(UserBranch $branch): RedirectResponse
     {
+        if ($reason = $branch->deleteBlockedReason()) {
+            return back()->with('error', $reason);
+        }
+
         $branch->delete();
 
         return redirect()->route('superadmin.branches.index')
