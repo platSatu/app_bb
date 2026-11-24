@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Superadmin\Activity\ActivityController;
 use App\Http\Controllers\Superadmin\Ai\AiController;
+use App\Http\Controllers\Superadmin\Ai\AssistantController;
 use App\Http\Controllers\Superadmin\Backup\BackupController;
 use App\Http\Controllers\Superadmin\Monitor\MonitorController;
 use App\Http\Controllers\Superadmin\Branch\BranchController;
@@ -176,7 +177,24 @@ Route::middleware(['auth', 'superadmin'])
                 Route::put('{provider}', 'update')->name('update');
                 Route::post('{provider}/activate', 'activate')->name('activate');
                 Route::post('{provider}/test', 'test')->middleware('throttle:10,1')->name('test');
+                // Classai Router: daftar model, sisa saldo, dan uji kecepatan model (JSON).
+                Route::get('{provider}/models', 'models')->middleware('throttle:20,1')->name('models');
+                Route::get('{provider}/account', 'account')->middleware('throttle:30,1')->name('account');
+                Route::post('{provider}/speed', 'speed')->middleware('throttle:10,1')->name('speed');
                 Route::delete('{provider}', 'destroy')->name('destroy');
+            });
+
+        // Tools › Asisten AI: chat superadmin dengan penyedia AI aktif. Percakapan hanya bisa dibuka pemiliknya.
+        Route::controller(AssistantController::class)
+            ->prefix('ai-assistant')
+            ->name('ai-assistant.')
+            ->middleware('permission:superadmin.tools.ai-assistant,manage')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('send', 'send')->middleware('throttle:20,1')->name('send');
+                Route::get('{conversation}', 'index')->whereUuid('conversation')->name('show');
+                Route::put('{conversation}', 'rename')->whereUuid('conversation')->name('rename');
+                Route::delete('{conversation}', 'destroy')->whereUuid('conversation')->name('destroy');
             });
 
         Route::controller(MonitorController::class)

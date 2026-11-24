@@ -15,7 +15,25 @@
     <div class="col-md-6">
         <label class="form-label small mb-1">Model</label>
         <input type="text" name="model" maxlength="100" value="{{ $provider->model }}" class="form-control form-control-sm" data-model-input="{{ $uid }}"
-            placeholder="{{ \App\Models\AiProvider::DRIVERS[$provider->driver ?? 'openai'][2] }}" required>
+            placeholder="{{ \App\Models\AiProvider::DRIVERS[$provider->driver ?? 'openai'][2] }}" required
+            @if ($provider->exists && $provider->isClassai()) list="classai-models-{{ $uid }}" @endif>
+        @if ($provider->exists && $provider->isClassai())
+            {{-- Diisi lewat tombol di bawah dari GET /v1/models Classai (lihat script di index). --}}
+            <datalist id="classai-models-{{ $uid }}"></datalist>
+            <div class="d-flex flex-wrap gap-1 mt-1" data-classai-tools
+                data-models-url="{{ route('superadmin.ai.models', $provider) }}"
+                data-speed-url="{{ route('superadmin.ai.speed', $provider) }}"
+                data-list="classai-models-{{ $uid }}" data-input="{{ $uid }}">
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0" data-load-models><i class="ri-list-check"></i> Lihat model yang tersedia</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0" data-speed><i class="ri-timer-line"></i> Cek kecepatan model ini</button>
+            </div>
+            <div class="small text-muted mt-1" data-classai-status></div>
+            <ul class="small list-unstyled mb-0 mt-1" data-speed-results></ul>
+        @else
+            @if (! $provider->exists)
+                <div class="form-text small">Pakai Classai Router? Pilih "Classai Router" di kolom Penyedia, tempel API key, klik Tambah. Setelah itu Anda bisa memilih model dari daftar dan mengecek kecepatannya.</div>
+            @endif
+        @endif
     </div>
     <div class="col-md-6">
         <label class="form-label small mb-1">Base URL (opsional)</label>

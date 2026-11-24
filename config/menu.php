@@ -354,6 +354,13 @@ return [
                         'active' => 'superadmin.tools.prospects.*',
                         'superadmin_only' => true,
                     ],
+                    // Ruang chat AI untuk superadmin (penyedia & model dari Settings › AI). Berisi biaya API, jadi khusus superadmin.
+                    'superadmin.tools.ai-assistant' => [
+                        'label' => 'Asisten AI',
+                        'route' => 'superadmin.ai-assistant.index',
+                        'active' => 'superadmin.ai-assistant.*',
+                        'superadmin_only' => true,
+                    ],
                     // Kirim email penawaran (blast) & baca inbox dari akun email hosting tersendiri.
                     'superadmin.tools.email-blast' => [
                         'label' => 'Email Blast',

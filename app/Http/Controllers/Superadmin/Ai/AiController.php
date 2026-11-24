@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\AiProvider;
 use App\Models\AiSetting;
 use App\Services\Ai\AiClient;
+use App\Services\Ai\ClassaiRouter;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -62,13 +64,53 @@ class AiController extends Controller
 
     public function test(AiProvider $provider): RedirectResponse
     {
+        $start = hrtime(true);
+
         try {
             (new AiClient($provider))->complete('Balas hanya JSON {"ok":true}.', 'Tes koneksi', 50);
         } catch (RuntimeException $e) {
             return back()->with('error', "{$provider->name}: {$e->getMessage()}");
         }
 
-        return back()->with('success', "{$provider->name} terhubung dengan baik.");
+        $seconds = number_format((hrtime(true) - $start) / 1e9, 1, ',', '.');
+
+        return back()->with('success', "{$provider->name} terhubung dengan baik ({$provider->model}, {$seconds} detik).");
+    }
+
+    /** Daftar model aktif di Classai Router untuk isian Model (JSON, dipakai tombol "Muat daftar model"). */
+    public function models(Request $request, AiProvider $provider, ClassaiRouter $router): JsonResponse
+    {
+        try {
+            return response()->json(['models' => $router->models($provider, $request->boolean('fresh'))]);
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
+    /** Sisa saldo & paket Classai Router (JSON). */
+    public function account(Request $request, AiProvider $provider, ClassaiRouter $router): JsonResponse
+    {
+        try {
+            return response()->json($router->account($provider, $request->boolean('fresh')));
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
+    /** Ukur kecepatan satu model (jawaban 1 kata) supaya bisa dibandingkan sebelum dipilih. */
+    public function speed(Request $request, AiProvider $provider, ClassaiRouter $router): JsonResponse
+    {
+        $model = $request->validate(['model' => ['required', 'string', 'regex:'.AiProvider::MODEL_PATTERN]])['model'];
+
+        try {
+            if ($provider->isClassai() && ! in_array($model, $router->modelIds($provider), true)) {
+                return response()->json(['message' => "Model {$model} tidak ada di daftar Classai. Muat ulang daftar model."], 422);
+            }
+
+            return response()->json(['model' => $model, 'ms' => $router->ping($provider, $model)]);
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
     }
 
     public function destroy(AiProvider $provider): RedirectResponse
@@ -91,9 +133,9 @@ class AiController extends Controller
         return $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'driver' => ['required', Rule::in(array_keys(AiProvider::DRIVERS))],
-            'model' => ['required', 'string', 'max:100'],
+            'model' => ['required', 'string', 'max:100', 'regex:'.AiProvider::MODEL_PATTERN],
             'base_url' => ['nullable', 'url', 'max:255'],
             'api_key' => [$creating ? 'required' : 'nullable', 'string', 'max:500'],
-        ], [], ['name' => 'nama', 'driver' => 'penyedia', 'api_key' => 'API key']);
+        ], ['model.regex' => 'ID model hanya boleh berisi huruf, angka, titik, titik dua, garis miring, minus atau @.'], ['name' => 'nama', 'driver' => 'penyedia', 'api_key' => 'API key']);
     }
 }

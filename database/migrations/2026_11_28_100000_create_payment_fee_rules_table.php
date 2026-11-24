@@ -51,7 +51,8 @@ return new class extends Migration
             'App\\Models\\CatalogOrder' => ['catalog_orders', 'total'],
         ];
 
-        foreach ($sources as $class => [$table, $column]) {
+        // UPDATE ... JOIN dan GREATEST() khusus MySQL; database tes (SQLite) selalu kosong, jadi isi ulang ini dilewati di sana.
+        foreach (DB::getDriverName() === 'sqlite' ? [] : $sources as $class => [$table, $column]) {
             DB::table('wallet_transactions as w')->join("{$table} as s", 's.id', '=', 'w.reference_id')
                 ->where('w.reference_type', $class)->where('w.direction', 'credit')->whereNull('w.paid_amount')
                 ->update(['w.paid_amount' => DB::raw("GREATEST(COALESCE(s.{$column}, 0), w.amount + w.method_fee)")]);
