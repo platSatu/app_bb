@@ -380,6 +380,13 @@ return [
                         'active' => 'superadmin.roles.*',
                         'superadmin_only' => true,
                     ],
+                    // App Key/Secret Lazada (nanti TikTok Shop & Shopee) untuk tab Marketplace di Catalog Online. Berisi rahasia, khusus superadmin.
+                    'superadmin.marketplace-apps' => [
+                        'label' => 'Marketplace Apps',
+                        'route' => 'superadmin.marketplace-apps.index',
+                        'active' => 'superadmin.marketplace-apps.*',
+                        'superadmin_only' => true,
+                    ],
                     // Berisi API key penyedia AI, jadi khusus superadmin.
                     'superadmin.ai' => [
                         'label' => 'AI',

@@ -15,6 +15,8 @@ return [
             'catalog-products' => ['Produk', 'ri-shopping-bag-3-line', 'catalog.products.index'],
             'catalog-orders' => ['Pesanan', 'ri-file-list-3-line', 'catalog.orders.index'],
             'catalog-payment' => ['Pembayaran', 'ri-bank-card-line', 'catalog.payment.edit'],
+            // Lazada (TikTok Shop & Shopee menyusul): sambung toko, tarik produk, upload produk katalog.
+            'catalog-marketplace' => ['Marketplace', 'ri-store-2-line', 'marketplace.index'],
         ],
         'quick' => ['Pesanan', 'ri-file-list-3-line', 'catalog.orders.index', 'catalog_orders_count'],
         'public' => 'page.public.catalog',
