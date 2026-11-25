@@ -5,7 +5,7 @@
 
 @push('styles')
 <style>
-    .ai-chat { height: calc(100vh - 240px); min-height: 520px; }
+    .ai-chat { height: calc(100vh - 380px); min-height: 520px; }
     .ai-thread { overflow-y: auto; }
     .ai-bubble { max-width: 85%; word-wrap: break-word; line-height: 1.55; }
     .ai-bubble pre { background: #f4f5f7; padding: .6rem .75rem; border-radius: .4rem; overflow-x: auto; white-space: pre; font-size: .85em; }
@@ -50,6 +50,36 @@
         </div>
 
         <div class="col-lg-9">
+            @if ($provider)
+                <div class="card mb-3">
+                    <div class="card-body p-3">
+                        <div class="d-flex flex-wrap align-items-baseline justify-content-between gap-2 mb-2">
+                            <div>
+                                <span class="fw-semibold">👋 Halo, {{ \Illuminate\Support\Str::before(auth()->user()->name.' ', ' ') }}! Mau dibantu apa hari ini?</span>
+                                <span class="small text-muted d-block d-md-inline ms-md-1">Klik contoh untuk mengisi kotak pesan, sesuaikan, lalu kirim.</span>
+                            </div>
+                            <span class="small text-muted"><i class="ri-shield-check-line text-success"></i> Tidak ada yang terkirim atau berubah di bizbos tanpa Anda.</span>
+                        </div>
+                <div class="row g-2">
+                    @foreach (array_values(array_filter([
+                        ['text', 'ri-instagram-line', 'Ide konten', 'Buatkan 5 ide konten Instagram minggu ini untuk menarik pemilik bimbel dan kursus memakai bizbos. Sertakan caption singkat dan hashtag.'],
+                        ['text', 'ri-whatsapp-line', 'Pesan WhatsApp', 'Tulis pesan WhatsApp yang ramah untuk pengguna trial bizbos yang belum upgrade. Maksimal 5 kalimat, ajak mereka bertanya kalau ada kendala.'],
+                        ['text', 'ri-calendar-check-line', 'Rencana marketing', 'Susun rencana marketing harian bizbos untuk 1 minggu ke depan. Tiap hari 2-3 tugas yang bisa saya kerjakan dalam 30 menit.'],
+                        $mediaEnabled ? ['image', 'ri-image-2-line', 'Gambar promosi', 'Foto suasana les privat yang hangat: guru dan murid SD belajar di meja kayu, cahaya pagi dari jendela, gaya foto natural, tanpa tulisan.'] : null,
+                        $mediaEnabled ? ['video', 'ri-movie-2-line', 'Video pendek', 'Video vertikal 8 detik: pemilik studio yoga tersenyum melihat jadwal kelas di HP, kamera perlahan mendekat, suasana pagi yang cerah, suara musik santai.'] : null,
+                        $mediaEnabled ? ['audio', 'ri-mic-line', 'Voice-over', 'Capek ngurus jadwal dan tagihan murid satu-satu? Pakai bizbos. Jadwal rapi, tagihan otomatis, pengingat WhatsApp terkirim sendiri. Coba gratis di bizbos.id.'] : null,
+                    ])) as [$exampleMode, $icon, $label, $prompt])
+                        <div class="col-6 col-md-4 col-xxl-2">
+                            <button type="button" class="btn btn-light border w-100 text-start p-2 h-100 ai-example" data-example="{{ $prompt }}" data-mode="{{ $exampleMode }}">
+                                <div class="fw-semibold small mb-1"><i class="{{ $icon }} text-primary me-1"></i> {{ $label }}</div>
+                                <div class="small text-muted lh-sm" style="font-size: .75rem">{{ \Illuminate\Support\Str::limit($prompt, 60) }}</div>
+                            </button>
+                        </div>
+                    @endforeach
+                </div>
+                    </div>
+                </div>
+            @endif
             <div class="card mb-0 ai-chat d-flex flex-column">
                 <div class="card-header bg-white border-bottom px-3 py-2 d-flex flex-wrap align-items-center gap-2">
                     @if ($current)
@@ -74,30 +104,12 @@
                             Tambahkan dan aktifkan penyedia AI dulu (misalnya Classai Router) di <a href="{{ route('superadmin.ai.index') }}">Settings › AI</a>. Setelah itu halaman ini langsung bisa dipakai.
                         </div>
                     @endunless
-                    <div class="py-3 px-md-4" id="ai-welcome" @if ($messages->isNotEmpty() || ! $provider) hidden @endif>
-                        <div class="text-center mb-3">
-                            <div class="fs-1 mb-1">👋</div>
-                            <h5 class="fw-semibold mb-1">Halo, {{ \Illuminate\Support\Str::before(auth()->user()->name.' ', ' ') }}! Mau dibantu apa hari ini?</h5>
-                            <div class="text-muted small">Pilih jenisnya di bawah (Teks, Gambar, Video atau Suara), lalu ketik seperti sedang ngobrol. Atau klik salah satu contoh ini.</div>
+                    <div class="h-100" id="ai-welcome" @if ($messages->isNotEmpty() || ! $provider) hidden @endif>
+                        <div class="h-100 d-flex flex-column align-items-center justify-content-center text-center text-muted py-5">
+                            <i class="ri-chat-smile-3-line fs-1 mb-2"></i>
+                            <div class="fw-semibold">Belum ada pesan di percakapan ini.</div>
+                            <div class="small">Ketik di kotak bawah, atau klik salah satu contoh di atas.</div>
                         </div>
-                        <div class="row g-2">
-                            @foreach (array_values(array_filter([
-                                ['text', 'ri-instagram-line', 'Ide konten', 'Buatkan 5 ide konten Instagram minggu ini untuk menarik pemilik bimbel dan kursus memakai bizbos. Sertakan caption singkat dan hashtag.'],
-                                ['text', 'ri-whatsapp-line', 'Pesan WhatsApp', 'Tulis pesan WhatsApp yang ramah untuk pengguna trial bizbos yang belum upgrade. Maksimal 5 kalimat, ajak mereka bertanya kalau ada kendala.'],
-                                ['text', 'ri-calendar-check-line', 'Rencana marketing', 'Susun rencana marketing harian bizbos untuk 1 minggu ke depan. Tiap hari 2-3 tugas yang bisa saya kerjakan dalam 30 menit.'],
-                                $mediaEnabled ? ['image', 'ri-image-2-line', 'Gambar promosi', 'Foto suasana les privat yang hangat: guru dan murid SD belajar di meja kayu, cahaya pagi dari jendela, gaya foto natural, tanpa tulisan.'] : null,
-                                $mediaEnabled ? ['video', 'ri-movie-2-line', 'Video pendek', 'Video vertikal 8 detik: pemilik studio yoga tersenyum melihat jadwal kelas di HP, kamera perlahan mendekat, suasana pagi yang cerah, suara musik santai.'] : null,
-                                $mediaEnabled ? ['audio', 'ri-mic-line', 'Voice-over', 'Capek ngurus jadwal dan tagihan murid satu-satu? Pakai bizbos. Jadwal rapi, tagihan otomatis, pengingat WhatsApp terkirim sendiri. Coba gratis di bizbos.id.'] : null,
-                            ])) as [$exampleMode, $icon, $label, $prompt])
-                                <div class="col-sm-6 col-xl-4">
-                                    <button type="button" class="btn btn-light border w-100 text-start p-3 h-100 ai-example" data-example="{{ $prompt }}" data-mode="{{ $exampleMode }}">
-                                        <div class="fw-semibold mb-1"><i class="{{ $icon }} text-primary me-1"></i> {{ $label }}</div>
-                                        <div class="small text-muted lh-sm">{{ \Illuminate\Support\Str::limit($prompt, 90) }}</div>
-                                    </button>
-                                </div>
-                            @endforeach
-                        </div>
-                        <div class="small text-muted text-center mt-3"><i class="ri-shield-check-line text-success"></i> AI hanya membuat draf, gambar, video & suara untuk Anda. Tidak ada yang terkirim atau berubah di bizbos tanpa Anda.</div>
                     </div>
                 </div>
 
@@ -429,7 +441,7 @@
 
         var loadCatalog = function () {
             if (catalog) return Promise.resolve(catalog);
-            info.textContent = 'Memuat pilihan model…';
+            info.textContent = '⏳ Memuat pilihan model dari Classai…'; info.className = 'small text-muted';
             return fetch(urls.options, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.message || 'Gagal memuat pilihan.'); return d; }); })
                 .then(function (d) {
@@ -463,8 +475,20 @@
                 sendLabel.textContent = HINTS[next][2];
                 updateInfo();
             };
-            if (next === 'text') { go(); return Promise.resolve(); }
-            return loadCatalog().then(go).catch(function (e) { info.textContent = '⚠️ ' + e.message; info.className = 'small text-danger'; });
+            if (next === 'text' || catalog) { go(); return Promise.resolve(); }
+            // Tombol & petunjuk langsung pindah; pilihan model menyusul setelah dimuat.
+            mode = next;
+            document.querySelectorAll('#ai-modes [data-mode]').forEach(function (b) {
+                b.classList.toggle('btn-primary', b.dataset.mode === next);
+                b.classList.toggle('btn-outline-primary', b.dataset.mode !== next);
+            });
+            document.querySelectorAll('[data-panel]').forEach(function (p) { p.hidden = true; });
+            hint.textContent = HINTS[next][0];
+            input.placeholder = HINTS[next][1];
+            sendLabel.textContent = HINTS[next][2];
+            sendButton.disabled = true;
+            return loadCatalog().then(function () { sendButton.disabled = false; if (mode === next) go(); })
+                .catch(function (e) { sendButton.disabled = false; info.textContent = '⚠️ ' + e.message; info.className = 'small text-danger'; });
         };
         document.querySelectorAll('#ai-modes [data-mode]').forEach(function (b) { b.addEventListener('click', function () { setMode(b.dataset.mode); }); });
         $('img-model').addEventListener('change', setupImage);
