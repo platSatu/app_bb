@@ -56,8 +56,8 @@ it('seeder paket: Kursus per jumlah murid (bulanan, 6 & 12 bulan, trial 30 hari)
         ->and(Package::where('name', 'Pages - Gratis Selamanya')->firstOrFail()->price)->toBe(0);
 
     $this->actingAs(User::factory()->create())->get(route('packages.catalog'))->assertOk()
-        // Tab urut dari harga termurah; isi tab Kursus Starter: Trial, Bulanan, 6, 12 bulan.
-        ->assertSeeInOrder(['Kursus Starter', 'Kursus Growth', 'Kursus Pro', 'Kursus Starter - Trial 30 Hari', 'Kursus Starter - Bulanan', 'Kursus Starter - 6 Bulan', 'Kursus Starter - 12 Bulan'])
+        // Tab Kursus paling depan (termurah dulu); isi tab Kursus Starter: Trial, Bulanan, 6, 12 bulan.
+        ->assertSeeInOrder(['Kursus Starter', 'Kursus Growth', 'Kursus Pro', 'Kursus Unlimited', 'Pages', 'Kursus Starter - Trial 30 Hari', 'Kursus Starter - Bulanan', 'Kursus Starter - 6 Bulan', 'Kursus Starter - 12 Bulan'])
         ->assertSee('Hemat 17%')
         ->assertSee('TERPOPULER');
 });

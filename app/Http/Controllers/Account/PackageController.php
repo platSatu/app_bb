@@ -50,11 +50,12 @@ class PackageController extends Controller implements HasMiddleware
 
     public function catalog(Request $request): View
     {
-        // Satu tab per kategori (urut dari harga termurah); di dalamnya trial dulu, lalu durasi terpendek.
+        // Satu tab per kategori (Kursus dulu, lalu urut dari harga termurah); di dalamnya trial dulu, lalu durasi terpendek.
         $tabs = $this->forSale($request)->get()
             ->sortBy(fn (Package $package) => [$package->is_trial ? 0 : 1, $package->duration, $package->price])
             ->groupBy('category_application_id')
-            ->sortBy(fn ($items) => $items->where('is_trial', false)->min('price') ?? 0);
+            // Tab paket Kursus selalu paling depan (termurah dulu), lalu kategori lain dari harga termurah.
+            ->sortBy(fn ($items) => [str_starts_with((string) $items->first()->category?->name, 'Kursus') ? 0 : 1, $items->where('is_trial', false)->min('price') ?? 0]);
         $category = (string) $request->query('kategori');
 
         return view('profile.packages.catalog', [
