@@ -7,22 +7,30 @@
 <style>
     .ai-chat { height: calc(100vh - 380px); min-height: 520px; }
     .ai-thread { overflow-y: auto; }
-    .ai-bubble { max-width: 85%; word-wrap: break-word; line-height: 1.55; }
-    .ai-bubble pre { background: #f4f5f7; padding: .6rem .75rem; border-radius: .4rem; overflow-x: auto; white-space: pre; font-size: .85em; }
+    .ai-thread-inner { max-width: 860px; margin: 0 auto; }
+    .ai-bubble { max-width: 85%; word-wrap: break-word; line-height: 1.65; }
+    .ai-bubble pre { background: #f4f5f7; padding: .6rem .75rem; border-radius: .5rem; overflow-x: auto; white-space: pre; font-size: .85em; }
     .ai-bubble code { background: #f4f5f7; padding: 0 .25rem; border-radius: .2rem; }
     .ai-bubble pre code { background: none; padding: 0; }
-    .ai-user { background: var(--bs-primary); color: #fff; }
-    .ai-user code, .ai-user pre { background: rgba(255,255,255,.15); color: #fff; }
-    .ai-list a.active { background: var(--bs-primary-bg-subtle); }
-    .ai-typing:empty::before { content: 'AI sedang berpikir'; color: var(--bs-secondary-color); font-style: italic; }
+    .ai-user { background: var(--bs-primary-bg-subtle); color: var(--bs-body-color); border-radius: 1.1rem 1.1rem .3rem 1.1rem !important; }
+    .ai-assistant { max-width: 100%; flex: 1; padding-left: 0 !important; }
+    .ai-avatar { width: 30px; height: 30px; flex: 0 0 30px; border-radius: 50%; background: var(--bs-primary-bg-subtle); color: var(--bs-primary); display: flex; align-items: center; justify-content: center; font-size: 15px; margin-top: 2px; }
+    .ai-failed { background: var(--bs-danger-bg-subtle); padding: .5rem .75rem !important; border-radius: .75rem; }
+    .ai-list a.active { background: var(--bs-primary-bg-subtle); color: var(--bs-body-color); border-color: transparent; }
+    .ai-typing:empty::before { content: 'Sedang berpikir'; color: var(--bs-secondary-color); font-style: italic; }
     .ai-typing::after { content: ' ▍'; animation: ai-blink 1s steps(1) infinite; }
     @keyframes ai-blink { 50% { opacity: 0; } }
-    .ai-example:hover { border-color: var(--bs-primary) !important; }
-    .ai-media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .5rem; }
-    .ai-media-grid img { width: 100%; border-radius: .5rem; cursor: zoom-in; background: #eee; }
-    .ai-bubble video { max-width: 100%; max-height: 420px; border-radius: .5rem; background: #000; }
-    .ai-bubble audio { width: 320px; max-width: 100%; }
-    .ai-modes .btn { min-width: 84px; }
+    .ai-media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .5rem; }
+    .ai-media-grid img { width: 100%; border-radius: .75rem; cursor: zoom-in; background: #eee; }
+    .ai-bubble video { max-width: 100%; max-height: 440px; border-radius: .75rem; background: #000; }
+    .ai-bubble audio { width: 340px; max-width: 100%; }
+    .ai-composer { max-width: 860px; margin: 0 auto; background: #fff; transition: box-shadow .15s; }
+    .ai-composer:focus-within { box-shadow: 0 .25rem 1rem rgba(0,0,0,.08) !important; }
+    .ai-composer textarea { resize: none; min-height: 52px; max-height: 220px; font-size: .95rem; }
+    .ai-composer textarea:focus { box-shadow: none; }
+    .ai-mode { border-radius: 2rem !important; font-size: .8rem; padding: .2rem .65rem; }
+    .ai-send { width: 36px; height: 36px; border-radius: 50% !important; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+    .ai-controls { height: 170px; overflow-y: auto; }
     .ai-panel .form-select, .ai-panel .form-control { font-size: .8rem; }
     .ai-panel label { font-size: .75rem; color: var(--bs-secondary-color); margin-bottom: 0; }
 </style>
@@ -51,32 +59,53 @@
 
         <div class="col-lg-9">
             @if ($provider)
+                {{-- Jenis & pengaturan: tinggi tetap, bisa di-scroll, supaya room chat di bawahnya tetap bersih. --}}
                 <div class="card mb-3">
-                    <div class="card-body p-3">
-                        <div class="d-flex flex-wrap align-items-baseline justify-content-between gap-2 mb-2">
-                            <div>
-                                <span class="fw-semibold">👋 Halo, {{ \Illuminate\Support\Str::before(auth()->user()->name.' ', ' ') }}! Mau dibantu apa hari ini?</span>
-                                <span class="small text-muted d-block d-md-inline ms-md-1">Klik contoh untuk mengisi kotak pesan, sesuaikan, lalu kirim.</span>
-                            </div>
+                    <div class="card-body p-3 ai-controls">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <div class="d-flex flex-wrap gap-1" role="group" aria-label="Jenis hasil" id="ai-modes">
+                            <button type="button" class="btn btn-sm btn-primary ai-mode" data-mode="text">💬 Teks</button>
+                            <button type="button" class="btn btn-sm btn-light ai-mode" data-mode="image" @disabled(! $mediaEnabled) title="{{ $mediaEnabled ? 'Buat gambar' : 'Hanya tersedia dengan Classai Router' }}">🖼️ Gambar</button>
+                            <button type="button" class="btn btn-sm btn-light ai-mode" data-mode="video" @disabled(! $mediaEnabled) title="{{ $mediaEnabled ? 'Buat video pendek' : 'Hanya tersedia dengan Classai Router' }}">🎬 Video</button>
+                            <button type="button" class="btn btn-sm btn-light ai-mode" data-mode="audio" @disabled(! $mediaEnabled) title="{{ $mediaEnabled ? 'Ubah teks jadi suara' : 'Hanya tersedia dengan Classai Router' }}">🔊 Suara</button>
+                        </div>
                             <span class="small text-muted"><i class="ri-shield-check-line text-success"></i> Tidak ada yang terkirim atau berubah di bizbos tanpa Anda.</span>
                         </div>
-                <div class="row g-2">
-                    @foreach (array_values(array_filter([
-                        ['text', 'ri-instagram-line', 'Ide konten', 'Buatkan 5 ide konten Instagram minggu ini untuk menarik pemilik bimbel dan kursus memakai bizbos. Sertakan caption singkat dan hashtag.'],
-                        ['text', 'ri-whatsapp-line', 'Pesan WhatsApp', 'Tulis pesan WhatsApp yang ramah untuk pengguna trial bizbos yang belum upgrade. Maksimal 5 kalimat, ajak mereka bertanya kalau ada kendala.'],
-                        ['text', 'ri-calendar-check-line', 'Rencana marketing', 'Susun rencana marketing harian bizbos untuk 1 minggu ke depan. Tiap hari 2-3 tugas yang bisa saya kerjakan dalam 30 menit.'],
-                        $mediaEnabled ? ['image', 'ri-image-2-line', 'Gambar promosi', 'Foto suasana les privat yang hangat: guru dan murid SD belajar di meja kayu, cahaya pagi dari jendela, gaya foto natural, tanpa tulisan.'] : null,
-                        $mediaEnabled ? ['video', 'ri-movie-2-line', 'Video pendek', 'Video vertikal 8 detik: pemilik studio yoga tersenyum melihat jadwal kelas di HP, kamera perlahan mendekat, suasana pagi yang cerah, suara musik santai.'] : null,
-                        $mediaEnabled ? ['audio', 'ri-mic-line', 'Voice-over', 'Capek ngurus jadwal dan tagihan murid satu-satu? Pakai bizbos. Jadwal rapi, tagihan otomatis, pengingat WhatsApp terkirim sendiri. Coba gratis di bizbos.id.'] : null,
-                    ])) as [$exampleMode, $icon, $label, $prompt])
-                        <div class="col-6 col-md-4 col-xxl-2">
-                            <button type="button" class="btn btn-light border w-100 text-start p-2 h-100 ai-example" data-example="{{ $prompt }}" data-mode="{{ $exampleMode }}">
-                                <div class="fw-semibold small mb-1"><i class="{{ $icon }} text-primary me-1"></i> {{ $label }}</div>
-                                <div class="small text-muted lh-sm" style="font-size: .75rem">{{ \Illuminate\Support\Str::limit($prompt, 60) }}</div>
-                            </button>
+                        <div class="small text-muted mb-2" id="ai-mode-hint">Pilih “otak” AI yang menjawab. Model kecil = cepat &amp; hemat, model besar = lebih pintar.</div>
+                    {{-- Pilihan per jenis --}}
+                    <div class="ai-panel row g-2" data-panel="text">
+                        <div class="col-auto">
+                            <label for="ai-model" title="Model = 'otak' AI yang menjawab. Model besar (Opus, GPT-6) lebih pintar tapi lebih lama dan lebih mahal. Model kecil (Haiku, Flash) cepat dan hemat."><i class="ri-brain-line"></i> Otak AI <i class="ri-question-line"></i></label>
+                            <select id="ai-model" class="form-select form-select-sm" style="max-width: 280px" @disabled(! $provider)>
+                                @foreach ($models as $m)
+                                    <option value="{{ $m['id'] }}" @selected($m['id'] === $model)>{{ $m['name'] }}{{ $m['name'] !== $m['id'] ? ' ('.$m['id'].')' : '' }}</option>
+                                @endforeach
+                            </select>
                         </div>
-                    @endforeach
-                </div>
+                    </div>
+                    <div class="ai-panel row g-2" data-panel="image" hidden>
+                        <div class="col-12 col-md-5 col-xl-4"><label for="img-model">Model gambar</label><select id="img-model" class="form-select form-select-sm"></select></div>
+                        <div class="col-6 col-md-3"><label for="img-aspect">Ukuran</label><select id="img-aspect" class="form-select form-select-sm"></select></div>
+                        <div class="col-6 col-md-2"><label for="img-res">Resolusi</label><select id="img-res" class="form-select form-select-sm"></select></div>
+                        <div class="col-6 col-md-2"><label for="img-n">Jumlah</label><select id="img-n" class="form-select form-select-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+                        <div class="col-6 col-md-3 col-xl-2" data-quality><label for="img-quality">Mutu</label><select id="img-quality" class="form-select form-select-sm"></select></div>
+                        <div class="col-12 col-md-6" data-reference><label for="img-ref" data-reference-label>Gambar contoh (opsional, untuk diedit / dijadikan acuan)</label><input type="file" id="img-ref" accept="image/png,image/jpeg,image/webp" class="form-control form-control-sm"></div>
+                    </div>
+                    <div class="ai-panel row g-2" data-panel="video" hidden>
+                        <div class="col-12 col-md-4"><label for="vid-model">Model video</label><select id="vid-model" class="form-select form-select-sm"></select></div>
+                        <div class="col-6 col-md-3"><label for="vid-aspect">Ukuran</label><select id="vid-aspect" class="form-select form-select-sm"></select></div>
+                        <div class="col-6 col-md-2"><label for="vid-res">Resolusi</label><select id="vid-res" class="form-select form-select-sm"></select></div>
+                        <div class="col-6 col-md-3 col-xl-2"><label for="vid-sec">Durasi</label><select id="vid-sec" class="form-select form-select-sm"></select></div>
+                        <div class="col-12 col-md-6"><label for="vid-ref">Gambar awal (opsional, jadi frame pertama video)</label><input type="file" id="vid-ref" accept="image/png,image/jpeg,image/webp" class="form-control form-control-sm"></div>
+                    </div>
+                    <div class="ai-panel row g-2" data-panel="audio" hidden>
+                        <div class="col-12 col-md-3"><label for="aud-model">Mesin suara</label><select id="aud-model" class="form-select form-select-sm"></select></div>
+                        <div class="col-9 col-md-4"><label for="aud-voice">Suara</label><select id="aud-voice" class="form-select form-select-sm"><option value="">Memuat…</option></select></div>
+                        <div class="col-3 col-md-1 d-flex align-items-end" style="min-width: 56px"><button type="button" class="btn btn-sm btn-outline-secondary w-100" id="aud-sample" title="Dengar contoh suara" disabled><i class="ri-play-line"></i></button></div>
+                        <div class="col-6 col-md-2"><label for="aud-style">Gaya</label><select id="aud-style" class="form-select form-select-sm"></select></div>
+                        <div class="col-6 col-md-2"><label for="aud-speed">Kecepatan <span id="aud-speed-val">1,0×</span></label><input type="range" id="aud-speed" min="0.7" max="1.2" step="0.05" value="1" class="form-range"></div>
+                    </div>
+                    <div class="small mt-2" id="ai-panel-info"></div>
                     </div>
                 </div>
             @endif
@@ -97,7 +126,8 @@
                     @endif
                 </div>
 
-                <div class="card-body ai-thread flex-grow-1 p-3" id="ai-thread">
+                <div class="card-body ai-thread flex-grow-1 p-3 p-md-4" id="ai-thread">
+                    <div class="ai-thread-inner" id="ai-thread-inner">
                     @unless ($provider)
                         <div class="alert alert-warning mb-0">
                             <div class="fw-semibold mb-1">AI belum disambungkan</div>
@@ -107,69 +137,26 @@
                     <div class="h-100" id="ai-welcome" @if ($messages->isNotEmpty() || ! $provider) hidden @endif>
                         <div class="h-100 d-flex flex-column align-items-center justify-content-center text-center text-muted py-5">
                             <i class="ri-chat-smile-3-line fs-1 mb-2"></i>
-                            <div class="fw-semibold">Belum ada pesan di percakapan ini.</div>
-                            <div class="small">Ketik di kotak bawah, atau klik salah satu contoh di atas.</div>
+                            <div class="fw-semibold">👋 Halo, {{ \Illuminate\Support\Str::before(auth()->user()->name.' ', ' ') }}! Mau dibantu apa hari ini?</div>
+                            <div class="small">Pilih jenisnya di atas (Teks, Gambar, Video, Suara), lalu ketik pesan di bawah.</div>
                         </div>
+                    </div>
                     </div>
                 </div>
 
-                <div class="card-footer bg-white border-top p-2">
-                    <form id="ai-form" class="d-flex flex-column gap-2" autocomplete="off">
-                        <div class="d-flex flex-wrap align-items-center gap-2">
-                            <div class="btn-group btn-group-sm ai-modes" role="group" aria-label="Jenis hasil" id="ai-modes">
-                                <button type="button" class="btn btn-primary" data-mode="text">💬 Teks</button>
-                                <button type="button" class="btn btn-outline-primary" data-mode="image" @disabled(! $mediaEnabled) title="{{ $mediaEnabled ? 'Buat gambar' : 'Hanya tersedia dengan Classai Router' }}">🖼️ Gambar</button>
-                                <button type="button" class="btn btn-outline-primary" data-mode="video" @disabled(! $mediaEnabled) title="{{ $mediaEnabled ? 'Buat video pendek' : 'Hanya tersedia dengan Classai Router' }}">🎬 Video</button>
-                                <button type="button" class="btn btn-outline-primary" data-mode="audio" @disabled(! $mediaEnabled) title="{{ $mediaEnabled ? 'Ubah teks jadi suara' : 'Hanya tersedia dengan Classai Router' }}">🔊 Suara</button>
-                            </div>
-                            <span class="small text-muted" id="ai-mode-hint">Tanya apa saja, minta ide, atau minta dibuatkan tulisan.</span>
+                <div class="card-footer bg-white border-0 px-3 pb-3 pt-1">
+                    <form id="ai-form" autocomplete="off">
+                        <div class="ai-composer border rounded-4 shadow-sm d-flex align-items-end gap-2 pe-2 pb-2">
+                            <textarea id="ai-input" rows="1" maxlength="8000" class="form-control border-0 px-3 pt-3 flex-grow-1" placeholder="Tulis pesan untuk Asisten AI…" @disabled(! $provider)></textarea>
+                            <button type="button" class="btn btn-sm btn-outline-secondary ai-send flex-shrink-0" id="ai-stop" title="Hentikan jawaban" hidden><i class="ri-stop-fill"></i></button>
+                            <button type="submit" class="btn btn-primary ai-send flex-shrink-0" id="ai-send" title="Kirim (Enter)" @disabled(! $provider)><i class="ri-arrow-up-line fs-5"></i><span class="visually-hidden" id="ai-send-label">Kirim</span></button>
                         </div>
-
-                        {{-- Pilihan per jenis --}}
-                        <div class="ai-panel row g-2" data-panel="text">
-                            <div class="col-auto">
-                                <label for="ai-model" title="Model = 'otak' AI yang menjawab. Model besar (Opus, GPT-6) lebih pintar tapi lebih lama dan lebih mahal. Model kecil (Haiku, Flash) cepat dan hemat."><i class="ri-brain-line"></i> Otak AI <i class="ri-question-line"></i></label>
-                                <select id="ai-model" class="form-select form-select-sm" style="max-width: 280px" @disabled(! $provider)>
-                                    @foreach ($models as $m)
-                                        <option value="{{ $m['id'] }}" @selected($m['id'] === $model)>{{ $m['name'] }}{{ $m['name'] !== $m['id'] ? ' ('.$m['id'].')' : '' }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
-                        <div class="ai-panel row g-2" data-panel="image" hidden>
-                            <div class="col-12 col-md-4"><label for="img-model">Model gambar</label><select id="img-model" class="form-select form-select-sm"></select></div>
-                            <div class="col-6 col-md-3"><label for="img-aspect">Ukuran</label><select id="img-aspect" class="form-select form-select-sm"></select></div>
-                            <div class="col-3 col-md-1"><label for="img-res">Resolusi</label><select id="img-res" class="form-select form-select-sm"></select></div>
-                            <div class="col-3 col-md-1"><label for="img-n">Jumlah</label><select id="img-n" class="form-select form-select-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
-                            <div class="col-6 col-md-3" data-quality><label for="img-quality">Mutu</label><select id="img-quality" class="form-select form-select-sm"></select></div>
-                            <div class="col-12 col-md-6" data-reference><label for="img-ref" data-reference-label>Gambar contoh (opsional, untuk diedit / dijadikan acuan)</label><input type="file" id="img-ref" accept="image/png,image/jpeg,image/webp" class="form-control form-control-sm"></div>
-                        </div>
-                        <div class="ai-panel row g-2" data-panel="video" hidden>
-                            <div class="col-12 col-md-4"><label for="vid-model">Model video</label><select id="vid-model" class="form-select form-select-sm"></select></div>
-                            <div class="col-6 col-md-3"><label for="vid-aspect">Ukuran</label><select id="vid-aspect" class="form-select form-select-sm"></select></div>
-                            <div class="col-3 col-md-2"><label for="vid-res">Resolusi</label><select id="vid-res" class="form-select form-select-sm"></select></div>
-                            <div class="col-3 col-md-2"><label for="vid-sec">Durasi</label><select id="vid-sec" class="form-select form-select-sm"></select></div>
-                            <div class="col-12 col-md-6"><label for="vid-ref">Gambar awal (opsional, jadi frame pertama video)</label><input type="file" id="vid-ref" accept="image/png,image/jpeg,image/webp" class="form-control form-control-sm"></div>
-                        </div>
-                        <div class="ai-panel row g-2" data-panel="audio" hidden>
-                            <div class="col-12 col-md-3"><label for="aud-model">Mesin suara</label><select id="aud-model" class="form-select form-select-sm"></select></div>
-                            <div class="col-9 col-md-4"><label for="aud-voice">Suara</label><select id="aud-voice" class="form-select form-select-sm"><option value="">Memuat…</option></select></div>
-                            <div class="col-3 col-md-1 d-flex align-items-end"><button type="button" class="btn btn-sm btn-outline-secondary w-100" id="aud-sample" title="Dengar contoh suara" disabled><i class="ri-play-line"></i></button></div>
-                            <div class="col-6 col-md-2"><label for="aud-style">Gaya</label><select id="aud-style" class="form-select form-select-sm"></select></div>
-                            <div class="col-6 col-md-2"><label for="aud-speed">Kecepatan <span id="aud-speed-val">1,0×</span></label><input type="range" id="aud-speed" min="0.7" max="1.2" step="0.05" value="1" class="form-range"></div>
-                        </div>
-                        <div class="small" id="ai-panel-info"></div>
-
-                        <textarea id="ai-input" rows="2" maxlength="8000" class="form-control" placeholder="Contoh: Buatkan caption promo bizbos untuk pemilik les musik, gaya santai, 3 versi…" @disabled(! $provider)></textarea>
-                        <div class="d-flex flex-wrap align-items-center gap-2">
-                            <span class="small text-muted flex-grow-1" id="ai-status">
+                        <div class="ai-composer d-flex flex-wrap justify-content-between gap-2 small text-muted mt-1 px-2" style="background: none">
+                            <span id="ai-status" class="ms-auto">
                                 @if ($provider)
                                     Sisa hari ini: {{ max(0, \App\Http\Controllers\Superadmin\Ai\AssistantController::DAILY_LIMIT - $usedToday) }} dari {{ \App\Http\Controllers\Superadmin\Ai\AssistantController::DAILY_LIMIT }} pesan
                                 @endif
                             </span>
-                            <span class="small text-muted d-none d-md-inline"><kbd>Enter</kbd> kirim · <kbd>Shift</kbd>+<kbd>Enter</kbd> baris baru</span>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="ai-stop" hidden><i class="ri-stop-circle-line"></i> Stop</button>
-                            <button type="submit" class="btn btn-sm btn-primary px-3" id="ai-send" @disabled(! $provider)><i class="ri-send-plane-2-line"></i> <span id="ai-send-label">Kirim</span></button>
                         </div>
                     </form>
                 </div>
@@ -182,7 +169,7 @@
 <script>
     (function () {
         var $ = function (id) { return document.getElementById(id); };
-        var thread = $('ai-thread'), form = $('ai-form'), input = $('ai-input'), modelSelect = $('ai-model');
+        var thread = $('ai-thread'), threadInner = $('ai-thread-inner'), form = $('ai-form'), input = $('ai-input'), modelSelect = $('ai-model');
         var sendButton = $('ai-send'), sendLabel = $('ai-send-label'), stopButton = $('ai-stop'), status = $('ai-status');
         var welcome = $('ai-welcome'), info = $('ai-panel-info'), hint = $('ai-mode-hint');
         var token = document.querySelector('meta[name="csrf-token"]').content;
@@ -238,9 +225,9 @@
         var copyButton = function (box) {
             var copy = el('button', 'btn btn-link btn-sm p-0 text-muted');
             copy.type = 'button';
-            copy.innerHTML = '<i class="ri-file-copy-line"></i> Salin jawaban';
+            copy.innerHTML = '<i class="ri-file-copy-line"></i> Salin';
             copy.addEventListener('click', function () {
-                var done = function () { copy.innerHTML = '<i class="ri-check-line"></i> Tersalin'; setTimeout(function () { copy.innerHTML = '<i class="ri-file-copy-line"></i> Salin jawaban'; }, 1500); };
+                var done = function () { copy.innerHTML = '<i class="ri-check-line"></i> Tersalin'; setTimeout(function () { copy.innerHTML = '<i class="ri-file-copy-line"></i> Salin'; }, 1500); };
                 if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(box.dataset.raw || '').then(done); return; }
                 var temp = document.createElement('textarea'); temp.value = box.dataset.raw || '';
                 document.body.appendChild(temp); temp.select(); document.execCommand('copy'); temp.remove(); done();
@@ -267,14 +254,11 @@
         var fillAssistant = function (view, m) {
             var body = view.body;
             body.textContent = '';
-            body.classList.remove('ai-typing');
-            view.box.classList.remove('bg-danger-subtle');
-            view.box.classList.add('bg-light');
+            body.classList.remove('ai-typing', 'ai-failed');
             view.actions.textContent = '';
 
             if (m.status === 'failed') {
-                view.box.classList.remove('bg-light');
-                view.box.classList.add('bg-danger-subtle');
+                body.classList.add('ai-failed');
                 body.textContent = '⚠️ ' + (m.content || 'Gagal dibuat.');
             } else if (m.status === 'pending' || m.status === 'processing') {
                 var wait = el('div', 'text-muted fst-italic');
@@ -314,19 +298,20 @@
         var bubble = function (m) {
             welcome.hidden = true;
             var isUser = m.role === 'user';
-            var row = el('div', 'd-flex mb-3 ' + (isUser ? 'justify-content-end' : 'justify-content-start'));
-            var box = el('div', 'ai-bubble rounded-3 px-3 py-2 ' + (isUser ? 'ai-user' : 'bg-light'));
+            var row = el('div', 'd-flex gap-2 mb-4 ' + (isUser ? 'justify-content-end' : 'justify-content-start'));
+            if (!isUser) row.appendChild(el('div', 'ai-avatar', '✨'));
+            var box = el('div', isUser ? 'ai-bubble ai-user px-3 py-2' : 'ai-bubble ai-assistant');
             var body = el('div');
-            var foot = el('div', 'd-flex flex-wrap align-items-center gap-2 mt-1 small ' + (isUser ? 'text-white-50' : 'text-muted'));
+            var foot = el('div', 'd-flex flex-wrap align-items-center gap-2 mt-1 small text-muted');
             var metaText = el('span');
             var actions = el('span', 'd-flex flex-wrap gap-1');
             foot.appendChild(metaText); foot.appendChild(actions);
-            box.appendChild(body); box.appendChild(foot); row.appendChild(box); thread.appendChild(row);
+            box.appendChild(body); box.appendChild(foot); row.appendChild(box); threadInner.appendChild(row);
             var view = { box: box, body: body, meta: metaText, actions: actions };
 
             if (isUser) {
                 if (m.kind && m.kind !== 'text') {
-                    body.appendChild(el('div', 'small fw-semibold mb-1', ICON[m.kind] + ' ' + LABEL[m.kind] + (m.details && m.details.length ? ' · ' + m.details.join(' · ') : '')));
+                    body.appendChild(el('div', 'small text-muted mb-1', ICON[m.kind] + ' ' + LABEL[m.kind] + (m.details && m.details.length ? ' · ' + m.details.join(' · ') : '')));
                     body.appendChild(el('div', '', m.content));
                 } else {
                     body.innerHTML = render(m.content || '');
@@ -419,6 +404,9 @@
             sampleAudio.play().catch(function () {});
         });
 
+        var autosize = function () { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 220) + 'px'; };
+        input.addEventListener('input', autosize);
+
         var updateInfo = function () {
             if (mode === 'text' || !catalog) { info.textContent = ''; status.textContent = textStatus; return; }
             var used = catalog.used[mode] || { used: 0, limit: 0 };
@@ -457,17 +445,17 @@
         };
 
         var HINTS = {
-            text: ['Tanya apa saja, minta ide, atau minta dibuatkan tulisan.', 'Contoh: Buatkan caption promo bizbos untuk pemilik les musik, gaya santai, 3 versi…', 'Kirim'],
-            image: ['Ceritakan gambar yang Anda mau: siapa/apa, suasana, warna, gaya foto. Tulisan panjang di dalam gambar sering salah eja, lebih baik ditambah sendiri di Canva.', 'Contoh: Foto flat-lay meja belajar anak dengan buku warna-warni dan HP menampilkan jadwal les, cahaya lembut, tanpa tulisan…', 'Buat gambar'],
-            video: ['Ceritakan adegan, gerakan kamera, dan suara yang Anda mau. Video dikerjakan di latar belakang: boleh tinggal, hasilnya muncul sendiri.', 'Contoh: Video vertikal: guru musik tersenyum menerima notifikasi pembayaran di HP, kamera pelan mendekat, musik ceria…', 'Buat video'],
-            audio: ['Tulis teks yang mau dibacakan (bukan instruksi). Angka, Rupiah & singkatan dibaca otomatis dengan ejaan Indonesia.', 'Tempel naskah voice-over di sini, misalnya: Capek ngurus tagihan murid satu-satu? Pakai bizbos…', 'Buat suara'],
+            text: ['Pilih “otak” AI yang menjawab. Model kecil = cepat & hemat, model besar = lebih pintar.', 'Tulis pesan untuk Asisten AI…', 'Kirim'],
+            image: ['Ceritakan gambar yang Anda mau: siapa/apa, suasana, warna, gaya foto. Tulisan panjang di dalam gambar sering salah eja, lebih baik ditambah sendiri di Canva.', 'Ceritakan gambar yang Anda mau…', 'Buat gambar'],
+            video: ['Ceritakan adegan, gerakan kamera, dan suara yang Anda mau. Video dikerjakan di latar belakang: boleh tinggal, hasilnya muncul sendiri.', 'Ceritakan adegan video yang Anda mau…', 'Buat video'],
+            audio: ['Tulis teks yang mau dibacakan (bukan instruksi). Angka, Rupiah & singkatan dibaca otomatis dengan ejaan Indonesia.', 'Tempel teks yang mau dibacakan…', 'Buat suara'],
         };
         var setMode = function (next) {
             var go = function () {
                 mode = next;
                 document.querySelectorAll('#ai-modes [data-mode]').forEach(function (b) {
                     b.classList.toggle('btn-primary', b.dataset.mode === next);
-                    b.classList.toggle('btn-outline-primary', b.dataset.mode !== next);
+                    b.classList.toggle('btn-light', b.dataset.mode !== next);
                 });
                 document.querySelectorAll('[data-panel]').forEach(function (p) { p.hidden = p.dataset.panel !== next; });
                 hint.textContent = HINTS[next][0];
@@ -480,7 +468,7 @@
             mode = next;
             document.querySelectorAll('#ai-modes [data-mode]').forEach(function (b) {
                 b.classList.toggle('btn-primary', b.dataset.mode === next);
-                b.classList.toggle('btn-outline-primary', b.dataset.mode !== next);
+                b.classList.toggle('btn-light', b.dataset.mode !== next);
             });
             document.querySelectorAll('[data-panel]').forEach(function (p) { p.hidden = true; });
             hint.textContent = HINTS[next][0];
@@ -574,7 +562,7 @@
             }).then(function () {
                 answer.body.classList.remove('ai-typing');
                 if (failed) {
-                    answer.box.classList.remove('bg-light'); answer.box.classList.add('bg-danger-subtle');
+                    answer.body.classList.add('ai-failed');
                     answer.body.textContent = '⚠️ ' + failed;
                 } else if (!full) {
                     answer.body.textContent = '(Jawaban dihentikan)';
@@ -626,6 +614,7 @@
                     if (catalog.used[mode]) catalog.used[mode].used++;
                     updateInfo();
                     input.value = '';
+                    autosize();
                     ['img-ref', 'vid-ref'].forEach(function (id) { $(id).value = ''; });
                     bubble(res.user);
                     watch(bubble(res.assistant), res.assistant);
@@ -638,7 +627,7 @@
         var send = function () {
             var text = input.value.trim();
             if (!text || sendButton.disabled) return;
-            if (mode === 'text') { input.value = ''; sendText(text); } else { sendMedia(text); }
+            if (mode === 'text') { input.value = ''; autosize(); sendText(text); } else { sendMedia(text); }
         };
 
         form.addEventListener('submit', function (event) { event.preventDefault(); send(); });
@@ -646,18 +635,6 @@
             if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(); }
         });
         stopButton.addEventListener('click', function () { if (controller) controller.abort(); });
-        // Contoh: pindah ke jenis yang sesuai lalu isi kotak pesan, supaya bisa disesuaikan dulu sebelum dikirim.
-        document.querySelectorAll('[data-example]').forEach(function (button) {
-            button.addEventListener('click', function () {
-                if (input.disabled) return;
-                setMode(button.dataset.mode || 'text').then(function () {
-                    input.value = button.dataset.example;
-                    input.focus();
-                    input.setSelectionRange(input.value.length, input.value.length);
-                    updateInfo();
-                });
-            });
-        });
         thread.scrollTop = thread.scrollHeight;
         if (!input.disabled) input.focus();
     })();
