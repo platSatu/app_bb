@@ -5,7 +5,7 @@
 
 @push('styles')
 <style>
-    .ai-chat { height: calc(100vh - 260px); min-height: 460px; }
+    .ai-chat { height: calc(100vh - 240px); min-height: 520px; }
     .ai-thread { overflow-y: auto; }
     .ai-bubble { max-width: 85%; word-wrap: break-word; line-height: 1.55; }
     .ai-bubble pre { background: #f4f5f7; padding: .6rem .75rem; border-radius: .4rem; overflow-x: auto; white-space: pre; font-size: .85em; }
@@ -18,6 +18,13 @@
     .ai-typing::after { content: ' ▍'; animation: ai-blink 1s steps(1) infinite; }
     @keyframes ai-blink { 50% { opacity: 0; } }
     .ai-example:hover { border-color: var(--bs-primary) !important; }
+    .ai-media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .5rem; }
+    .ai-media-grid img { width: 100%; border-radius: .5rem; cursor: zoom-in; background: #eee; }
+    .ai-bubble video { max-width: 100%; max-height: 420px; border-radius: .5rem; background: #000; }
+    .ai-bubble audio { width: 320px; max-width: 100%; }
+    .ai-modes .btn { min-width: 84px; }
+    .ai-panel .form-select, .ai-panel .form-control { font-size: .8rem; }
+    .ai-panel label { font-size: .75rem; color: var(--bs-secondary-color); margin-bottom: 0; }
 </style>
 @endpush
 
@@ -28,7 +35,7 @@
                 <div class="card-body p-2">
                     <a href="{{ route('superadmin.ai-assistant.index') }}" class="btn btn-primary w-100 mb-2"><i class="ri-add-line"></i> Mulai chat baru</a>
                     <div class="small text-muted px-1 mb-1">Riwayat percakapan</div>
-                    <div class="ai-list list-group list-group-flush small" id="ai-list" style="max-height: calc(100vh - 360px); overflow-y: auto;">
+                    <div class="ai-list list-group list-group-flush small" id="ai-list" style="max-height: calc(100vh - 340px); overflow-y: auto;">
                         @forelse ($conversations as $item)
                             <a href="{{ route('superadmin.ai-assistant.show', $item) }}" class="list-group-item list-group-item-action border-0 rounded px-2 py-2 {{ $current?->id === $item->id ? 'active fw-semibold' : '' }}">
                                 <div class="text-truncate">{{ $item->title }}</div>
@@ -51,7 +58,7 @@
                             <input type="text" name="title" value="{{ $current->title }}" maxlength="150" class="form-control form-control-sm border-0 fw-semibold px-1" aria-label="Judul percakapan" title="Klik untuk mengganti judul">
                             <button type="submit" class="btn btn-sm btn-light" title="Simpan judul"><i class="ri-check-line"></i></button>
                         </form>
-                        <form method="POST" action="{{ route('superadmin.ai-assistant.destroy', $current) }}" onsubmit="return confirm('Hapus percakapan ini? Riwayatnya tidak bisa dikembalikan.');">
+                        <form method="POST" action="{{ route('superadmin.ai-assistant.destroy', $current) }}" onsubmit="return confirm('Hapus percakapan ini beserta gambar, video & suaranya? Tidak bisa dikembalikan.');">
                             @csrf @method('DELETE')
                             <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus percakapan"><i class="ri-delete-bin-line"></i></button>
                         </form>
@@ -67,52 +74,91 @@
                             Tambahkan dan aktifkan penyedia AI dulu (misalnya Classai Router) di <a href="{{ route('superadmin.ai.index') }}">Settings › AI</a>. Setelah itu halaman ini langsung bisa dipakai.
                         </div>
                     @endunless
-                    <div class="py-4 px-md-4" id="ai-welcome" @if ($messages->isNotEmpty() || ! $provider) hidden @endif>
-                        <div class="text-center mb-4">
+                    <div class="py-3 px-md-4" id="ai-welcome" @if ($messages->isNotEmpty() || ! $provider) hidden @endif>
+                        <div class="text-center mb-3">
                             <div class="fs-1 mb-1">👋</div>
                             <h5 class="fw-semibold mb-1">Halo, {{ \Illuminate\Support\Str::before(auth()->user()->name.' ', ' ') }}! Mau dibantu apa hari ini?</h5>
-                            <div class="text-muted small">Ketik seperti sedang ngobrol dengan rekan kerja. Atau klik salah satu contoh di bawah, sesuaikan, lalu kirim.</div>
+                            <div class="text-muted small">Pilih jenisnya di bawah (Teks, Gambar, Video atau Suara), lalu ketik seperti sedang ngobrol. Atau klik salah satu contoh ini.</div>
                         </div>
                         <div class="row g-2">
-                            @foreach ([
-                                ['ri-instagram-line', 'Ide konten', 'Buatkan 5 ide konten Instagram minggu ini untuk menarik pemilik bimbel dan kursus memakai bizbos. Sertakan caption singkat dan hashtag.'],
-                                ['ri-whatsapp-line', 'Pesan WhatsApp', 'Tulis pesan WhatsApp yang ramah untuk pengguna trial bizbos yang belum upgrade. Maksimal 5 kalimat, ajak mereka bertanya kalau ada kendala.'],
-                                ['ri-mail-send-line', 'Email penawaran', 'Buatkan email perkenalan singkat bizbos untuk pemilik studio senam/yoga. Fokus pada jadwal kelas dan tagihan otomatis.'],
-                                ['ri-calendar-check-line', 'Rencana marketing', 'Susun rencana marketing harian bizbos untuk 1 minggu ke depan. Tiap hari 2-3 tugas yang bisa saya kerjakan dalam 30 menit.'],
-                            ] as [$icon, $label, $prompt])
-                                <div class="col-sm-6">
-                                    <button type="button" class="btn btn-light border w-100 text-start p-3 h-100 ai-example" data-example="{{ $prompt }}">
+                            @foreach (array_values(array_filter([
+                                ['text', 'ri-instagram-line', 'Ide konten', 'Buatkan 5 ide konten Instagram minggu ini untuk menarik pemilik bimbel dan kursus memakai bizbos. Sertakan caption singkat dan hashtag.'],
+                                ['text', 'ri-whatsapp-line', 'Pesan WhatsApp', 'Tulis pesan WhatsApp yang ramah untuk pengguna trial bizbos yang belum upgrade. Maksimal 5 kalimat, ajak mereka bertanya kalau ada kendala.'],
+                                ['text', 'ri-calendar-check-line', 'Rencana marketing', 'Susun rencana marketing harian bizbos untuk 1 minggu ke depan. Tiap hari 2-3 tugas yang bisa saya kerjakan dalam 30 menit.'],
+                                $mediaEnabled ? ['image', 'ri-image-2-line', 'Gambar promosi', 'Foto suasana les privat yang hangat: guru dan murid SD belajar di meja kayu, cahaya pagi dari jendela, gaya foto natural, tanpa tulisan.'] : null,
+                                $mediaEnabled ? ['video', 'ri-movie-2-line', 'Video pendek', 'Video vertikal 8 detik: pemilik studio yoga tersenyum melihat jadwal kelas di HP, kamera perlahan mendekat, suasana pagi yang cerah, suara musik santai.'] : null,
+                                $mediaEnabled ? ['audio', 'ri-mic-line', 'Voice-over', 'Capek ngurus jadwal dan tagihan murid satu-satu? Pakai bizbos. Jadwal rapi, tagihan otomatis, pengingat WhatsApp terkirim sendiri. Coba gratis di bizbos.id.'] : null,
+                            ])) as [$exampleMode, $icon, $label, $prompt])
+                                <div class="col-sm-6 col-xl-4">
+                                    <button type="button" class="btn btn-light border w-100 text-start p-3 h-100 ai-example" data-example="{{ $prompt }}" data-mode="{{ $exampleMode }}">
                                         <div class="fw-semibold mb-1"><i class="{{ $icon }} text-primary me-1"></i> {{ $label }}</div>
-                                        <div class="small text-muted lh-sm">{{ \Illuminate\Support\Str::limit($prompt, 95) }}</div>
+                                        <div class="small text-muted lh-sm">{{ \Illuminate\Support\Str::limit($prompt, 90) }}</div>
                                     </button>
                                 </div>
                             @endforeach
                         </div>
-                        <div class="small text-muted text-center mt-3"><i class="ri-shield-check-line text-success"></i> AI hanya memberi saran dan draf. Tidak ada yang terkirim atau berubah di bizbos tanpa Anda.</div>
+                        <div class="small text-muted text-center mt-3"><i class="ri-shield-check-line text-success"></i> AI hanya membuat draf, gambar, video & suara untuk Anda. Tidak ada yang terkirim atau berubah di bizbos tanpa Anda.</div>
                     </div>
                 </div>
 
                 <div class="card-footer bg-white border-top p-2">
                     <form id="ai-form" class="d-flex flex-column gap-2" autocomplete="off">
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <div class="btn-group btn-group-sm ai-modes" role="group" aria-label="Jenis hasil" id="ai-modes">
+                                <button type="button" class="btn btn-primary" data-mode="text">💬 Teks</button>
+                                <button type="button" class="btn btn-outline-primary" data-mode="image" @disabled(! $mediaEnabled) title="{{ $mediaEnabled ? 'Buat gambar' : 'Hanya tersedia dengan Classai Router' }}">🖼️ Gambar</button>
+                                <button type="button" class="btn btn-outline-primary" data-mode="video" @disabled(! $mediaEnabled) title="{{ $mediaEnabled ? 'Buat video pendek' : 'Hanya tersedia dengan Classai Router' }}">🎬 Video</button>
+                                <button type="button" class="btn btn-outline-primary" data-mode="audio" @disabled(! $mediaEnabled) title="{{ $mediaEnabled ? 'Ubah teks jadi suara' : 'Hanya tersedia dengan Classai Router' }}">🔊 Suara</button>
+                            </div>
+                            <span class="small text-muted" id="ai-mode-hint">Tanya apa saja, minta ide, atau minta dibuatkan tulisan.</span>
+                        </div>
+
+                        {{-- Pilihan per jenis --}}
+                        <div class="ai-panel row g-2" data-panel="text">
+                            <div class="col-auto">
+                                <label for="ai-model" title="Model = 'otak' AI yang menjawab. Model besar (Opus, GPT-6) lebih pintar tapi lebih lama dan lebih mahal. Model kecil (Haiku, Flash) cepat dan hemat."><i class="ri-brain-line"></i> Otak AI <i class="ri-question-line"></i></label>
+                                <select id="ai-model" class="form-select form-select-sm" style="max-width: 280px" @disabled(! $provider)>
+                                    @foreach ($models as $m)
+                                        <option value="{{ $m['id'] }}" @selected($m['id'] === $model)>{{ $m['name'] }}{{ $m['name'] !== $m['id'] ? ' ('.$m['id'].')' : '' }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="ai-panel row g-2" data-panel="image" hidden>
+                            <div class="col-12 col-md-4"><label for="img-model">Model gambar</label><select id="img-model" class="form-select form-select-sm"></select></div>
+                            <div class="col-6 col-md-3"><label for="img-aspect">Ukuran</label><select id="img-aspect" class="form-select form-select-sm"></select></div>
+                            <div class="col-3 col-md-1"><label for="img-res">Resolusi</label><select id="img-res" class="form-select form-select-sm"></select></div>
+                            <div class="col-3 col-md-1"><label for="img-n">Jumlah</label><select id="img-n" class="form-select form-select-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+                            <div class="col-6 col-md-3" data-quality><label for="img-quality">Mutu</label><select id="img-quality" class="form-select form-select-sm"></select></div>
+                            <div class="col-12 col-md-6" data-reference><label for="img-ref" data-reference-label>Gambar contoh (opsional, untuk diedit / dijadikan acuan)</label><input type="file" id="img-ref" accept="image/png,image/jpeg,image/webp" class="form-control form-control-sm"></div>
+                        </div>
+                        <div class="ai-panel row g-2" data-panel="video" hidden>
+                            <div class="col-12 col-md-4"><label for="vid-model">Model video</label><select id="vid-model" class="form-select form-select-sm"></select></div>
+                            <div class="col-6 col-md-3"><label for="vid-aspect">Ukuran</label><select id="vid-aspect" class="form-select form-select-sm"></select></div>
+                            <div class="col-3 col-md-2"><label for="vid-res">Resolusi</label><select id="vid-res" class="form-select form-select-sm"></select></div>
+                            <div class="col-3 col-md-2"><label for="vid-sec">Durasi</label><select id="vid-sec" class="form-select form-select-sm"></select></div>
+                            <div class="col-12 col-md-6"><label for="vid-ref">Gambar awal (opsional, jadi frame pertama video)</label><input type="file" id="vid-ref" accept="image/png,image/jpeg,image/webp" class="form-control form-control-sm"></div>
+                        </div>
+                        <div class="ai-panel row g-2" data-panel="audio" hidden>
+                            <div class="col-12 col-md-3"><label for="aud-model">Mesin suara</label><select id="aud-model" class="form-select form-select-sm"></select></div>
+                            <div class="col-9 col-md-4"><label for="aud-voice">Suara</label><select id="aud-voice" class="form-select form-select-sm"><option value="">Memuat…</option></select></div>
+                            <div class="col-3 col-md-1 d-flex align-items-end"><button type="button" class="btn btn-sm btn-outline-secondary w-100" id="aud-sample" title="Dengar contoh suara" disabled><i class="ri-play-line"></i></button></div>
+                            <div class="col-6 col-md-2"><label for="aud-style">Gaya</label><select id="aud-style" class="form-select form-select-sm"></select></div>
+                            <div class="col-6 col-md-2"><label for="aud-speed">Kecepatan <span id="aud-speed-val">1,0×</span></label><input type="range" id="aud-speed" min="0.7" max="1.2" step="0.05" value="1" class="form-range"></div>
+                        </div>
+                        <div class="small" id="ai-panel-info"></div>
+
                         <textarea id="ai-input" rows="2" maxlength="8000" class="form-control" placeholder="Contoh: Buatkan caption promo bizbos untuk pemilik les musik, gaya santai, 3 versi…" @disabled(! $provider)></textarea>
                         <div class="d-flex flex-wrap align-items-center gap-2">
-                            <label for="ai-model" class="small text-muted mb-0" title="Model = 'otak' AI yang menjawab. Model besar (Opus, GPT-6) lebih pintar tapi lebih lama dan lebih mahal. Model kecil (Haiku, Flash) cepat dan hemat.">
-                                <i class="ri-brain-line"></i> Otak AI <i class="ri-question-line"></i>
-                            </label>
-                            <select id="ai-model" class="form-select form-select-sm w-auto" style="max-width: 260px" @disabled(! $provider)>
-                                @foreach ($models as $m)
-                                    <option value="{{ $m['id'] }}" @selected($m['id'] === $model)>{{ $m['name'] }}{{ $m['name'] !== $m['id'] ? ' ('.$m['id'].')' : '' }}</option>
-                                @endforeach
-                            </select>
                             <span class="small text-muted flex-grow-1" id="ai-status">
                                 @if ($provider)
                                     Sisa hari ini: {{ max(0, \App\Http\Controllers\Superadmin\Ai\AssistantController::DAILY_LIMIT - $usedToday) }} dari {{ \App\Http\Controllers\Superadmin\Ai\AssistantController::DAILY_LIMIT }} pesan
                                 @endif
                             </span>
+                            <span class="small text-muted d-none d-md-inline"><kbd>Enter</kbd> kirim · <kbd>Shift</kbd>+<kbd>Enter</kbd> baris baru</span>
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="ai-stop" hidden><i class="ri-stop-circle-line"></i> Stop</button>
-                            <button type="submit" class="btn btn-sm btn-primary px-3" id="ai-send" @disabled(! $provider)><i class="ri-send-plane-2-line"></i> Kirim</button>
+                            <button type="submit" class="btn btn-sm btn-primary px-3" id="ai-send" @disabled(! $provider)><i class="ri-send-plane-2-line"></i> <span id="ai-send-label">Kirim</span></button>
                         </div>
-                        <div class="small text-muted"><kbd>Enter</kbd> kirim · <kbd>Shift</kbd>+<kbd>Enter</kbd> baris baru · Tips: sebutkan untuk siapa, tujuannya apa, dan panjangnya berapa, supaya hasilnya pas.</div>
                     </form>
                 </div>
             </div>
@@ -123,24 +169,27 @@
 @push('scripts')
 <script>
     (function () {
-        var thread = document.getElementById('ai-thread');
-        var form = document.getElementById('ai-form');
-        var input = document.getElementById('ai-input');
-        var modelSelect = document.getElementById('ai-model');
-        var sendButton = document.getElementById('ai-send');
-        var stopButton = document.getElementById('ai-stop');
-        var status = document.getElementById('ai-status');
-        var welcome = document.getElementById('ai-welcome');
+        var $ = function (id) { return document.getElementById(id); };
+        var thread = $('ai-thread'), form = $('ai-form'), input = $('ai-input'), modelSelect = $('ai-model');
+        var sendButton = $('ai-send'), sendLabel = $('ai-send-label'), stopButton = $('ai-stop'), status = $('ai-status');
+        var welcome = $('ai-welcome'), info = $('ai-panel-info'), hint = $('ai-mode-hint');
         var token = document.querySelector('meta[name="csrf-token"]').content;
-        var sendUrl = {{ \Illuminate\Support\Js::from(route('superadmin.ai-assistant.send')) }};
+        var urls = {{ \Illuminate\Support\Js::from([
+            'send' => route('superadmin.ai-assistant.send'),
+            'generate' => route('superadmin.ai-assistant.media.generate'),
+            'options' => route('superadmin.ai-assistant.media.options'),
+            'voices' => route('superadmin.ai-assistant.media.voices'),
+            'status' => route('superadmin.ai-assistant.media.status', ['message' => '__ID__']),
+            'monitor' => \Illuminate\Support\Facades\Route::has('superadmin.monitor.index') ? route('superadmin.monitor.index') : null,
+        ]) }};
         var conversationId = {{ \Illuminate\Support\Js::from($current?->id) }};
-        var initial = {{ \Illuminate\Support\Js::from($messages->map(fn ($m) => [
-            'role' => $m->role, 'content' => $m->content, 'model' => $m->model, 'input_tokens' => $m->input_tokens,
-            'output_tokens' => $m->output_tokens, 'duration_ms' => $m->duration_ms, 'status' => $m->status,
-        ])->values()) }};
-        var controller = null;
+        var initial = {{ \Illuminate\Support\Js::from($messages->values()) }};
+        var textStatus = status.textContent.trim();
+        var controller = null, mode = 'text', catalog = null, voices = {};
+        var LABEL = { text: 'Teks', image: 'Gambar', video: 'Video', audio: 'Suara' };
+        var ICON = { text: '💬', image: '🖼️', video: '🎬', audio: '🔊' };
 
-        // Teks dari AI selalu di-escape dulu; baru setelah itu diberi format sederhana. Tidak ada HTML dari AI yang dijalankan.
+        // ---------- Format teks: selalu di-escape dulu, baru diberi format sederhana (tidak ada HTML dari AI yang dijalankan) ----------
         var escapeHtml = function (s) {
             return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
         };
@@ -152,138 +201,334 @@
         };
         var render = function (src) {
             return String(src).split('```').map(function (part, i) {
-                if (i % 2 === 1) {
-                    return '<pre><code>' + escapeHtml(part.replace(/^[^\n]*\n/, '')) + '</code></pre>';
-                }
+                if (i % 2 === 1) return '<pre><code>' + escapeHtml(part.replace(/^[^\n]*\n/, '')) + '</code></pre>';
                 return escapeHtml(part).split('\n').map(function (line) {
                     var heading = line.match(/^#{1,4}\s+(.*)$/);
                     return heading ? '<strong>' + inline(heading[1]) + '</strong>' : inline(line);
                 }).join('<br>');
             }).join('');
         };
+        var rupiah = function (n) { return 'Rp' + Math.round(n).toLocaleString('id-ID'); };
+        var seconds = function (ms) { return (ms / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 }); };
         var meta = function (m) {
             var parts = [];
             if (m.model) parts.push(m.model);
-            if (m.duration_ms) parts.push('dijawab dalam ' + (m.duration_ms / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + ' detik');
+            (m.details || []).forEach(function (d) { parts.push(d); });
+            if (m.duration_ms) parts.push((m.kind === 'video' ? 'selesai dalam ' : 'dijawab dalam ') + seconds(m.duration_ms) + ' detik');
             if (m.input_tokens || m.output_tokens) parts.push(((m.input_tokens || 0) + (m.output_tokens || 0)).toLocaleString('id-ID') + ' token');
+            if (m.cost_rp) parts.push('biaya ±' + rupiah(m.cost_rp));
             if (m.status === 'stopped') parts.push('dihentikan');
             return parts.join(' · ');
         };
+        var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 
-        var bubble = function (role, content, info) {
-            welcome.hidden = true;
-            var row = document.createElement('div');
-            row.className = 'd-flex mb-3 ' + (role === 'user' ? 'justify-content-end' : 'justify-content-start');
-            var box = document.createElement('div');
-            box.className = 'ai-bubble rounded-3 px-3 py-2 ' + (role === 'user' ? 'ai-user' : 'bg-light');
-            var body = document.createElement('div');
-            body.innerHTML = render(content);
-            box.appendChild(body);
-            var foot = document.createElement('div');
-            foot.className = 'd-flex flex-wrap align-items-center gap-2 mt-1 small ' + (role === 'user' ? 'text-white-50' : 'text-muted');
-            var metaText = document.createElement('span');
-            metaText.textContent = info || '';
-            foot.appendChild(metaText);
-            if (role === 'assistant') {
-                var copy = document.createElement('button');
-                copy.type = 'button';
-                copy.className = 'btn btn-link btn-sm p-0 text-muted';
-                copy.innerHTML = '<i class="ri-file-copy-line"></i> Salin jawaban';
-                copy.addEventListener('click', function () {
-                    var done = function () { copy.innerHTML = '<i class="ri-check-line"></i> Tersalin'; setTimeout(function () { copy.innerHTML = '<i class="ri-file-copy-line"></i> Salin jawaban'; }, 1500); };
-                    if (navigator.clipboard && window.isSecureContext) {
-                        navigator.clipboard.writeText(box.dataset.raw || '').then(done);
-                    } else {
-                        var temp = document.createElement('textarea');
-                        temp.value = box.dataset.raw || '';
-                        document.body.appendChild(temp); temp.select(); document.execCommand('copy'); temp.remove(); done();
-                    }
-                });
-                foot.appendChild(copy);
+        // ---------- Gelembung chat ----------
+        var copyButton = function (box) {
+            var copy = el('button', 'btn btn-link btn-sm p-0 text-muted');
+            copy.type = 'button';
+            copy.innerHTML = '<i class="ri-file-copy-line"></i> Salin jawaban';
+            copy.addEventListener('click', function () {
+                var done = function () { copy.innerHTML = '<i class="ri-check-line"></i> Tersalin'; setTimeout(function () { copy.innerHTML = '<i class="ri-file-copy-line"></i> Salin jawaban'; }, 1500); };
+                if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(box.dataset.raw || '').then(done); return; }
+                var temp = document.createElement('textarea'); temp.value = box.dataset.raw || '';
+                document.body.appendChild(temp); temp.select(); document.execCommand('copy'); temp.remove(); done();
+            });
+            return copy;
+        };
+        var downloadLink = function (file, label) {
+            var a = el('a', 'btn btn-sm btn-outline-secondary py-0');
+            a.href = file.download;
+            a.innerHTML = '<i class="ri-download-2-line"></i> ';
+            a.appendChild(document.createTextNode(label));
+            return a;
+        };
+        var waitingText = function (m) {
+            var queued = m._queued || 0;
+            if (m.kind === 'video') return m.status === 'pending' ? '🎬 Menyiapkan video…' : '🎬 Video sedang dibuat. Biasanya 1–10 menit. Boleh tinggal, hasilnya muncul sendiri di sini.';
+            var base = m.kind === 'image' ? '🖼️ Gambar sedang dibuat…' : '🔊 Suara sedang dibuat…';
+            if (m.status === 'pending' && queued >= 2) {
+                return base + ' Masih menunggu antrean. Pastikan antrean (queue worker) berjalan' + (urls.monitor ? ', cek di Settings › Antrean & Tugas.' : '.');
             }
-            box.appendChild(foot);
-            box.dataset.raw = content;
-            row.appendChild(box);
-            thread.appendChild(row);
+            return base;
+        };
+
+        var fillAssistant = function (view, m) {
+            var body = view.body;
+            body.textContent = '';
+            body.classList.remove('ai-typing');
+            view.box.classList.remove('bg-danger-subtle');
+            view.box.classList.add('bg-light');
+            view.actions.textContent = '';
+
+            if (m.status === 'failed') {
+                view.box.classList.remove('bg-light');
+                view.box.classList.add('bg-danger-subtle');
+                body.textContent = '⚠️ ' + (m.content || 'Gagal dibuat.');
+            } else if (m.status === 'pending' || m.status === 'processing') {
+                var wait = el('div', 'text-muted fst-italic');
+                wait.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>';
+                wait.appendChild(document.createTextNode(waitingText(m)));
+                body.appendChild(wait);
+            } else if (m.kind === 'image') {
+                var grid = el('div', 'ai-media-grid mb-1');
+                (m.media || []).forEach(function (file, i) {
+                    var link = el('a'); link.href = file.url; link.target = '_blank'; link.rel = 'noopener';
+                    var img = el('img'); img.src = file.url; img.alt = 'Gambar hasil AI ' + (i + 1); img.loading = 'lazy';
+                    link.appendChild(img); grid.appendChild(link);
+                    view.actions.appendChild(downloadLink(file, (m.media.length > 1 ? 'Unduh ' + (i + 1) : 'Unduh gambar')));
+                });
+                body.appendChild(grid);
+            } else if (m.kind === 'video') {
+                (m.media || []).forEach(function (file) {
+                    var video = el('video'); video.src = file.url; video.controls = true; video.preload = 'metadata'; video.playsInline = true;
+                    body.appendChild(video);
+                    view.actions.appendChild(downloadLink(file, 'Unduh video'));
+                });
+            } else if (m.kind === 'audio') {
+                (m.media || []).forEach(function (file) {
+                    var audio = el('audio'); audio.src = file.url; audio.controls = true; audio.preload = 'metadata';
+                    body.appendChild(audio);
+                    view.actions.appendChild(downloadLink(file, 'Unduh suara'));
+                });
+                body.appendChild(el('div', 'small text-muted mt-1', 'ℹ️ Saat dipakai, beri tahu pendengar bahwa suara ini dibuat dengan AI.'));
+            } else {
+                body.innerHTML = render(m.content || '');
+                view.box.dataset.raw = m.content || '';
+                view.actions.appendChild(copyButton(view.box));
+            }
+            view.meta.textContent = (m.status === 'done' || m.status === 'stopped') ? meta(m) : '';
+        };
+
+        var bubble = function (m) {
+            welcome.hidden = true;
+            var isUser = m.role === 'user';
+            var row = el('div', 'd-flex mb-3 ' + (isUser ? 'justify-content-end' : 'justify-content-start'));
+            var box = el('div', 'ai-bubble rounded-3 px-3 py-2 ' + (isUser ? 'ai-user' : 'bg-light'));
+            var body = el('div');
+            var foot = el('div', 'd-flex flex-wrap align-items-center gap-2 mt-1 small ' + (isUser ? 'text-white-50' : 'text-muted'));
+            var metaText = el('span');
+            var actions = el('span', 'd-flex flex-wrap gap-1');
+            foot.appendChild(metaText); foot.appendChild(actions);
+            box.appendChild(body); box.appendChild(foot); row.appendChild(box); thread.appendChild(row);
+            var view = { box: box, body: body, meta: metaText, actions: actions };
+
+            if (isUser) {
+                if (m.kind && m.kind !== 'text') {
+                    body.appendChild(el('div', 'small fw-semibold mb-1', ICON[m.kind] + ' ' + LABEL[m.kind] + (m.details && m.details.length ? ' · ' + m.details.join(' · ') : '')));
+                    body.appendChild(el('div', '', m.content));
+                } else {
+                    body.innerHTML = render(m.content || '');
+                }
+            } else {
+                fillAssistant(view, m);
+            }
             thread.scrollTop = thread.scrollHeight;
-            return { box: box, body: body, meta: metaText };
+            return view;
         };
 
-        initial.forEach(function (m) { bubble(m.role, m.content, m.role === 'assistant' ? meta(m) : ''); });
+        // ---------- Cek status media (gambar/suara tiap 4 detik, video tiap 10 detik) ----------
+        var watch = function (view, m) {
+            var every = m.kind === 'video' ? 10000 : 4000;
+            var tick = function () {
+                fetch(urls.status.replace('__ID__', m.id), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+                    .then(function (data) {
+                        data.message._queued = data.queued_minutes;
+                        fillAssistant(view, data.message);
+                        if (data.message.status === 'pending' || data.message.status === 'processing') { setTimeout(tick, every); return; }
+                        thread.scrollTop = thread.scrollHeight;
+                    })
+                    .catch(function () { setTimeout(tick, every * 2); });
+            };
+            setTimeout(tick, every);
+        };
 
+        initial.forEach(function (m) {
+            var view = bubble(m);
+            if (m.role === 'assistant' && (m.status === 'pending' || m.status === 'processing')) watch(view, m);
+        });
+
+        // ---------- Pilihan mode & isiannya ----------
+        var fillSelect = function (select, items, selected) {
+            select.textContent = '';
+            items.forEach(function (item) {
+                var option = el('option', '', item[1]); option.value = item[0];
+                if (String(item[0]) === String(selected)) option.selected = true;
+                select.appendChild(option);
+            });
+        };
+        var current = function (kind, id) { return (catalog[kind] || []).find(function (m) { return m.id === id; }) || catalog[kind][0]; };
+
+        var setupImage = function () {
+            var m = current('image', $('img-model').value);
+            fillSelect($('img-aspect'), m.aspects.map(function (a) { return [a, catalog.image_aspects[a] || a]; }), $('img-aspect').value || '4:5');
+            fillSelect($('img-res'), m.resolutions.map(function (r) { return [r, r]; }), $('img-res').value);
+            document.querySelector('[data-quality]').hidden = !m.quality;
+            document.querySelector('[data-reference]').hidden = m.reference === 'none';
+            document.querySelector('[data-reference-label]').textContent = m.reference === 'required'
+                ? 'Gambar yang mau diedit (wajib untuk model ini)'
+                : 'Gambar contoh (opsional, untuk diedit / dijadikan acuan)';
+            updateInfo();
+        };
+        var setupVideo = function () {
+            var m = current('video', $('vid-model').value);
+            fillSelect($('vid-aspect'), m.aspects.map(function (a) { return [a, catalog.video_aspects[a] || a]; }), $('vid-aspect').value || '9:16');
+            fillSelect($('vid-res'), m.resolutions.map(function (r) { return [r, r]; }), $('vid-res').value);
+            var list = m.seconds.list || [];
+            if (!list.length) for (var s = m.seconds.min; s <= m.seconds.max; s++) list.push(s);
+            fillSelect($('vid-sec'), list.map(function (s) { return [s, s + ' detik']; }), $('vid-sec').value || (list.indexOf(8) >= 0 ? 8 : list[0]));
+            updateInfo();
+        };
+        var loadVoices = function () {
+            var model = $('aud-model').value, select = $('aud-voice');
+            var apply = function (list) {
+                fillSelect(select, list.length ? list.map(function (v) { return [v.id, v.name]; }) : [['', 'Tidak ada suara untuk mesin ini']], select.dataset.last);
+                updateSample();
+            };
+            if (voices[model]) { apply(voices[model]); return; }
+            fillSelect(select, [['', 'Memuat daftar suara…']]);
+            fetch(urls.voices + '?model=' + encodeURIComponent(model), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.message || 'Gagal memuat suara.'); return d; }); })
+                .then(function (d) { voices[model] = d.voices || []; apply(voices[model]); })
+                .catch(function (e) { fillSelect(select, [['', e.message]]); });
+        };
+        var updateSample = function () {
+            var v = (voices[$('aud-model').value] || []).find(function (x) { return x.id === $('aud-voice').value; });
+            $('aud-sample').disabled = !(v && v.sample);
+            $('aud-voice').dataset.last = $('aud-voice').value;
+            updateInfo();
+        };
+        var sampleAudio = null;
+        $('aud-sample').addEventListener('click', function () {
+            var v = (voices[$('aud-model').value] || []).find(function (x) { return x.id === $('aud-voice').value; });
+            if (!v || !v.sample) return;
+            if (sampleAudio) sampleAudio.pause();
+            sampleAudio = new Audio(v.sample);
+            sampleAudio.play().catch(function () {});
+        });
+
+        var updateInfo = function () {
+            if (mode === 'text' || !catalog) { info.textContent = ''; status.textContent = textStatus; return; }
+            var used = catalog.used[mode] || { used: 0, limit: 0 };
+            status.textContent = 'Sisa ' + LABEL[mode].toLowerCase() + ' hari ini: ' + Math.max(0, used.limit - used.used) + ' dari ' + used.limit;
+            var text = '';
+            if (mode === 'image') {
+                var im = current('image', $('img-model').value);
+                text = '💰 Perkiraan ' + (im.price || '-') + ' per gambar' + ($('img-n').value > 1 ? ' (× ' + $('img-n').value + ')' : '') + (im.time ? ' · ⏱️ ' + im.time : '') + ' · Gagal = tidak ditagih.';
+            } else if (mode === 'video') {
+                var vm = current('video', $('vid-model').value), per = vm.price_per_second[$('vid-res').value];
+                var est = per ? Math.max(5000, per * Number($('vid-sec').value)) : null;
+                text = '💰 ' + (est ? 'Perkiraan ±' + rupiah(est) + ' untuk video ini' : 'Harga per video lihat katalog Classai') + (vm.time ? ' · ⏱️ ' + vm.time : '') + ' · Kredit baru dipotong kalau video berhasil.';
+            } else if (mode === 'audio') {
+                var am = current('audio', $('aud-model').value), chars = input.value.length;
+                text = '💰 ' + (am.price || '-') + ' (±1.000 karakter ≈ 1 menit) · ' + chars.toLocaleString('id-ID') + '/' + am.max_chars.toLocaleString('id-ID') + ' karakter · Beri tahu pendengar bahwa suara dibuat AI.';
+            }
+            info.textContent = text;
+            info.className = 'small text-muted';
+        };
+
+        var loadCatalog = function () {
+            if (catalog) return Promise.resolve(catalog);
+            info.textContent = 'Memuat pilihan model…';
+            return fetch(urls.options, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.message || 'Gagal memuat pilihan.'); return d; }); })
+                .then(function (d) {
+                    catalog = d;
+                    fillSelect($('img-model'), d.image.map(function (m) { return [m.id, m.name + (m.price ? ' · ' + m.price : '')]; }), 'flux-2-klein');
+                    fillSelect($('img-quality'), Object.keys(d.qualities).map(function (k) { return [k, d.qualities[k]]; }), 'medium');
+                    fillSelect($('vid-model'), d.video.map(function (m) { return [m.id, m.name]; }), 'seedance-2.0-mini');
+                    fillSelect($('aud-model'), d.audio.map(function (m) { return [m.id, m.name + (m.price ? ' · ' + m.price : '')]; }), 'voxcpm2');
+                    fillSelect($('aud-style'), Object.keys(d.styles).map(function (k) { return [k, d.styles[k]]; }), 'iklan');
+                    setupImage(); setupVideo(); loadVoices();
+                    return d;
+                });
+        };
+
+        var HINTS = {
+            text: ['Tanya apa saja, minta ide, atau minta dibuatkan tulisan.', 'Contoh: Buatkan caption promo bizbos untuk pemilik les musik, gaya santai, 3 versi…', 'Kirim'],
+            image: ['Ceritakan gambar yang Anda mau: siapa/apa, suasana, warna, gaya foto. Tulisan panjang di dalam gambar sering salah eja, lebih baik ditambah sendiri di Canva.', 'Contoh: Foto flat-lay meja belajar anak dengan buku warna-warni dan HP menampilkan jadwal les, cahaya lembut, tanpa tulisan…', 'Buat gambar'],
+            video: ['Ceritakan adegan, gerakan kamera, dan suara yang Anda mau. Video dikerjakan di latar belakang: boleh tinggal, hasilnya muncul sendiri.', 'Contoh: Video vertikal: guru musik tersenyum menerima notifikasi pembayaran di HP, kamera pelan mendekat, musik ceria…', 'Buat video'],
+            audio: ['Tulis teks yang mau dibacakan (bukan instruksi). Angka, Rupiah & singkatan dibaca otomatis dengan ejaan Indonesia.', 'Tempel naskah voice-over di sini, misalnya: Capek ngurus tagihan murid satu-satu? Pakai bizbos…', 'Buat suara'],
+        };
+        var setMode = function (next) {
+            var go = function () {
+                mode = next;
+                document.querySelectorAll('#ai-modes [data-mode]').forEach(function (b) {
+                    b.classList.toggle('btn-primary', b.dataset.mode === next);
+                    b.classList.toggle('btn-outline-primary', b.dataset.mode !== next);
+                });
+                document.querySelectorAll('[data-panel]').forEach(function (p) { p.hidden = p.dataset.panel !== next; });
+                hint.textContent = HINTS[next][0];
+                input.placeholder = HINTS[next][1];
+                sendLabel.textContent = HINTS[next][2];
+                updateInfo();
+            };
+            if (next === 'text') { go(); return Promise.resolve(); }
+            return loadCatalog().then(go).catch(function (e) { info.textContent = '⚠️ ' + e.message; info.className = 'small text-danger'; });
+        };
+        document.querySelectorAll('#ai-modes [data-mode]').forEach(function (b) { b.addEventListener('click', function () { setMode(b.dataset.mode); }); });
+        $('img-model').addEventListener('change', setupImage);
+        $('img-n').addEventListener('change', updateInfo);
+        $('vid-model').addEventListener('change', setupVideo);
+        ['vid-res', 'vid-sec'].forEach(function (id) { $(id).addEventListener('change', updateInfo); });
+        $('aud-model').addEventListener('change', loadVoices);
+        $('aud-voice').addEventListener('change', updateSample);
+        $('aud-speed').addEventListener('input', function () { $('aud-speed-val').textContent = Number(this.value).toLocaleString('id-ID', { minimumFractionDigits: 1 }) + '×'; });
+        input.addEventListener('input', function () { if (mode === 'audio') updateInfo(); });
+
+        // ---------- Kirim ----------
         var busy = function (on) {
-            sendButton.disabled = on;
-            input.disabled = on;
-            modelSelect.disabled = on;
-            stopButton.hidden = !on;
+            sendButton.disabled = on; input.disabled = on; modelSelect.disabled = on;
+            document.querySelectorAll('#ai-modes [data-mode]').forEach(function (b) { b.disabled = on || (b.dataset.mode !== 'text' && {{ $mediaEnabled ? 'false' : 'true' }}); });
+            stopButton.hidden = !(on && mode === 'text');
         };
-
-        var addToList = function (event) {
-            var list = document.getElementById('ai-list');
-            var empty = list.querySelector('[data-empty]');
+        var addToList = function (conv) {
+            var list = $('ai-list'), empty = list.querySelector('[data-empty]');
             if (empty) empty.remove();
             list.querySelectorAll('a.active').forEach(function (a) { a.classList.remove('active', 'fw-semibold'); });
-            var link = document.createElement('a');
-            link.href = event.url;
-            link.className = 'list-group-item list-group-item-action border-0 rounded px-2 py-2 active fw-semibold';
-            var title = document.createElement('div');
-            title.className = 'text-truncate';
-            title.textContent = event.title;
-            link.appendChild(title);
+            var link = el('a', 'list-group-item list-group-item-action border-0 rounded px-2 py-2 active fw-semibold');
+            link.href = conv.url;
+            link.appendChild(el('div', 'text-truncate', conv.title));
             list.prepend(link);
         };
+        var adopt = function (conv) {
+            if (conversationId) return;
+            conversationId = conv.id;
+            history.replaceState(null, '', conv.url);
+            addToList(conv);
+        };
+        var errorFrom = function (response) {
+            return response.json().catch(function () { return {}; }).then(function (data) {
+                var message = data.message;
+                if (data.errors) message = Object.values(data.errors)[0][0];
+                if (response.status === 419) message = 'Sesi Anda sudah habis. Muat ulang halaman ini, lalu kirim lagi.';
+                if (response.status === 413) message = 'File terlalu besar. Maksimal 10 MB.';
+                throw new Error(message || 'Gagal terkirim (kode ' + response.status + '). Coba lagi ya.');
+            });
+        };
 
-        var send = function () {
-            var text = input.value.trim();
-            if (!text || sendButton.disabled) return;
-
-            bubble('user', text, '');
-            input.value = '';
-            var answer = bubble('assistant', '', '');
+        var sendText = function (text) {
+            bubble({ role: 'user', kind: 'text', content: text });
+            var answer = bubble({ role: 'assistant', kind: 'text', content: '', status: 'done' });
+            answer.actions.textContent = '';
             answer.body.classList.add('ai-typing');
-            var full = '';
-            var failed = null;
+            var full = '', failed = null;
             busy(true);
             status.textContent = '🤔 AI sedang berpikir…';
             controller = new AbortController();
 
-            fetch(sendUrl, {
-                method: 'POST',
-                signal: controller.signal,
+            fetch(urls.send, {
+                method: 'POST', signal: controller.signal,
                 headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream, application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
                 body: JSON.stringify({ message: text, conversation_id: conversationId, model: modelSelect.value })
             }).then(function (response) {
-                var type = response.headers.get('Content-Type') || '';
-                if (!response.ok || type.indexOf('text/event-stream') === -1) {
-                    return response.json().catch(function () { return {}; }).then(function (data) {
-                        var message = data.message;
-                        if (!message && data.errors) message = Object.values(data.errors)[0][0];
-                        if (response.status === 419) message = 'Sesi Anda sudah habis. Muat ulang halaman ini, lalu kirim lagi.';
-                        throw new Error(message || 'Pesan gagal terkirim (kode ' + response.status + '). Coba lagi ya.');
-                    });
-                }
-
-                var reader = response.body.getReader();
-                var decoder = new TextDecoder();
-                var buffer = '';
+                if (!response.ok || (response.headers.get('Content-Type') || '').indexOf('text/event-stream') === -1) return errorFrom(response);
+                var reader = response.body.getReader(), decoder = new TextDecoder(), buffer = '';
                 var handle = function (event) {
-                    if (event.t === 'start') {
-                        if (!conversationId) {
-                            conversationId = event.conversation_id;
-                            history.replaceState(null, '', event.url);
-                            addToList(event);
-                        }
-                        status.textContent = '✍️ AI sedang menulis jawaban…';
-                    } else if (event.t === 'delta') {
-                        full += event.text;
-                        answer.body.innerHTML = render(full);
-                        answer.box.dataset.raw = full;
-                        thread.scrollTop = thread.scrollHeight;
-                    } else if (event.t === 'done') {
-                        answer.meta.textContent = meta(event);
-                    } else if (event.t === 'error') {
-                        failed = event.message;
-                    }
+                    if (event.t === 'start') { adopt({ id: event.conversation_id, title: event.title, url: event.url }); status.textContent = '✍️ AI sedang menulis jawaban…'; }
+                    else if (event.t === 'delta') { full += event.text; answer.body.innerHTML = render(full); answer.box.dataset.raw = full; thread.scrollTop = thread.scrollHeight; }
+                    else if (event.t === 'done') { event.kind = 'text'; answer.meta.textContent = meta(event); }
+                    else if (event.t === 'error') { failed = event.message; }
                 };
                 var pump = function () {
                     return reader.read().then(function (chunk) {
@@ -293,9 +538,7 @@
                         buffer = parts.pop();
                         parts.forEach(function (part) {
                             part.split('\n').forEach(function (line) {
-                                if (line.indexOf('data: ') === 0) {
-                                    try { handle(JSON.parse(line.slice(6))); } catch (e) {}
-                                }
+                                if (line.indexOf('data: ') === 0) { try { handle(JSON.parse(line.slice(6))); } catch (e) {} }
                             });
                         });
                         return pump();
@@ -307,17 +550,71 @@
             }).then(function () {
                 answer.body.classList.remove('ai-typing');
                 if (failed) {
-                    answer.box.classList.remove('bg-light');
-                    answer.box.classList.add('bg-danger-subtle');
+                    answer.box.classList.remove('bg-light'); answer.box.classList.add('bg-danger-subtle');
                     answer.body.textContent = '⚠️ ' + failed;
                 } else if (!full) {
                     answer.body.textContent = '(Jawaban dihentikan)';
+                } else {
+                    answer.actions.appendChild(copyButton(answer.box));
                 }
                 busy(false);
-                status.textContent = failed ? 'Ada kendala. Coba kirim lagi, atau pilih otak AI lain.' : '✅ Selesai. Silakan lanjut bertanya atau salin jawabannya.';
+                textStatus = failed ? 'Ada kendala. Coba kirim lagi, atau pilih otak AI lain.' : '✅ Selesai. Silakan lanjut bertanya atau salin jawabannya.';
+                status.textContent = textStatus;
                 controller = null;
                 input.focus();
             });
+        };
+
+        var sendMedia = function (text) {
+            var data = new FormData();
+            data.append('kind', mode);
+            data.append('prompt', text);
+            if (conversationId) data.append('conversation_id', conversationId);
+            var file = null;
+            if (mode === 'image') {
+                var im = current('image', $('img-model').value);
+                data.append('model', im.id); data.append('aspect_ratio', $('img-aspect').value);
+                data.append('resolution', $('img-res').value); data.append('n', $('img-n').value);
+                if (im.quality) data.append('quality', $('img-quality').value);
+                if (im.reference !== 'none') file = $('img-ref').files[0];
+                if (im.reference === 'required' && !file) { info.textContent = '⚠️ Model ini perlu 1 gambar untuk diedit. Lampirkan gambarnya dulu.'; info.className = 'small text-danger'; return; }
+            } else if (mode === 'video') {
+                data.append('model', $('vid-model').value); data.append('aspect_ratio', $('vid-aspect').value);
+                data.append('resolution', $('vid-res').value); data.append('seconds', $('vid-sec').value);
+                file = $('vid-ref').files[0];
+            } else {
+                if (!$('aud-voice').value) { info.textContent = '⚠️ Pilih suaranya dulu.'; info.className = 'small text-danger'; return; }
+                data.append('model', $('aud-model').value); data.append('voice', $('aud-voice').value);
+                data.append('voice_name', $('aud-voice').selectedOptions[0] ? $('aud-voice').selectedOptions[0].textContent : '');
+                data.append('style', $('aud-style').value); data.append('speed', $('aud-speed').value);
+            }
+            if (file) {
+                if (file.size > 10 * 1024 * 1024) { info.textContent = '⚠️ Gambar terlalu besar. Maksimal 10 MB.'; info.className = 'small text-danger'; return; }
+                data.append('reference', file);
+            }
+
+            busy(true);
+            status.textContent = '📤 Mengirim permintaan…';
+            fetch(urls.generate, { method: 'POST', body: data, headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (response) { return response.ok ? response.json() : errorFrom(response); })
+                .then(function (res) {
+                    adopt(res.conversation);
+                    if (catalog.used[mode]) catalog.used[mode].used++;
+                    updateInfo();
+                    input.value = '';
+                    ['img-ref', 'vid-ref'].forEach(function (id) { $(id).value = ''; });
+                    bubble(res.user);
+                    watch(bubble(res.assistant), res.assistant);
+                    status.textContent = '⏳ Sedang dibuat. Anda bisa lanjut chat atau membuat yang lain.';
+                })
+                .catch(function (error) { info.textContent = '⚠️ ' + error.message; info.className = 'small text-danger'; })
+                .then(function () { busy(false); input.focus(); });
+        };
+
+        var send = function () {
+            var text = input.value.trim();
+            if (!text || sendButton.disabled) return;
+            if (mode === 'text') { input.value = ''; sendText(text); } else { sendMedia(text); }
         };
 
         form.addEventListener('submit', function (event) { event.preventDefault(); send(); });
@@ -325,13 +622,16 @@
             if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(); }
         });
         stopButton.addEventListener('click', function () { if (controller) controller.abort(); });
-        // Contoh pertanyaan: hanya mengisi kotak pesan, supaya bisa disesuaikan dulu sebelum dikirim.
+        // Contoh: pindah ke jenis yang sesuai lalu isi kotak pesan, supaya bisa disesuaikan dulu sebelum dikirim.
         document.querySelectorAll('[data-example]').forEach(function (button) {
             button.addEventListener('click', function () {
                 if (input.disabled) return;
-                input.value = button.dataset.example;
-                input.focus();
-                input.setSelectionRange(input.value.length, input.value.length);
+                setMode(button.dataset.mode || 'text').then(function () {
+                    input.value = button.dataset.example;
+                    input.focus();
+                    input.setSelectionRange(input.value.length, input.value.length);
+                    updateInfo();
+                });
             });
         });
         thread.scrollTop = thread.scrollHeight;

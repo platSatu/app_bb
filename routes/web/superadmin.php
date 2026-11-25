@@ -3,6 +3,7 @@
 use App\Http\Controllers\Superadmin\Activity\ActivityController;
 use App\Http\Controllers\Superadmin\Ai\AiController;
 use App\Http\Controllers\Superadmin\Ai\AssistantController;
+use App\Http\Controllers\Superadmin\Ai\AssistantMediaController;
 use App\Http\Controllers\Superadmin\Backup\BackupController;
 use App\Http\Controllers\Superadmin\Monitor\MonitorController;
 use App\Http\Controllers\Superadmin\Branch\BranchController;
@@ -192,6 +193,12 @@ Route::middleware(['auth', 'superadmin'])
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::post('send', 'send')->middleware('throttle:20,1')->name('send');
+                // Gambar, video & suara (Classai Router), dikerjakan antrean; file hanya untuk pemilik percakapan.
+                Route::get('media/options', [AssistantMediaController::class, 'options'])->middleware('throttle:30,1')->name('media.options');
+                Route::get('media/voices', [AssistantMediaController::class, 'voices'])->middleware('throttle:30,1')->name('media.voices');
+                Route::post('media', [AssistantMediaController::class, 'generate'])->middleware('throttle:10,1')->name('media.generate');
+                Route::get('media/{message}/status', [AssistantMediaController::class, 'status'])->whereUuid('message')->middleware('throttle:120,1')->name('media.status');
+                Route::get('file/{message}/{index}', [AssistantMediaController::class, 'file'])->whereUuid('message')->whereNumber('index')->name('file');
                 Route::get('{conversation}', 'index')->whereUuid('conversation')->name('show');
                 Route::put('{conversation}', 'rename')->whereUuid('conversation')->name('rename');
                 Route::delete('{conversation}', 'destroy')->whereUuid('conversation')->name('destroy');

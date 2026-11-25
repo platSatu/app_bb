@@ -7,10 +7,12 @@ use App\Models\AiConversation;
 use App\Models\AiMessage;
 use App\Models\AiProvider;
 use App\Services\Ai\AiChatStream;
+use App\Services\Ai\ClassaiMedia;
 use App\Services\Ai\ClassaiRouter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use RuntimeException;
@@ -48,8 +50,9 @@ class AssistantController extends Controller
         return view('superadmin.ai.assistant', [
             'conversations' => AiConversation::ownedBy($user)->latest('updated_at')->limit(50)->get(['id', 'title', 'updated_at']),
             'current' => $current,
-            'messages' => $current ? $current->messages()->get(['id', 'role', 'content', 'model', 'input_tokens', 'output_tokens', 'duration_ms', 'status']) : collect(),
+            'messages' => $current ? $current->messages()->get()->map->toChatArray() : collect(),
             'provider' => $provider,
+            'mediaEnabled' => (bool) $provider?->isClassai(),
             'models' => $provider ? $this->models($provider, $router) : [],
             'model' => $current?->model ?: $provider?->model,
             'usedToday' => $this->usedToday($request),
@@ -88,7 +91,7 @@ class AssistantController extends Controller
 
         $conversation->model = $model;
         $conversation->save();
-        $conversation->messages()->create(['role' => AiMessage::ROLE_USER, 'content' => $data['message'], 'model' => $model]);
+        $conversation->messages()->create(['role' => AiMessage::ROLE_USER, 'kind' => AiMessage::KIND_TEXT, 'content' => $data['message'], 'model' => $model]);
         $history = $this->history($conversation);
 
         return response()->stream(function () use ($provider, $model, $history, $conversation, $chat) {
@@ -143,6 +146,7 @@ class AssistantController extends Controller
 
             $message = $conversation->messages()->create([
                 'role' => AiMessage::ROLE_ASSISTANT,
+                'kind' => AiMessage::KIND_TEXT,
                 'content' => $result['text'],
                 'model' => $model,
                 'input_tokens' => $result['input_tokens'],
@@ -171,7 +175,10 @@ class AssistantController extends Controller
 
     public function destroy(Request $request, string $conversation): RedirectResponse
     {
-        AiConversation::ownedBy($request->user())->findOrFail($conversation)->delete();
+        $conversation = AiConversation::ownedBy($request->user())->findOrFail($conversation);
+        $conversation->delete();
+        // File gambar/video/suara percakapan ini ikut dihapus.
+        Storage::disk(ClassaiMedia::DISK)->deleteDirectory('ai-media/'.$conversation->getKey());
 
         return redirect()->route('superadmin.ai-assistant.index')->with('success', 'Percakapan dihapus.');
     }
@@ -202,7 +209,9 @@ class AssistantController extends Controller
     /** Riwayat untuk konteks: terakhir HISTORY pesan, peran berurutan user/assistant, diawali user. */
     private function history(AiConversation $conversation): array
     {
-        $rows = $conversation->messages()->reorder()->latest('created_at')->latest('id')->limit(self::HISTORY)->get(['role', 'content'])->reverse();
+        // Hanya percakapan teks; permintaan gambar/video/suara tidak ikut dikirim sebagai konteks.
+        $rows = $conversation->messages()->reorder()->where('kind', AiMessage::KIND_TEXT)
+            ->latest('created_at')->latest('id')->limit(self::HISTORY)->get(['role', 'content'])->reverse();
         $messages = [];
 
         foreach ($rows as $row) {
@@ -232,7 +241,7 @@ class AssistantController extends Controller
 
     private function usedToday(Request $request): int
     {
-        return AiMessage::where('role', AiMessage::ROLE_USER)
+        return AiMessage::where('role', AiMessage::ROLE_USER)->where('kind', AiMessage::KIND_TEXT)
             ->where('created_at', '>=', today())
             ->whereHas('conversation', fn ($q) => $q->where('user_id', $request->user()->getKey()))
             ->count();
