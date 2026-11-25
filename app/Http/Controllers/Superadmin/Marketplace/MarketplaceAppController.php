@@ -29,7 +29,7 @@ class MarketplaceAppController extends Controller
 
     public function create(): View
     {
-        return $this->form(new MarketplaceApp(['channel' => 'lazada', 'region' => 'id', 'status' => MarketplaceApp::STATUS_ACTIVE]));
+        return $this->form(new MarketplaceApp(['channel' => 'lazada', 'region' => 'id', 'environment' => MarketplaceApp::ENV_LIVE, 'status' => MarketplaceApp::STATUS_ACTIVE]));
     }
 
     public function store(Request $request): RedirectResponse
@@ -82,15 +82,19 @@ class MarketplaceAppController extends Controller
         return $request->validate([
             'channel' => ['required', Rule::in(array_keys(config('marketplace.channels')))],
             'name' => ['required', 'string', 'max:100'],
-            'app_key' => ['required', 'string', 'max:100', Rule::unique('marketplace_apps')->where('channel', $channel)->ignore($app->getKey())],
+            'app_key' => ['required', 'string', 'max:100', ...($channel === 'shopee' ? ['regex:/^\d+$/'] : []), Rule::unique('marketplace_apps')->where('channel', $channel)->ignore($app->getKey())],
             // Saat edit, kosong = App Secret lama tetap dipakai.
             'app_secret' => [$app->exists ? 'nullable' : 'required', 'string', 'max:255'],
             'callback_url' => ['nullable', 'url', 'max:255'],
             'region' => ['required', Rule::in(array_keys(MarketplaceApp::REGIONS))],
+            'environment' => ['required', Rule::in(array_keys(MarketplaceApp::ENVIRONMENTS))],
             'is_default' => ['nullable', 'boolean'],
             'status' => ['required', Rule::in([MarketplaceApp::STATUS_ACTIVE, MarketplaceApp::STATUS_INACTIVE])],
             'notes' => ['nullable', 'string', 'max:1000'],
-        ], ['app_key.unique' => 'App Key ini sudah terdaftar untuk channel tersebut.']);
+        ], [
+            'app_key.unique' => 'App Key / Partner ID ini sudah terdaftar untuk channel tersebut.',
+            'app_key.regex' => 'Partner ID Shopee berupa angka.',
+        ], ['app_key' => MarketplaceApp::credentialLabel($channel, 'key'), 'app_secret' => MarketplaceApp::credentialLabel($channel, 'secret')]);
     }
 
     private function save(MarketplaceApp $app, array $data): void

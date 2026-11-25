@@ -8,7 +8,7 @@
         <div class="card-body">
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
                 <div>
-                    <p class="text-muted mb-1">Kredensial app developer marketplace (Lazada ISV Console, nanti TikTok Shop & Shopee). Owner memakai app ini saat menyambungkan toko di tab Marketplace pada Catalog Online.</p>
+                    <p class="text-muted mb-1">Kredensial app developer marketplace (Lazada ISV Console, Shopee Open Platform Console; nanti TikTok Shop). Owner memakai app ini saat menyambungkan toko di tab Marketplace pada Catalog Online.</p>
                     <p class="small text-muted mb-0">Boleh lebih dari satu app per channel (akun developer berbeda). App <b>default</b> dipakai untuk sambungan baru; toko yang sudah tersambung tetap memakai app saat ia diotorisasi.</p>
                 </div>
                 <a href="{{ route('superadmin.marketplace-apps.create') }}" class="btn btn-primary text-nowrap"><i class="ri-add-line"></i> Tambah App</a>
@@ -20,8 +20,8 @@
                         <tr>
                             <th>Channel</th>
                             <th>Nama</th>
-                            <th>App Key</th>
-                            <th>App Secret</th>
+                            <th>App Key / Partner ID</th>
+                            <th>Secret / Partner Key</th>
                             <th>Callback URL</th>
                             <th class="text-center">Toko</th>
                             <th>Status</th>
@@ -34,6 +34,7 @@
                                 <td>
                                     <i class="{{ $channels[$app->channel]['icon'] ?? 'ri-store-line' }}"></i> {{ $app->channelLabel() }}
                                     <div class="small text-muted">{{ \App\Models\MarketplaceApp::REGIONS[$app->region] ?? $app->region }}</div>
+                                    @if ($app->isSandbox()) <span class="badge bg-warning-subtle text-warning">Sandbox</span> @endif
                                 </td>
                                 <td>
                                     <div class="fw-semibold">{{ $app->name }}</div>
@@ -60,7 +61,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="8" class="text-center text-muted py-4">Belum ada app. Klik "Tambah App", lalu isi App Key & App Secret dari Lazada ISV Console (Development › App Management › Manage).</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-4">Belum ada app. Klik "Tambah App", lalu isi App Key & App Secret (Lazada) atau Partner ID & Partner Key (Shopee).</td></tr>
                         @endforelse
                     </tbody>
                 </table>

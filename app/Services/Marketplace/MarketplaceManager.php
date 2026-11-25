@@ -5,6 +5,7 @@ namespace App\Services\Marketplace;
 use App\Models\MarketplaceStore;
 use App\Services\Marketplace\Contracts\MarketplaceChannel;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /** Daftar channel dari config/marketplace.php dan pembuat driver-nya. */
 class MarketplaceManager
@@ -39,8 +40,10 @@ class MarketplaceManager
     /** Pastikan token toko masih berlaku sebelum memanggil API; perpanjang otomatis bila hampir habis. */
     public function ensureFreshToken(MarketplaceStore $store): void
     {
-        if ($store->needsRefresh(6) && $store->canRefresh()) {
-            $this->for($store)->refreshToken($store);
+        $channel = $this->for($store);
+
+        if ($store->needsRefresh($channel->refreshMarginMinutes()) && $store->canRefresh()) {
+            $this->refresh($store);
         }
 
         if ($store->accessExpired()) {
@@ -48,5 +51,23 @@ class MarketplaceManager
 
             throw new MarketplaceException('Token toko '.$store->displayName().' sudah habis. Sambungkan ulang tokonya.');
         }
+    }
+
+    /**
+     * Perpanjang token dengan kunci per toko. Refresh token Shopee hanya bisa dipakai sekali,
+     * jadi dua proses yang memperpanjang bersamaan akan membuat salah satunya gagal.
+     */
+    public function refresh(MarketplaceStore $store): void
+    {
+        Cache::lock('marketplace:refresh:'.$store->getKey(), 30)->block(20, function () use ($store) {
+            $store->refresh();
+
+            // Proses lain mungkin baru saja memperpanjang token ini.
+            if (! $store->needsRefresh($this->for($store)->refreshMarginMinutes())) {
+                return;
+            }
+
+            $this->for($store)->refreshToken($store);
+        });
     }
 }

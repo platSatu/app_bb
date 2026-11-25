@@ -2,8 +2,9 @@
 
 /*
 | Channel marketplace yang bisa disambungkan dari tab Marketplace di Catalog Online.
-| Channel baru (TikTok Shop, Shopee) = tambah driver yang mengimplementasikan
-| App\Services\Marketplace\Contracts\MarketplaceChannel, lalu set 'enabled' => true.
+| Channel baru (mis. TikTok Shop) = tambah driver yang mengimplementasikan
+| App\Services\Marketplace\Contracts\MarketplaceChannel (+ PublishesProducts), controller turunan
+| App\Http\Controllers\Marketplace\Store*Controller, daftarkan di routes/web/marketplace.php, lalu set 'enabled' => true.
 */
 
 return [
@@ -26,8 +27,8 @@ return [
             'label' => 'Shopee',
             'icon' => 'ri-store-3-line',
             'color' => '#ee4d2d',
-            'enabled' => false,
-            'driver' => null,
+            'enabled' => true,
+            'driver' => \App\Services\Marketplace\Shopee\ShopeeChannel::class,
         ],
     ],
 

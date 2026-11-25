@@ -25,7 +25,22 @@ class MarketplaceApp extends Model
         'ph' => 'Philippines',
     ];
 
-    protected $fillable = ['channel', 'name', 'app_key', 'app_secret', 'callback_url', 'region', 'is_default', 'status', 'notes'];
+    public const ENV_LIVE = 'live';
+    public const ENV_SANDBOX = 'sandbox';
+
+    public const ENVIRONMENTS = [
+        self::ENV_LIVE => 'Live (produksi)',
+        self::ENV_SANDBOX => 'Sandbox (uji coba)',
+    ];
+
+    /** Nama kolom kredensial per channel, untuk label form & tabel superadmin. */
+    public const CREDENTIAL_LABELS = [
+        'lazada' => ['key' => 'App Key', 'secret' => 'App Secret'],
+        'shopee' => ['key' => 'Partner ID', 'secret' => 'Partner Key'],
+        'tiktok' => ['key' => 'App Key', 'secret' => 'App Secret'],
+    ];
+
+    protected $fillable = ['channel', 'name', 'app_key', 'app_secret', 'callback_url', 'region', 'environment', 'is_default', 'status', 'notes'];
 
     protected $hidden = ['app_secret'];
 
@@ -51,6 +66,16 @@ class MarketplaceApp extends Model
             ->when($id, fn (Builder $q) => $q->whereKey($id))
             ->orderByDesc('is_default')->orderBy('created_at')
             ->first();
+    }
+
+    public function isSandbox(): bool
+    {
+        return $this->environment === self::ENV_SANDBOX;
+    }
+
+    public static function credentialLabel(string $channel, string $field): string
+    {
+        return self::CREDENTIAL_LABELS[$channel][$field] ?? ($field === 'key' ? 'App Key' : 'App Secret');
     }
 
     public function callbackUrl(): string

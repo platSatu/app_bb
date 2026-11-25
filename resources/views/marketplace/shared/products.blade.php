@@ -1,10 +1,11 @@
+{{-- Produk yang ditarik dari toko marketplace (semua channel). Controller: StoreProductController@index --}}
 @extends('layouts.dashboard')
 
-@section('title', 'Produk Lazada')
+@section('title', 'Produk '.$store->channelLabel())
 @section('page-section', \App\Support\Apps::pageSection($routes))
 
 @section('content')
-    @include('marketplace.lazada._nav', ['active' => 'products'])
+    @include('marketplace.shared._store-nav', ['active' => 'products'])
 
     <div class="card">
         <div class="card-body">
@@ -17,9 +18,10 @@
                     @endif
                 </form>
                 @if ($canManage)
-                    <form method="POST" action="{{ route($routes.'.marketplace.lazada.products.sync', [$page, $store]) }}" onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').innerHTML = 'Menarik produk...';">
+                    <form method="POST" action="{{ route($routes.'.marketplace.'.$store->channel.'.products.sync', [$page, $store]) }}"
+                        onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').innerHTML = 'Menarik produk...';">
                         @csrf
-                        <button type="submit" class="btn btn-primary"><i class="ri-download-cloud-2-line"></i> Tarik Produk dari Lazada</button>
+                        <button type="submit" class="btn btn-primary"><i class="ri-download-cloud-2-line"></i> Tarik Produk dari {{ $store->channelLabel() }}</button>
                     </form>
                 @endif
             </div>
@@ -49,7 +51,7 @@
                                         <div>
                                             <div class="fw-semibold">{{ \Illuminate\Support\Str::limit($product->name, 80) }}</div>
                                             <div class="small text-muted">Item ID {{ $product->external_id }}
-                                                @if ($product->url) · <a href="{{ $product->url }}" target="_blank" rel="noopener">Lihat di Lazada <i class="ri-external-link-line"></i></a> @endif
+                                                @if ($product->url) · <a href="{{ $product->url }}" target="_blank" rel="noopener">Lihat di {{ $store->channelLabel() }} <i class="ri-external-link-line"></i></a> @endif
                                             </div>
                                         </div>
                                     </div>
@@ -64,8 +66,8 @@
                                 <td class="text-center">{{ $product->stock }}</td>
                                 <td><span class="badge {{ $product->statusBadge() }}">{{ $product->status ?? '-' }}</span></td>
                                 <td class="text-end text-nowrap">
-                                    @foreach ($resellChannels as $key => $channel)
-                                        <button type="button" class="btn btn-sm rounded-pill btn-outline-secondary" disabled title="{{ $channel['enabled'] ? 'Jual di '.$channel['label'] : $channel['label'].' segera hadir' }}">
+                                    @foreach ($resellChannels as $channel)
+                                        <button type="button" class="btn btn-sm rounded-pill btn-outline-secondary" disabled title="Jual ulang ke {{ $channel['label'] }} segera hadir">
                                             <i class="{{ $channel['icon'] }}"></i> {{ $channel['label'] }}
                                         </button>
                                     @endforeach
@@ -73,7 +75,7 @@
                             </tr>
                         @empty
                             <tr><td colspan="6" class="text-center text-muted py-4">
-                                Belum ada produk. Klik "Tarik Produk dari Lazada" untuk mengambil produk toko ini.
+                                Belum ada produk. Klik "Tarik Produk dari {{ $store->channelLabel() }}" untuk mengambil produk toko ini.
                             </td></tr>
                         @endforelse
                     </tbody>

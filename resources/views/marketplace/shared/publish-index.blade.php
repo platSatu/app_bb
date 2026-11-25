@@ -1,14 +1,15 @@
+{{-- Daftar produk katalog + status upload ke toko marketplace (semua channel). Controller: StorePublishController@index --}}
 @extends('layouts.dashboard')
 
-@section('title', 'Upload ke Lazada')
+@section('title', 'Upload ke '.$store->channelLabel())
 @section('page-section', \App\Support\Apps::pageSection($routes))
 
 @section('content')
-    @include('marketplace.lazada._nav', ['active' => 'publish'])
+    @include('marketplace.shared._store-nav', ['active' => 'publish'])
 
     <div class="card">
         <div class="card-body">
-            <p class="text-muted small">Pilih produk Catalog Online yang mau diunggah ke toko Lazada ini. Setelah terkirim, Lazada memeriksa (QC) produk sebelum tampil di toko.</p>
+            <p class="text-muted small">Pilih produk Catalog Online yang mau diunggah ke toko {{ $store->channelLabel() }} ini. Setelah terkirim, marketplace memeriksa produk sebelum tampil di toko.</p>
 
             <form method="GET" class="d-flex gap-2 mb-3" style="max-width: 520px">
                 <input type="text" name="search" class="form-control" maxlength="100" placeholder="Cari nama produk" value="{{ request('search') }}">
@@ -22,7 +23,7 @@
                             <th>Produk Katalog</th>
                             <th class="text-end">Harga</th>
                             <th class="text-center">Stok</th>
-                            <th>Status di Lazada</th>
+                            <th>Status di {{ $store->channelLabel() }}</th>
                             @if ($canManage) <th class="text-end">Aksi</th> @endif
                         </tr>
                     </thead>
@@ -48,9 +49,9 @@
                                         <div class="small text-muted">
                                             {{ $listing->isSubmitted() ? 'Item ID '.$listing->external_id.' · ' : '' }}{{ $listing->created_at->translatedFormat('d M Y H:i') }}
                                         </div>
-                                        @if (! $listing->isSubmitted())
+                                        @unless ($listing->isSubmitted())
                                             <div class="small text-danger text-truncate" style="max-width: 320px" title="{{ $listing->error }}">{{ $listing->error }}</div>
-                                        @endif
+                                        @endunless
                                     @else
                                         <span class="text-muted small">Belum diunggah</span>
                                     @endif
@@ -60,7 +61,7 @@
                                         @if ($listing?->isSubmitted())
                                             <span class="small text-muted">Sudah terkirim</span>
                                         @else
-                                            <a href="{{ route($routes.'.marketplace.lazada.publish.create', [$page, $store, $product]) }}" class="btn btn-sm rounded-pill btn-outline-success">
+                                            <a href="{{ route($routes.'.marketplace.'.$store->channel.'.publish.create', [$page, $store, $product]) }}" class="btn btn-sm rounded-pill btn-outline-success">
                                                 <i class="ri-upload-2-line"></i> {{ $listing ? 'Coba lagi' : 'Upload' }}
                                             </a>
                                         @endif

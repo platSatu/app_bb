@@ -19,8 +19,8 @@ Schedule::command('whatsapp:dispatch-messages')->everyMinute()->withoutOverlappi
 Schedule::command('whatsapp:nudge-sessions')->everyMinute()->withoutOverlapping();
 // Agent Prospek: dicek tiap 15 menit, bekerja sekali sehari setelah jam yang diatur (lihat ProspectAgent::run()).
 Schedule::call(fn () => app(\App\Services\Marketing\ProspectAgent::class)->run())->everyFifteenMinutes()->name('prospect-agent')->withoutOverlapping();
-// Token toko marketplace (Lazada) diperpanjang sebelum habis; token app Testing hanya berlaku 7 hari.
-Schedule::command('marketplace:refresh-tokens')->everySixHours()->withoutOverlapping();
+// Token toko marketplace diperpanjang sebelum habis (Lazada ~7 hari, Shopee hanya 4 jam), jadi dicek tiap jam.
+Schedule::command('marketplace:refresh-tokens')->hourly()->withoutOverlapping();
 Schedule::command('db:backup')->dailyAt('01:00')->withoutOverlapping();
 // Riwayat aktivitas pengguna & riwayat email lebih dari 180 hari dihapus (KEEP_DAYS di masing-masing model).
 Schedule::command('model:prune', ['--model' => [\App\Models\UserActivityLog::class, \App\Models\EmailLog::class]])->dailyAt('02:30')->withoutOverlapping();

@@ -5,13 +5,14 @@ namespace App\Services\Marketplace\Lazada;
 use App\Models\MarketplaceApp;
 use App\Models\MarketplaceStore;
 use App\Services\Marketplace\Contracts\MarketplaceChannel;
+use App\Services\Marketplace\Contracts\PublishesProducts;
 use App\Services\Marketplace\MarketplaceException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 /** Driver Lazada: otorisasi seller, token, produk, kategori, gambar & unggah produk. */
-class LazadaChannel implements MarketplaceChannel
+class LazadaChannel implements MarketplaceChannel, PublishesProducts
 {
     private const LANGUAGES = ['id' => 'id_ID', 'my' => 'ms_MY', 'sg' => 'en_SG', 'th' => 'th_TH', 'vn' => 'vi_VN', 'ph' => 'fil_PH'];
 
@@ -33,7 +34,7 @@ class LazadaChannel implements MarketplaceChannel
         ]);
     }
 
-    public function exchangeCode(MarketplaceApp $app, string $code): array
+    public function exchangeCode(MarketplaceApp $app, string $code, array $callback = []): array
     {
         $body = $this->client->auth($app, '/auth/token/create', ['code' => $code]);
 
@@ -94,6 +95,16 @@ class LazadaChannel implements MarketplaceChannel
             'status' => MarketplaceStore::STATUS_CONNECTED,
             'status_reason' => null,
         ])->save();
+    }
+
+    public function refreshMarginMinutes(): int
+    {
+        return 6 * 60;
+    }
+
+    public function scheduledRefreshMinutes(): int
+    {
+        return 2 * 24 * 60;
     }
 
     public function fetchProducts(MarketplaceStore $store, int $offset, int $limit): array

@@ -9,6 +9,9 @@
     <p class="text-muted">
         Sambungkan toko marketplace ke katalog <strong>{{ $page->name }}</strong>: lihat produk yang sudah ada di toko,
         unggah produk katalog Anda ke marketplace, dan (segera) jual ulang produk ke channel lain.
+        @if ($ownerArea)
+            <br><span class="small">Lazada: pilih <b>Site</b> sesuai negara toko lalu klik <b>Authorize</b> di tab otorisasi. Shopee: login akun toko, masukkan OTP, lalu <b>Confirm Authorization</b>.</span>
+        @endif
     </p>
 
     <div class="row g-3">
@@ -76,7 +79,10 @@
                                         @forelse ($channelStores as $store)
                                             <tr>
                                                 <td>
-                                                    <div class="fw-semibold">{{ $store->displayName() }}</div>
+                                                    <div class="fw-semibold">
+                                                        {{ $store->displayName() }}
+                                                        @if ($store->app?->isSandbox()) <span class="badge bg-warning-subtle text-warning">Sandbox</span> @endif
+                                                    </div>
                                                     <div class="small text-muted">{{ $store->account }}{{ $store->short_code ? ' · '.$store->short_code : '' }} · App: {{ $store->app?->name }}</div>
                                                 </td>
                                                 <td class="text-uppercase">{{ $store->country }}</td>
@@ -108,7 +114,7 @@
                                                 @endif
                                             </tr>
                                         @empty
-                                            <tr><td colspan="6" class="text-center text-muted py-4">Belum ada toko {{ $channel['label'] }}. Klik "Sambungkan Toko", login dengan akun Seller Center, lalu klik Authorize.</td></tr>
+                                            <tr><td colspan="6" class="text-center text-muted py-4">Belum ada toko {{ $channel['label'] }}. Klik "Sambungkan Toko", login dengan akun seller, lalu setujui otorisasinya.</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>

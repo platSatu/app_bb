@@ -69,10 +69,10 @@ class MarketplaceStore extends Model
         return $this->access_expires_at !== null && $this->access_expires_at->isPast();
     }
 
-    /** Token akses perlu diperpanjang (habis dalam $hours jam ke depan). */
-    public function needsRefresh(int $hours = 48): bool
+    /** Token akses perlu diperpanjang (habis dalam $minutes menit ke depan). Lazada ~7 hari, Shopee cuma 4 jam. */
+    public function needsRefresh(int $minutes = 2880): bool
     {
-        return $this->access_expires_at === null || $this->access_expires_at->lt(now()->addHours($hours));
+        return $this->access_expires_at === null || $this->access_expires_at->lt(now()->addMinutes($minutes));
     }
 
     public function canRefresh(): bool

@@ -19,7 +19,7 @@ class MarketplaceController extends Controller
     {
         $model = $this->catalogPage($request, $page);
 
-        $stores = MarketplaceStore::with('app:id,name')
+        $stores = MarketplaceStore::with('app:id,name,environment')
             ->withCount(['products', 'listings'])
             ->where('page_id', $model->getKey())
             ->orderBy('created_at')

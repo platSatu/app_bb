@@ -25,6 +25,11 @@ class MarketplaceException extends RuntimeException
     /** Token toko tidak berlaku lagi (seller perlu otorisasi ulang). */
     public function isAuthError(): bool
     {
-        return in_array($this->apiCode, ['IllegalAccessToken', 'AccessTokenExpired', 'IllegalRefreshToken', 'RefreshTokenExpired'], true);
+        return in_array($this->apiCode, [
+            // Lazada
+            'IllegalAccessToken', 'AccessTokenExpired', 'IllegalRefreshToken', 'RefreshTokenExpired',
+            // Shopee (ejaan "acceess" memang begitu dari Shopee)
+            'invalid_access_token', 'invalid_acceess_token', 'error_invalid_access_token', 'invalid_refresh_token',
+        ], true);
     }
 }
