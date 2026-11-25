@@ -10,7 +10,7 @@
         Sambungkan toko marketplace ke katalog <strong>{{ $page->name }}</strong>: lihat produk yang sudah ada di toko,
         unggah produk katalog Anda ke marketplace, dan (segera) jual ulang produk ke channel lain.
         @if ($ownerArea)
-            <br><span class="small">Lazada: pilih <b>Site</b> sesuai negara toko lalu klik <b>Authorize</b> di tab otorisasi. Shopee: login akun toko, masukkan OTP, lalu <b>Confirm Authorization</b>.</span>
+            <br><span class="small">Lazada: pilih <b>Site</b> sesuai negara toko lalu klik <b>Authorize</b> di tab otorisasi. Shopee: login akun toko, masukkan OTP, lalu <b>Confirm Authorization</b>. TikTok Shop: login akun seller lalu setujui otorisasinya.</span>
         @endif
     </p>
 

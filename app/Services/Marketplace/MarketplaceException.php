@@ -30,6 +30,8 @@ class MarketplaceException extends RuntimeException
             'IllegalAccessToken', 'AccessTokenExpired', 'IllegalRefreshToken', 'RefreshTokenExpired',
             // Shopee (ejaan "acceess" memang begitu dari Shopee)
             'invalid_access_token', 'invalid_acceess_token', 'error_invalid_access_token', 'invalid_refresh_token',
+            // TikTok Shop (kode angka): token tidak valid / kedaluwarsa
+            '105001', '105002', '105003',
         ], true);
     }
 }

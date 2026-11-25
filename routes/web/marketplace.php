@@ -7,6 +7,9 @@ use App\Http\Controllers\Marketplace\MarketplaceController;
 use App\Http\Controllers\Marketplace\Shopee\ShopeeAuthController;
 use App\Http\Controllers\Marketplace\Shopee\ShopeeProductController;
 use App\Http\Controllers\Marketplace\Shopee\ShopeePublishController;
+use App\Http\Controllers\Marketplace\Tiktok\TiktokAuthController;
+use App\Http\Controllers\Marketplace\Tiktok\TiktokProductController;
+use App\Http\Controllers\Marketplace\Tiktok\TiktokPublishController;
 use App\Http\Controllers\Superadmin\Marketplace\MarketplaceAppController;
 use Illuminate\Support\Facades\Route;
 
@@ -57,13 +60,19 @@ Route::middleware(['auth', 'permission:pages.list'])->prefix('pages')->name('pag
     $channelRoutes('shopee', ShopeeAuthController::class, ShopeeProductController::class, ShopeePublishController::class, function () {
         Route::get('categories/{category}/brands', 'brands')->middleware('throttle:60,1')->name('categories.brands');
     });
+
+    $channelRoutes('tiktok', TiktokAuthController::class, TiktokProductController::class, TiktokPublishController::class, function () {
+        Route::get('categories/{category}/brands', 'brands')->middleware('throttle:60,1')->name('categories.brands');
+    });
 });
 
 // Callback OAuth: satu alamat per channel untuk semua page & app (page/app dibawa lewat state).
 // Lazada: isi URL ini persis di Callback URL app (ISV Console). Shopee: isi domainnya di Redirect URL Domain (Console).
+// TikTok Shop: isi URL ini di Redirect URL app (Partner Center › App & Service).
 Route::middleware('auth')->group(function () {
     Route::get('marketplace/lazada/callback', [LazadaAuthController::class, 'callback'])->name('marketplace.lazada.callback');
     Route::get('marketplace/shopee/callback', [ShopeeAuthController::class, 'callback'])->name('marketplace.shopee.callback');
+    Route::get('marketplace/tiktok/callback', [TiktokAuthController::class, 'callback'])->name('marketplace.tiktok.callback');
 });
 
 // Superadmin: tab Marketplace (lihat saja) di Applications › Pages.

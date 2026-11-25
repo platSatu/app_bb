@@ -54,7 +54,13 @@ abstract class StoreAuthController extends Controller
             'expires' => now()->addMinutes(self::STATE_TTL_MINUTES)->timestamp,
         ]);
 
-        return redirect()->away($this->channel()->authorizeUrl($app, $state));
+        try {
+            return redirect()->away($this->channel()->authorizeUrl($app, $state));
+        } catch (MarketplaceException $e) {
+            $request->session()->forget("marketplace.oauth.{$state}");
+
+            return back()->with('error', $e->getMessage());
+        }
     }
 
     public function callback(Request $request): RedirectResponse

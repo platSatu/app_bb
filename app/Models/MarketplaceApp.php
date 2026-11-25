@@ -23,6 +23,8 @@ class MarketplaceApp extends Model
         'th' => 'Thailand',
         'vn' => 'Vietnam',
         'ph' => 'Philippines',
+        'us' => 'United States',
+        'gb' => 'United Kingdom',
     ];
 
     public const ENV_LIVE = 'live';
@@ -37,10 +39,10 @@ class MarketplaceApp extends Model
     public const CREDENTIAL_LABELS = [
         'lazada' => ['key' => 'App Key', 'secret' => 'App Secret'],
         'shopee' => ['key' => 'Partner ID', 'secret' => 'Partner Key'],
-        'tiktok' => ['key' => 'App Key', 'secret' => 'App Secret'],
+        'tiktok' => ['key' => 'App Key', 'secret' => 'App Secret', 'service' => 'Service ID'],
     ];
 
-    protected $fillable = ['channel', 'name', 'app_key', 'app_secret', 'callback_url', 'region', 'environment', 'is_default', 'status', 'notes'];
+    protected $fillable = ['channel', 'name', 'app_key', 'app_secret', 'service_id', 'callback_url', 'region', 'environment', 'is_default', 'status', 'notes'];
 
     protected $hidden = ['app_secret'];
 

@@ -20,8 +20,8 @@ return [
             'label' => 'TikTok Shop',
             'icon' => 'ri-tiktok-line',
             'color' => '#000000',
-            'enabled' => false,
-            'driver' => null,
+            'enabled' => true,
+            'driver' => \App\Services\Marketplace\Tiktok\TiktokChannel::class,
         ],
         'shopee' => [
             'label' => 'Shopee',

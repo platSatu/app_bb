@@ -42,12 +42,18 @@
                                     placeholder="{{ $app->exists ? 'Kosongkan bila tidak diganti ('.$app->maskedSecret().')' : '' }}">
                                 <div class="form-text">Disimpan terenkripsi dan tidak pernah ditampilkan utuh.</div>
                             </div>
+                            <div class="col-12 col-md-6" data-only-channel="tiktok">
+                                <label class="form-label">Service ID</label>
+                                <input type="text" name="service_id" class="form-control font-monospace" maxlength="64" value="{{ old('service_id', $app->service_id) }}" autocomplete="off">
+                                <div class="form-text">TikTok Shop: dipakai di link otorisasi seller (Partner Center › App & Service › detail app).</div>
+                            </div>
                             <div class="col-12 col-md-8">
                                 <label class="form-label">Callback URL</label>
                                 <input type="url" name="callback_url" class="form-control" maxlength="255" value="{{ old('callback_url', $app->callback_url) }}" data-callback-input>
                                 <div class="form-text">
                                     Kosongkan untuk memakai alamat bawaan bizbos: <code data-callback-default>{{ route('marketplace.lazada.callback') }}</code>.
                                     Lazada: isi alamat yang <b>sama persis</b> di Callback URL app (ISV Console). Shopee: isi <b>domain</b>-nya di Redirect URL Domain (Test / Live) pada Shopee Console.
+                                    TikTok Shop: isi alamat ini di <b>Redirect URL</b> app pada Partner Center.
                                 </div>
                             </div>
                             <div class="col-12 col-md-4">
@@ -115,6 +121,14 @@
                         <li>Isi <b>Redirect URL Domain</b> (Test / Live) di Console dengan domain bizbos, mis. <code>{{ parse_url(config('app.url'), PHP_URL_HOST) }}</code>.</li>
                         <li>Uji coba: buat toko tes di Console › Test Account – Sandbox v2, lalu sambungkan toko tes itu dari tab Marketplace.</li>
                     </ol>
+
+                    <h6 class="mt-3">Cara mengisi (TikTok Shop)</h6>
+                    <ol class="ps-3 mb-0">
+                        <li>Buka <a href="https://partner.tiktokshop.com" target="_blank" rel="noopener">TikTok Shop Partner Center</a> › App & Service › pilih app.</li>
+                        <li>Salin <b>App Key</b>, <b>App Secret</b> dan <b>Service ID</b>; aktifkan scope produk (Product Read/Modify) & logistik.</li>
+                        <li>Isi <b>Redirect URL</b> app dengan callback TikTok di form ini. Environment = Live.</li>
+                        <li>Uji coba: pakai <b>Seller Center development shop</b> dari Partner Center.</li>
+                    </ol>
                 </div>
             </div>
         </div>
@@ -141,6 +155,7 @@
                 const cb = callbacks[select.value] || '';
                 document.querySelector('[data-callback-default]').textContent = cb;
                 document.querySelector('[data-callback-input]').placeholder = cb;
+                document.querySelectorAll('[data-only-channel]').forEach((el) => el.classList.toggle('d-none', el.dataset.onlyChannel !== select.value));
             };
             select.addEventListener('change', sync);
             sync();

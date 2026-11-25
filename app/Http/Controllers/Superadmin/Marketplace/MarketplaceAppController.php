@@ -85,6 +85,7 @@ class MarketplaceAppController extends Controller
             'app_key' => ['required', 'string', 'max:100', ...($channel === 'shopee' ? ['regex:/^\d+$/'] : []), Rule::unique('marketplace_apps')->where('channel', $channel)->ignore($app->getKey())],
             // Saat edit, kosong = App Secret lama tetap dipakai.
             'app_secret' => [$app->exists ? 'nullable' : 'required', 'string', 'max:255'],
+            'service_id' => [$channel === 'tiktok' ? 'required' : 'nullable', 'string', 'max:64'],
             'callback_url' => ['nullable', 'url', 'max:255'],
             'region' => ['required', Rule::in(array_keys(MarketplaceApp::REGIONS))],
             'environment' => ['required', Rule::in(array_keys(MarketplaceApp::ENVIRONMENTS))],
@@ -94,7 +95,7 @@ class MarketplaceAppController extends Controller
         ], [
             'app_key.unique' => 'App Key / Partner ID ini sudah terdaftar untuk channel tersebut.',
             'app_key.regex' => 'Partner ID Shopee berupa angka.',
-        ], ['app_key' => MarketplaceApp::credentialLabel($channel, 'key'), 'app_secret' => MarketplaceApp::credentialLabel($channel, 'secret')]);
+        ], ['app_key' => MarketplaceApp::credentialLabel($channel, 'key'), 'app_secret' => MarketplaceApp::credentialLabel($channel, 'secret'), 'service_id' => 'Service ID']);
     }
 
     private function save(MarketplaceApp $app, array $data): void
