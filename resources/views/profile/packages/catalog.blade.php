@@ -107,11 +107,8 @@
                                         <h5 class="pkgx-name mb-1">{{ $package->name }}</h5>
 
                                         @if (in_array('schedules', $package->apps ?? [], true))
+                                            {{-- Jumlah murid sudah tertulis di fitur paket; di sini hanya pengingat kalau paket ini tidak menambah kuota. --}}
                                             @php($maxStudents = $package->limitsFor('schedules')['students'] ?? null)
-                                            <div class="small mb-2 {{ $package->is_featured ? '' : 'text-body' }}">
-                                                <i class="ri-group-line"></i>
-                                                {{ $maxStudents === null ? 'Murid aktif tanpa batas' : 'Sampai '.number_format($maxStudents, 0, ',', '.').' murid aktif' }}
-                                            </div>
                                             @if ($studentLimit !== null && $maxStudents !== null && $maxStudents <= $studentLimit && ! $package->is_trial)
                                                 <div class="small mb-2 pkgx-muted"><i class="ri-information-line"></i> Hanya menambah masa aktif. Kuota murid Anda sekarang sudah {{ number_format($studentLimit, 0, ',', '.') }}.</div>
                                             @endif

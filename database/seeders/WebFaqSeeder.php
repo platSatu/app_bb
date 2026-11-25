@@ -40,7 +40,7 @@ class WebFaqSeeder extends Seeder
 
         // Paket & harga
         'Berapa harga paket bizbos?' => 'Harga setiap paket bisa Anda lihat langsung di menu Beli Paket setelah daftar, lengkap dengan durasi dan fitur yang didapat. Makin panjang durasinya, biasanya makin hemat, dan paket yang paling banyak dipilih ditandai Populer. Kalau mau dibantu memilih yang paling pas untuk usaha Anda, chat kami saja ya.',
-        'Apa saja pilihan paketnya?' => 'Paket disusun sesuai kebutuhan: ada yang berisi satu fitur saja, seperti Pages atau Invoice, ada gabungan beberapa fitur, sampai paket Komplit yang berisi semuanya. Setiap paket tersedia dalam beberapa pilihan durasi, dan Anda bisa menambah paket lain kapan saja. Daftar lengkapnya ada di menu Beli Paket.',
+        'Apa saja pilihan paketnya?' => 'Untuk tempat kursus, les, dan bimbel ada paket Kursus (Starter, Growth, Pro, dan Unlimited) yang berisi Jadwal, Invoice, dan WhatsApp sekaligus. Bedanya hanya di jumlah murid aktif, dan bisa dibayar bulanan, 6 bulan, atau 12 bulan. Kalau hanya butuh satu fitur, ada paket Invoice, WhatsApp, atau Invoice + WhatsApp, sedangkan Pages dan Event bisa dipakai gratis. Daftar lengkapnya ada di menu Beli Paket.',
         'Bisa coba gratis dulu?' => 'Bisa! Tersedia paket Trial gratis supaya Anda bisa mencoba dulu sebelum berlangganan. Trial bisa dipakai satu kali untuk setiap email dan nomor HP, dan lama masa trial tertulis di kartu paketnya. Cukup daftar, buat branch, lalu pilih paket Trial di menu Beli Paket.',
         'Bagaimana cara membeli atau memperpanjang paket?' => 'Isi Saldo terlebih dahulu lewat menu Tambah Saldo, lalu buka Beli Paket, pilih paket, dan klik Bayar dengan Saldo. Paket bisa langsung diaktifkan ke branch Anda, atau disimpan sebagai kode voucher untuk dipakai nanti. Kalau diperpanjang saat masih aktif, masa aktifnya ditambahkan dari tanggal berakhir sebelumnya, jadi tidak ada hari yang hilang.',
         'Apa itu kode voucher paket?' => 'Kode voucher adalah paket yang sudah Anda beli tapi belum diaktifkan, misalnya untuk dipakai nanti atau diberikan ke rekan. Masa berlaku kodenya ditampilkan saat pembelian, dan kode bisa diaktifkan lewat menu Punya Kode Voucher.',
@@ -88,6 +88,8 @@ class WebFaqSeeder extends Seeder
         '97c7086848562b349a900c77202f19ff9f7f10a3', 'c0ab5a42e41005a6026d8096b0ec1c65ae411f3d',
         '3d965d32ab9a854d45df242527590bdb479ade0f', '0ad57a74927d85a26a73c50b48f787f9735403a0',
         '137146448d7a9c9ed7535bc3ce5e27007fe66fa3',
+        // 25 Nov 2026: jawaban "pilihan paket" yang masih menyebut Komplit.
+        '333e2569a3d0c47a843c58cc465fdc4de4a2df0f',
     ];
 
 

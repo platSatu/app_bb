@@ -15,6 +15,9 @@ use Illuminate\Database\Seeder;
  * 16 Nov 2026: isi Pages berubah -- Bio link & Landing page ditutup, Registrasi ditambah, Kuis kini
  * punya PIN/OTP, nilai & pembayaran. Harga tidak berubah; deskripsi paket yang sudah ada disegarkan
  * lewat migration 2026_12_17_100000.
+ * 25 Nov 2026: Komplit diganti paket Kursus per jumlah murid aktif (Starter 50, Growth 150, Pro 400, Unlimited),
+ * bisa bulanan / 6 bulan / 12 bulan, trial 30 hari (30 murid). Paket Komplit dihapus, atau dinonaktifkan kalau
+ * sudah pernah dibeli; langganan Komplit yang sedang berjalan tetap aktif sampai habis.
  * Jalankan: php artisan db:seed --class=PackageSeeder
  * Aman dijalankan ulang: harga, fitur, kuota, dll. yang sudah diedit di superadmin TIDAK ditimpa.
  * Fitur = catatan + ringkasan per layanan (5 baris pertama, tampil di kartu) + rincian sesuai menu yang ada.
@@ -25,13 +28,42 @@ class PackageSeeder extends Seeder
     // Harga per durasi (hari => rupiah). Acuan harga normal per bulan: 6 bulan hemat ~10%, 12 bulan hemat ~20%.
     // Batas per bulan: invoices = invoice dibuat, whatsapp = pesan terkirim. Tidak diisi = tanpa batas.
     // 11 Des 2026: Pages & Event (Ticket) gratis dipakai sendiri; paket berbayar: Invoice, WhatsApp, Invoice + WhatsApp, Komplit.
+    // 25 Nov 2026: Komplit diganti Kursus Starter/Growth/Pro/Unlimited. Batas schedules = murid aktif sekaligus (bukan per bulan).
+    // Tanpa 'trial' = Trial 7 hari dengan TRIAL_LIMITS; 'trial' => false = tanpa trial.
     // Paket "Pages + Invoice + WhatsApp" tidak dijual lagi (dinonaktifkan lewat migration 2026_12_09_100000).
+    private const COURSE_APPS = ['events', 'pages', 'schedules', 'invoices', 'whatsapp'];
+
+    /** Paket lama yang tidak dijual lagi (semua durasinya). */
+    public const RETIRED = ['Komplit'];
+
     public const PLANS = [
-        // Komplit: Jadwal les/kursus + Invoice + WhatsApp (Pages & Event ikut terbuka).
-        'Komplit' => [
-            'apps' => ['events', 'pages', 'schedules', 'invoices', 'whatsapp'],
-            'prices' => [180 => 2694000, 365 => 4788000],
+        // Kursus (25 Nov 2026, menggantikan Komplit): Jadwal + Invoice + WhatsApp (Pages & Event ikut terbuka),
+        // dibedakan dari jumlah murid aktif sekaligus (PlanLimits::assertStudents). Kuota WhatsApp ~30 pesan/murid,
+        // invoice ~2/murid per bulan. Trial 30 hari hanya di Starter (trial dipakai sekali per akun).
+        'Kursus Starter' => [
+            'apps' => self::COURSE_APPS,
+            'prices' => [30 => 99000, 180 => 535000, 365 => 990000],
+            'limits' => ['schedules' => 50, 'invoices' => 100, 'whatsapp' => 1500],
+            'trial' => ['days' => 30, 'limits' => ['schedules' => 30, 'invoices' => 60, 'whatsapp' => 300]],
+        ],
+        'Kursus Growth' => [
+            'apps' => self::COURSE_APPS,
+            'prices' => [30 => 199000, 180 => 1075000, 365 => 1990000],
+            'limits' => ['schedules' => 150, 'invoices' => 300, 'whatsapp' => 4500],
+            'trial' => false,
+        ],
+        'Kursus Pro' => [
+            'apps' => self::COURSE_APPS,
+            'prices' => [30 => 349000, 180 => 1885000, 365 => 3490000],
+            'limits' => ['schedules' => 400, 'invoices' => 800, 'whatsapp' => 12000],
+            'trial' => false,
+        ],
+        'Kursus Unlimited' => [
+            'apps' => self::COURSE_APPS,
+            'prices' => [30 => 599000, 180 => 3235000, 365 => 5990000],
             'limits' => ['invoices' => 2000, 'whatsapp' => 20000],
+            'notes' => ['Murid aktif tanpa batas'],
+            'trial' => false,
         ],
         'Pages' => [
             'apps' => ['pages'],
@@ -71,6 +103,9 @@ class PackageSeeder extends Seeder
     private const TRIAL_LIMITS = ['invoices' => 20, 'whatsapp' => 200];
 
     private const DURATIONS = [7 => 'Trial 7 Hari', 180 => '6 Bulan', 365 => '12 Bulan'];
+
+    /** Label durasi berbayar; 30 hari = paket bulanan (paket Kursus). */
+    private const PAID_LABELS = [30 => 'Bulanan', 180 => '6 Bulan', 365 => '12 Bulan'];
 
     private const LIFETIME_LABEL = 'Gratis Selamanya';
 
@@ -146,20 +181,25 @@ class PackageSeeder extends Seeder
                 continue;
             }
 
-            foreach (self::DURATIONS as $days => $label) {
-                $trial = $days === 7;
-                $limits = $trial ? array_intersect_key(self::TRIAL_LIMITS, $config['limits']) : $config['limits'];
+            $trial = $config['trial'] ?? ['days' => 7, 'limits' => array_intersect_key(self::TRIAL_LIMITS, $config['limits'])];
+            $variants = $trial ? [['days' => $trial['days'], 'label' => "Trial {$trial['days']} Hari", 'trial' => true, 'limits' => $trial['limits']]] : [];
+            foreach ($config['prices'] as $days => $price) {
+                $variants[] = ['days' => $days, 'label' => self::PAID_LABELS[$days], 'trial' => false, 'limits' => $config['limits'], 'price' => $price];
+            }
 
-                $package = Package::firstOrCreate(['name' => "{$plan} - {$label}"], [
+            foreach ($variants as $variant) {
+                $notes = [...($variant['trial'] ? ["Coba gratis {$variant['days']} hari"] : []), ...($config['notes'] ?? [])];
+
+                $package = Package::firstOrCreate(['name' => "{$plan} - {$variant['label']}"], [
                     'category_application_id' => $category->id,
-                    'price' => $trial ? 0 : $config['prices'][$days],
-                    'duration' => $days,
+                    'price' => $variant['trial'] ? 0 : $variant['price'],
+                    'duration' => $variant['days'],
                     'apps' => $config['apps'],
-                    'limits' => array_map(fn ($max) => ['monthly' => $max], $limits),
-                    'description' => self::description($config['apps'], $limits, [...($trial ? ['Coba gratis 7 hari'] : []), ...($config['notes'] ?? [])]),
-                    'is_trial' => $trial,
+                    'limits' => self::limits($variant['limits']),
+                    'description' => self::description($config['apps'], $variant['limits'], $notes),
+                    'is_trial' => $variant['trial'],
                     // Populer hanya untuk paket 12 bulan berbayar (paket gratis tidak perlu ditandai).
-                    'is_featured' => $days === 365 && $config['prices'][365] > 0,
+                    'is_featured' => $variant['days'] === 365 && ! $variant['trial'] && $variant['price'] > 0,
                     'status' => 'active',
                 ]);
 
@@ -168,6 +208,34 @@ class PackageSeeder extends Seeder
                 }
             }
         }
+
+        $this->retire();
+    }
+
+    /**
+     * Paket lama (RETIRED) tidak dijual lagi: dihapus kalau belum pernah dibeli, selain itu dinonaktifkan beserta tabnya.
+     * Langganan branch yang sedang berjalan tidak disentuh (batasnya sudah tersalin di branch).
+     */
+    private function retire(): void
+    {
+        foreach (self::RETIRED as $plan) {
+            $labels = ['1 Bulan', 'Bulanan', ...array_values(self::DURATIONS)];
+            $old = Package::whereIn('name', array_map(fn ($label) => "{$plan} - {$label}", $labels));
+            (clone $old)->doesntHave('vouchers')->delete();
+            $old->update(['status' => Package::STATUS_INACTIVE]);
+            CategoryApplication::where('name', $plan)->update(['status' => 'inactive']);
+        }
+    }
+
+    /** Batas paket dari angka sederhana: schedules = murid aktif sekaligus, lainnya per bulan. */
+    public static function limits(array $limits): array
+    {
+        $result = [];
+        foreach ($limits as $app => $max) {
+            $result[$app] = [$app === 'schedules' ? 'students' : 'monthly' => $max];
+        }
+
+        return $result;
     }
 
     /** Satu paket gratis tanpa masa aktif; paket berdurasi lama kategori ini tidak dijual lagi. */
@@ -198,10 +266,10 @@ class PackageSeeder extends Seeder
      */
     public static function description(array $apps, array $limits, array $notes = []): string
     {
-        $units = ['invoices' => 'invoice', 'whatsapp' => 'pesan'];
+        $units = ['invoices' => 'invoice/bulan', 'whatsapp' => 'pesan/bulan', 'schedules' => 'murid aktif'];
         $paid = array_values(array_diff($apps, self::FREE_APPS)) ?: $apps;
         $summary = array_map(fn ($app) => self::FEATURES[$app]
-            .(isset($limits[$app]) ? ' ('.number_format($limits[$app], 0, ',', '.').' '.$units[$app].'/bulan)' : ''), $paid);
+            .(isset($limits[$app]) ? ' ('.($app === 'schedules' ? 'sampai ' : '').number_format($limits[$app], 0, ',', '.').' '.$units[$app].')' : ''), $paid);
 
         return implode("\n", [
             ...$notes,
