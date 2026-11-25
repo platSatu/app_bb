@@ -67,7 +67,7 @@
     {{-- Batas paket (App\Services\Subscription\PlanLimits). Kosong = tanpa batas; berlaku per branch. --}}
     <div class="col-12">
         <label class="form-label">Batas Paket</label>
-        <div class="form-text mt-0 mb-2">Kosongkan = tanpa batas, 0 = tidak boleh sama sekali. Berlaku per branch, hanya untuk layanan yang dicentang di atas. Invoice & pesan WhatsApp dihitung per bulan kalender (reset tanggal 1).</div>
+        <div class="form-text mt-0 mb-2">Kosongkan = tanpa batas, 0 = tidak boleh sama sekali. Berlaku per branch, hanya untuk layanan yang dicentang di atas. Invoice & pesan WhatsApp dihitung per bulan kalender (reset tanggal 1), murid aktif dihitung saat itu juga.</div>
         <div class="row g-3">
             {{-- Event = kategori bertemplate tiket, Pages = kategori lain (App\Support\Apps::forTemplate). --}}
             @foreach (['events' => ['ri-coupon-3-line', 'Event · maksimal event per kategori', 'event'], 'pages' => ['ri-pages-line', 'Pages · maksimal page per kategori', 'page']] as $app => [$icon, $label, $unit])
@@ -100,6 +100,19 @@
                         @error('limits.'.$app.'.monthly') <div class="text-danger fs-13 mb-2">{{ $message }}</div> @enderror
                     @endforeach
                     <div class="form-text">Pesan WhatsApp mencakup chat, broadcast, auto reply, chatbot, dan notifikasi. Kalau habis, semua pengiriman berhenti sampai tanggal 1.</div>
+                </div>
+            </div>
+            {{-- Jadwal: murid aktif saat ini (PlanLimits::assertStudents), bukan per bulan. --}}
+            <div class="col-lg-4">
+                <div class="border rounded-3 p-3 h-100">
+                    <div class="fw-semibold mb-2"><i class="ri-calendar-2-line me-1"></i>Jadwal · murid aktif sekaligus</div>
+                    <div class="input-group input-group-sm">
+                        <input type="number" min="0" max="{{ \App\Services\Subscription\PlanLimits::MAX_VALUE }}" name="limits[schedules][students]" class="form-control @error('limits.schedules.students') is-invalid @enderror"
+                            value="{{ old('limits.schedules.students', $package->limits['schedules']['students'] ?? '') }}" placeholder="Tanpa batas">
+                        <span class="input-group-text">murid aktif</span>
+                    </div>
+                    @error('limits.schedules.students') <div class="text-danger fs-13 mt-1">{{ $message }}</div> @enderror
+                    <div class="form-text">Yang dihitung: murid yang sedang ikut jadwal. Satu murid di beberapa kelas tetap dihitung 1, dan murid yang dikeluarkan dari jadwal langsung membebaskan kuotanya. Kalau penuh, hanya penambahan murid baru yang ditahan; absensi, tagihan, dan pengingat tetap jalan.</div>
                 </div>
             </div>
         </div>

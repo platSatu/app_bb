@@ -34,6 +34,7 @@ class PackageRequest extends FormRequest
             'limits.pages.*' => ['integer', 'min:0', 'max:1000'],
             'limits.invoices.monthly' => ['nullable', 'integer', 'min:0', 'max:'.PlanLimits::MAX_VALUE],
             'limits.whatsapp.monthly' => ['nullable', 'integer', 'min:0', 'max:'.PlanLimits::MAX_VALUE],
+            'limits.schedules.students' => ['nullable', 'integer', 'min:0', 'max:'.PlanLimits::MAX_VALUE],
         ];
     }
 
@@ -54,6 +55,7 @@ class PackageRequest extends FormRequest
             'pages' => $known($types(Apps::PAGES), Apps::PAGES),
             'invoices' => array_filter(['monthly' => $limits['invoices']['monthly'] ?? null], 'filled'),
             'whatsapp' => array_filter(['monthly' => $limits['whatsapp']['monthly'] ?? null], 'filled'),
+            'schedules' => array_filter(['students' => $limits['schedules']['students'] ?? null], 'filled'),
         ]]);
     }
 
@@ -89,6 +91,7 @@ class PackageRequest extends FormRequest
             'limits.pages.*' => 'batas page',
             'limits.invoices.monthly' => 'batas invoice per bulan',
             'limits.whatsapp.monthly' => 'batas pesan WhatsApp per bulan',
+            'limits.schedules.students' => 'batas murid aktif',
         ];
     }
 }

@@ -60,6 +60,17 @@
                                                 @else
                                                     <span class="badge bg-light text-muted">Belum aktif</span>
                                                 @endif
+                                                @if ($key === 'schedules' && $sub && $sub->isActive() && ($quota = $students[$branch->id] ?? null))
+                                                    <div class="progress mt-2 mx-auto" style="height: 6px; max-width: 160px" role="progressbar" aria-label="Kuota murid aktif" aria-valuenow="{{ $quota['percent'] }}" aria-valuemin="0" aria-valuemax="100">
+                                                        <div class="progress-bar {{ $quota['full'] ? 'bg-danger' : ($quota['warn'] ? 'bg-warning' : 'bg-success') }}" style="width: {{ $quota['percent'] }}%"></div>
+                                                    </div>
+                                                    @if ($quota['full'])
+                                                        <div class="small text-danger mt-1">Kuota penuh, murid baru belum bisa masuk jadwal.</div>
+                                                        <a href="{{ route('packages.catalog') }}" class="btn btn-sm btn-outline-danger mt-1">Tambah kuota</a>
+                                                    @elseif ($quota['warn'])
+                                                        <div class="small text-warning mt-1">Tinggal {{ $quota['remaining'] }} kursi murid lagi.</div>
+                                                    @endif
+                                                @endif
                                             </td>
                                         @endforeach
                                     </tr>

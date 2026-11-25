@@ -117,9 +117,31 @@ class RoutineController extends Controller
 
         return view('schedule.routines.index', [...$this->shared($request),
             'items' => $routines, 'board' => $board, 'month' => $month, 'copyPending' => $this->copyPending($request, $month),
+            'quotaAlerts' => $this->quotaAlerts($request),
             // Tab minggu: Senin awal tiap minggu, dan minggu yang dibuka pertama (minggu ini kalau bulannya bulan ini).
             'weekStarts' => collect(range(1, $weekCount))->mapWithKeys(fn ($week) => [$week => $firstSunday->copy()->addWeeks($week - 1)]),
             'activeWeek' => $month->isSameMonth(today()) ? min($weekCount, $weekOf(today())) : 1]);
+    }
+
+    /**
+     * Branch yang kuota murid aktifnya hampir penuh / penuh (PlanLimits::WARN_PERCENT), untuk pengingat di atas daftar jadwal.
+     * Superadmin tidak diberi pengingat (bukan pembeli paket).
+     *
+     * @return list<array{branch: string, quota: array}>
+     */
+    private function quotaAlerts(Request $request): array
+    {
+        if ($this->isAdmin($request) || ! $this->canManage($request)) {
+            return [];
+        }
+
+        $limits = app(\App\Services\Subscription\PlanLimits::class);
+        $branchIds = ScheduleRoutine::accessibleBy($request->user(), Menu::ABILITY_MANAGE)->distinct()->pluck('branch_id');
+
+        return UserBranch::whereKey($branchIds)->orderBy('name')->get(['id', 'name'])
+            ->map(fn (UserBranch $branch) => ['branch' => $branch->name, 'quota' => $limits->studentQuota($branch->getKey())])
+            ->filter(fn ($row) => $row['quota'] && $row['quota']['warn'])
+            ->values()->all();
     }
 
     /**

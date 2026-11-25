@@ -11,6 +11,23 @@
 @section('content')
     @include('schedule._tabs')
 
+    {{-- Kuota murid aktif paket hampir / sudah penuh (PlanLimits::studentQuota). --}}
+    @foreach ($quotaAlerts ?? [] as $alert)
+        @php($q = $alert['quota'])
+        <div class="alert {{ $q['full'] ? 'alert-danger' : 'alert-warning' }} d-flex flex-wrap align-items-center gap-2" role="alert">
+            <i class="ri-group-line fs-5"></i>
+            <div class="flex-grow-1">
+                @if ($q['full'])
+                    <strong>Kuota murid aktif sudah penuh</strong> ({{ $q['used'] }} dari {{ $q['max'] }} murid{{ count($quotaAlerts) > 1 ? ' · '.$alert['branch'] : '' }}).
+                    Murid yang sudah ada tetap jalan seperti biasa, tapi murid baru belum bisa dimasukkan ke jadwal.
+                @else
+                    <strong>Kuota murid aktif hampir penuh</strong>: tinggal {{ $q['remaining'] }} kursi lagi ({{ $q['used'] }} dari {{ $q['max'] }} murid{{ count($quotaAlerts) > 1 ? ' · '.$alert['branch'] : '' }}).
+                @endif
+            </div>
+            <a href="{{ route('packages.catalog') }}" class="btn btn-sm {{ $q['full'] ? 'btn-danger' : 'btn-warning' }} text-nowrap">Tambah kuota murid</a>
+        </div>
+    @endforeach
+
     <div class="card">
         <div class="card-body">
             {{-- Baris atas: bulan + aksi bulanan (rekap, salin semua ke bulan berikutnya, buat jadwal). --}}

@@ -8,6 +8,7 @@ use App\Models\ScheduleRoutine;
 use App\Models\ScheduleSession;
 use App\Models\ScheduleStudent;
 use App\Models\UserBranch;
+use App\Services\Subscription\PlanLimits;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ use RuntimeException;
  */
 class ScheduleRoutineService
 {
-    public function __construct(private readonly ScheduleConflict $conflict)
+    public function __construct(private readonly ScheduleConflict $conflict, private readonly PlanLimits $limits)
     {
     }
 
@@ -54,6 +55,9 @@ class ScheduleRoutineService
             if ($routine->isActive() && ! $routine->isPackage() && $message = $this->conflict->forRoutine($routine, $studentIds)) {
                 throw new RuntimeException($message);
             }
+
+            // Kuota murid aktif paket (Schedules): hanya menolak kalau jumlah murid aktif branch bertambah melewati batas.
+            $this->limits->assertStudents($routine, $studentIds);
 
             $routine->save();
             [$added, $removed] = $this->syncParticipants($routine, $studentIds);

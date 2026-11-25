@@ -42,6 +42,8 @@ class PackageController extends Controller implements HasMiddleware
             'subscriptions' => BranchSubscription::whereIn('branch_id', $branches->modelKeys())->get()->groupBy('branch_id'),
             // Pemakaian kuota per branch per layanan (hanya yang dibatasi paket).
             'usage' => $branches->mapWithKeys(fn ($branch) => [$branch->id => $limits->summary($branch->id)]),
+            // Kuota murid aktif (Jadwal) per branch untuk bar & peringatan; null = tanpa batas.
+            'students' => $branches->mapWithKeys(fn ($branch) => [$branch->id => $limits->studentQuota($branch->id)]),
             'histories' => SubscriptionHistory::with(['branch:id,name', 'package:id,name'])->whereIn('branch_id', $branches->modelKeys())->latest()->limit(15)->get(),
         ]);
     }
@@ -59,6 +61,7 @@ class PackageController extends Controller implements HasMiddleware
             'tabs' => $tabs,
             'activeCategory' => $tabs->has($category) ? $category : $tabs->keys()->first(),
             'balance' => (int) $request->user()->wallet?->balance,
+            'studentLimit' => $this->currentStudentLimit($request),
         ]);
     }
 
@@ -147,6 +150,22 @@ class PackageController extends Controller implements HasMiddleware
         return Package::active()->with('category:id,name')->whereJsonLength('apps', '>', 0)
             ->when($this->subscriptions->hasUsedTrial($request->user()), fn ($q) => $q->where('is_trial', false))
             ->orderByDesc('is_trial')->orderBy('price');
+    }
+
+    /**
+     * Kuota murid aktif terbesar di paket Jadwal yang sedang aktif, untuk menandai paket yang tidak menambah kuota.
+     * null = belum punya paket Jadwal aktif, atau salah satunya tanpa batas (tidak perlu ditandai).
+     */
+    private function currentStudentLimit(Request $request): ?int
+    {
+        $limits = BranchSubscription::whereIn('branch_id', $this->branches($request)->modelKeys())
+            ->where('app_key', 'schedules')->where('ends_at', '>', now())->pluck('limits');
+
+        if ($limits->isEmpty() || $limits->contains(fn ($row) => ! isset($row['students']))) {
+            return null;
+        }
+
+        return (int) $limits->max(fn ($row) => (int) $row['students']);
     }
 
     private function branches(Request $request): Collection
