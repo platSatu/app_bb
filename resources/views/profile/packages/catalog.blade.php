@@ -91,7 +91,8 @@
                                     $label = $package->isLifetime() ? 'Selamanya' : ($package->is_trial ? 'Trial '.$package->duration.' Hari' : ($package->duration >= 28 ? $bln.' Bulan' : $package->duration.' Hari'));
                                     $fitur = $package->features();
                                 @endphp
-                                <div class="col-sm-6 col-xl-4 d-flex">
+                                {{-- 4 paket dalam satu tab (mis. Kursus Starter) = 4 kolom di layar lebar, selain itu 3 kolom. --}}
+                                <div class="{{ $items->count() >= 4 ? 'col-sm-6 col-xxl-3' : 'col-sm-6 col-xl-4' }} d-flex">
                                     <div class="pkgx-card w-100 d-flex flex-column {{ $package->is_featured ? 'pkgx-card--featured' : '' }}">
                                         @if ($package->is_featured)
                                             <span class="pkgx-ribbon">TERPOPULER</span>
