@@ -23,6 +23,10 @@ Schedule::command('whatsapp:dispatch-messages')->everyMinute()->withoutOverlappi
 Schedule::command('whatsapp:nudge-sessions')->everyMinute()->withoutOverlapping();
 // Agent Prospek: dicek tiap 15 menit, bekerja sekali sehari setelah jam yang diatur (lihat ProspectAgent::run()).
 Schedule::call(fn () => app(\App\Services\Marketing\ProspectAgent::class)->run())->everyFifteenMinutes()->name('prospect-agent')->withoutOverlapping();
+// Konten Harian: kirim konten yang jadwalnya tiba, cek status kiriman & video yang sedang dibuat, media bertahap sesuai kuota.
+Schedule::command('content:publish')->everyMinute()->withoutOverlapping(10);
+// Akun Sosmed: perpanjang token TikTok/YouTube sebelum habis, cek token Instagram/Facebook sekali sehari.
+Schedule::command('social:refresh-tokens')->hourly()->withoutOverlapping();
 // Token toko marketplace diperpanjang sebelum habis (Lazada ~7 hari, Shopee hanya 4 jam), jadi dicek tiap jam.
 Schedule::command('marketplace:refresh-tokens')->hourly()->withoutOverlapping();
 Schedule::command('db:backup')->dailyAt('01:00')->withoutOverlapping();

@@ -368,6 +368,20 @@ return [
                         'active' => 'superadmin.tools.email-blast.*',
                         'superadmin_only' => true,
                     ],
+                    // Agent Konten: rencana konten 7-30 hari, persetujuan, media AI & jadwal upload. Berisi biaya AI, jadi khusus superadmin.
+                    'superadmin.tools.content' => [
+                        'label' => 'Konten Harian',
+                        'route' => 'superadmin.tools.content.index',
+                        'active' => 'superadmin.tools.content.*',
+                        'superadmin_only' => true,
+                    ],
+                    // Instagram, Facebook Page, TikTok & YouTube resmi bizbos (OAuth). Berisi token akun, jadi khusus superadmin.
+                    'superadmin.tools.social' => [
+                        'label' => 'Akun Sosmed',
+                        'route' => 'superadmin.tools.social.index',
+                        'active' => 'superadmin.tools.social.*',
+                        'superadmin_only' => true,
+                    ],
                 ],
             ],
             'settings' => [
