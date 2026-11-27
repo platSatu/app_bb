@@ -16,7 +16,8 @@
             'Di Facebook Login › Settings, isi <b>Valid OAuth Redirect URIs</b> dengan Callback URL di samping.',
             'Akun Instagram harus <b>Professional (Business/Creator)</b> dan terhubung ke Facebook Page bizbos.',
             'Untuk akun milik sendiri, app mode <b>Development</b> cukup selama akun Facebook Anda admin app & admin Page. App Review hanya perlu kalau dipakai akun orang lain.',
-            'Isi App ID & App Secret (App settings › Basic) di bawah, simpan, lalu klik <b>Sambungkan</b> dan centang Page + akun Instagram-nya.',
+            'Di Facebook Login for Business › Configurations, buat configuration (User access token) dengan semua izin di samping, lalu salin <b>Configuration ID</b>-nya.',
+            'Isi App ID, App Secret (App settings › Basic) dan Configuration ID di bawah, simpan, lalu klik <b>Sambungkan</b> dan centang Page + akun Instagram-nya.',
         ],
         'tiktok' => [
             'Buka <a href="https://developers.tiktok.com/apps" target="_blank" rel="noopener noreferrer">developers.tiktok.com › Manage apps</a>, buat app (platform Web).',
@@ -90,6 +91,10 @@
                                 <div class="col-6">
                                     <label class="form-label small text-muted mb-1">Versi Graph API</label>
                                     <input type="text" name="graph_version" class="form-control form-control-sm" maxlength="6" pattern="v\d{2}\.\d" value="{{ $app?->graphVersion() ?? SocialApp::DEFAULT_GRAPH_VERSION }}">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small text-muted mb-1">Configuration ID <span class="text-muted">(Login for Business)</span></label>
+                                    <input type="text" name="config_id" class="form-control form-control-sm" maxlength="30" pattern="\d{5,30}" value="{{ $app?->meta['config_id'] ?? '' }}">
                                 </div>
                             @endif
                             <div class="col-12">

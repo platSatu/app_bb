@@ -25,13 +25,17 @@ class MetaConnector implements SocialConnector
 
     public function authorizeUrl(SocialApp $app, string $state): string
     {
+        // App tipe Business (Facebook Login for Business) meminta izin lewat Configuration ID, bukan daftar scope.
+        $configId = (string) (($app->meta ?? [])['config_id'] ?? '');
+
         return 'https://www.facebook.com/'.$app->graphVersion().'/dialog/oauth?'.http_build_query([
             'client_id' => $app->client_id,
             'redirect_uri' => SocialApp::callbackUrl('meta'),
             'state' => $state,
             'response_type' => 'code',
-            'scope' => implode(',', self::SCOPES),
-        ]);
+        ] + ($configId !== ''
+            ? ['config_id' => $configId, 'override_default_response_type' => 'true']
+            : ['scope' => implode(',', self::SCOPES)]));
     }
 
     public function connect(SocialApp $app, string $code, User $user): array

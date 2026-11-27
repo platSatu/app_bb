@@ -47,9 +47,11 @@ class SocialAccountController extends Controller
             // Saat ubah, kosong = rahasia lama tetap dipakai.
             'client_secret' => [$app->exists ? 'nullable' : 'required', 'string', 'max:255'],
             'graph_version' => [$provider === 'meta' ? 'nullable' : 'prohibited', 'regex:/^v\d{2}\.\d$/'],
+            'config_id' => [$provider === 'meta' ? 'nullable' : 'prohibited', 'regex:/^\d{5,30}$/'],
         ], [], [
             'client_id' => SocialApp::PROVIDERS[$provider][1],
             'client_secret' => SocialApp::PROVIDERS[$provider][2],
+            'config_id' => 'Configuration ID',
         ]);
 
         $app->fill(['client_id' => $data['client_id'], 'updated_by' => $request->user()->getKey()]);
@@ -59,7 +61,10 @@ class SocialAccountController extends Controller
         }
 
         if ($provider === 'meta') {
-            $app->meta = array_merge($app->meta ?? [], ['graph_version' => ($data['graph_version'] ?? null) ?: SocialApp::DEFAULT_GRAPH_VERSION]);
+            $app->meta = array_merge($app->meta ?? [], [
+                'graph_version' => ($data['graph_version'] ?? null) ?: SocialApp::DEFAULT_GRAPH_VERSION,
+                'config_id' => ($data['config_id'] ?? null) ?: null,
+            ]);
         }
 
         $app->save();
