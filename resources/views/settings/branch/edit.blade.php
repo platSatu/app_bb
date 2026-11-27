@@ -32,8 +32,56 @@
                             </form>
                         </div>
                         <div class="small text-muted mt-2">Ganti QR kalau QR lama hilang atau dicurigai difoto untuk absen dari luar tempat les.</div>
+                        @if ($branch->place_qr_grace_until?->isFuture())
+                            <div class="small text-warning-emphasis mt-1"><i class="ri-time-line"></i> QR baru saja diganti otomatis. QR lama masih bisa dipakai sampai {{ $branch->place_qr_grace_until->translatedFormat('d M Y H:i') }}, segera cetak yang baru ya.</div>
+                        @endif
                     </div>
                 </div>
+
+                {{-- Pengaman QR tempat: cek lokasi GPS & ganti QR otomatis tiap awal bulan. --}}
+                <form method="POST" action="{{ route('settings.branches.place-location', $branch) }}" class="border-top mt-4 pt-3" data-place-location>
+                    @csrf
+                    @method('PUT')
+                    <h6 class="mb-1"><i class="ri-map-pin-line text-primary me-1"></i> Pastikan pengajar benar-benar di lokasi</h6>
+                    <p class="small text-muted mb-3">
+                        Isi titik lokasi tempat les. Saat pengajar scan QR tempat, lokasi HP-nya dicek dan absen ditolak kalau lebih dari
+                        {{ \App\Models\UserBranch::PLACE_RADIUS_METERS }} meter dari titik ini. Paling mudah: buka halaman ini di HP saat Anda berada di tempat les, lalu tekan <strong>Pakai lokasi saya sekarang</strong>.
+                    </p>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-6 col-md-3">
+                            <label for="latitude" class="form-label small mb-1">Garis lintang</label>
+                            <input type="text" inputmode="decimal" id="latitude" name="latitude" class="form-control form-control-sm @error('latitude') is-invalid @enderror" value="{{ old('latitude', $branch->latitude) }}" placeholder="-6.2000000">
+                            @error('latitude') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label for="longitude" class="form-label small mb-1">Garis bujur</label>
+                            <input type="text" inputmode="decimal" id="longitude" name="longitude" class="form-control form-control-sm @error('longitude') is-invalid @enderror" value="{{ old('longitude', $branch->longitude) }}" placeholder="106.8000000">
+                            @error('longitude') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-12 col-md-auto">
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-use-location><i class="ri-focus-3-line me-1"></i>Pakai lokasi saya sekarang</button>
+                        </div>
+                    </div>
+                    <div class="small mt-1" data-location-message>
+                        @unless ($branch->hasPlaceLocation())
+                            <span class="text-muted"><i class="ri-information-line"></i> Belum diisi: scan QR tempat belum dicek lokasinya.</span>
+                        @endunless
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3 mt-3">
+                        <div class="flex-grow-1">
+                            <label for="place-qr-auto" class="fw-semibold small mb-0">Ganti QR otomatis tiap awal bulan</label>
+                            <div class="small text-muted">QR lama masih berlaku {{ \App\Models\UserBranch::PLACE_QR_GRACE_DAYS }} hari supaya Anda sempat mencetak ulang. Pengingatnya dikirim ke WhatsApp Anda kalau chatbot WhatsApp Jadwal aktif.</div>
+                        </div>
+                        <div class="form-check form-switch mb-0">
+                            <input type="checkbox" role="switch" class="form-check-input" style="width: 2.5em; height: 1.3em" id="place-qr-auto" name="place_qr_auto_rotate" value="1" @checked(old('place_qr_auto_rotate', $branch->place_qr_auto_rotate))>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end mt-3">
+                        <button type="submit" class="btn btn-primary btn-sm"><i class="ri-save-line me-1"></i>Simpan</button>
+                    </div>
+                </form>
             </div>
         </div>
     @endif
@@ -81,3 +129,25 @@
         </div>
     @endif
 @endsection
+
+@push('scripts')
+    <script>
+        // Isi titik lokasi dari GPS HP yang membuka halaman ini.
+        (() => {
+            const form = document.querySelector('[data-place-location]');
+            if (!form) return;
+            const message = form.querySelector('[data-location-message]');
+            const say = (text, tone) => { message.innerHTML = ''; const el = document.createElement('span'); el.className = 'text-' + tone; el.textContent = text; message.appendChild(el); };
+
+            form.querySelector('[data-use-location]').addEventListener('click', () => {
+                if (!navigator.geolocation) { say('Browser ini tidak bisa membaca lokasi.', 'danger'); return; }
+                say('Membaca lokasi...', 'muted');
+                navigator.geolocation.getCurrentPosition((pos) => {
+                    form.latitude.value = pos.coords.latitude.toFixed(7);
+                    form.longitude.value = pos.coords.longitude.toFixed(7);
+                    say('Lokasi terbaca (akurasi sekitar ' + Math.round(pos.coords.accuracy) + ' m). Tekan Simpan.', pos.coords.accuracy > 100 ? 'warning' : 'success');
+                }, () => say('Lokasi belum bisa dibaca. Izinkan akses lokasi di browser, lalu coba lagi.', 'danger'), { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+            });
+        })();
+    </script>
+@endpush

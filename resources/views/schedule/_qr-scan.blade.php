@@ -1,7 +1,7 @@
 {{--
     Pemindai QR pakai kamera HP (html5-qrcode), tiga cara:
     - $scanUrl diisi (halaman Scan Absen pengajar): setiap scan langsung dikirim & dicek server. QR tempat = absen pengajar
-      (halaman dimuat ulang), kartu murid = absen murid sekali per sesi. Penghitung [data-scan-count="<id sesi>"] bertambah.
+      (lokasi GPS HP ikut dikirim, halaman dimuat ulang), kartu murid = absen murid sekali per sesi. Penghitung [data-scan-count="<id sesi>"] bertambah.
     - tanpa $scanUrl (detail sesi admin): pilihan Hadir murid langsung tercentang, tersimpan setelah tombol simpan ditekan.
       Butuh input radio Hadir dengan data-qr (isi QR murid) & data-name, dan baris pembungkus data-qr-row.
     - $onScan diisi (mis. halaman petugas scan tiket): isi QR diteruskan ke fungsi JS window[$onScan](kode), halaman yang memproses.
@@ -66,12 +66,24 @@
             }
 
             // Mode halaman scan: server yang memutuskan (QR sah, murid di sesi pengajar ini, belum pernah discan).
+            // QR tempat (BBP.): lokasi HP ikut dikirim, server mengecek jaraknya kalau owner sudah mengatur titik lokasi branch.
             function send(code) {
+                if (code.indexOf('BBP.') !== 0 || !navigator.geolocation) { post({ code: code }); return; }
+
+                say('Memeriksa lokasi Anda...', 'muted');
+                navigator.geolocation.getCurrentPosition(function (pos) {
+                    post({ code: code, lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
+                }, function () {
+                    post({ code: code });
+                }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+            }
+
+            function post(payload) {
                 say('Memeriksa...', 'muted');
                 fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
-                    body: JSON.stringify({ code: code })
+                    body: JSON.stringify(payload)
                 }).then(function (res) {
                     return res.json().catch(function () { return {}; }).then(function (data) {
                         if (!res.ok) {

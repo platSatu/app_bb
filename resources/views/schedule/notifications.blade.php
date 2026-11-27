@@ -30,6 +30,44 @@
         </div>
     </div>
 
+    {{-- PIN menu admin WhatsApp: untuk aksi besar lewat WhatsApp (ketik "menu" ke nomor WhatsApp branch). --}}
+    @if ($branches->isNotEmpty())
+        <div class="card" id="pin-admin">
+            <div class="card-body">
+                <div class="d-flex flex-wrap align-items-start gap-3">
+                    <i class="ri-lock-password-line fs-3 text-primary"></i>
+                    <div style="flex: 1 1 260px">
+                        <h6 class="mb-1">PIN Admin WhatsApp
+                            <span class="badge ms-1 {{ $hasPin ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }}">{{ $hasPin ? 'Sudah dibuat' : 'Belum dibuat' }}</span>
+                        </h6>
+                        <div class="small text-muted">
+                            Ketik <strong>menu</strong> dari WhatsApp Anda ke nomor WhatsApp branch untuk membuka menu admin (rekap absensi, pengajuan ganti hari,
+                            link pendaftaran, tagihan, kirim pengingat). Aksi besar seperti setujui semua, tagih semua murid, dan kirim pengingat massal meminta PIN ini.
+                        </div>
+                    </div>
+                </div>
+                <form method="POST" action="{{ route('schedules.notifications.pin') }}" class="row g-2 mt-2" autocomplete="off">
+                    @csrf
+                    @method('PUT')
+                    <div class="col-12 col-md-4">
+                        <input type="password" name="current_password" class="form-control form-control-sm @error('current_password') is-invalid @enderror" placeholder="Kata sandi akun Anda" required>
+                        @error('current_password') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <input type="password" name="pin" inputmode="numeric" pattern="\d{4,6}" maxlength="6" class="form-control form-control-sm @error('pin') is-invalid @enderror" placeholder="PIN baru (4–6 angka)" required>
+                        @error('pin') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <input type="password" name="pin_confirmation" inputmode="numeric" pattern="\d{4,6}" maxlength="6" class="form-control form-control-sm" placeholder="Ulangi PIN" required>
+                    </div>
+                    <div class="col-12 col-md-2 d-grid">
+                        <button type="submit" class="btn btn-sm btn-primary">{{ $hasPin ? 'Ganti PIN' : 'Simpan PIN' }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
+
     @if ($branches->isEmpty())
         <div class="card">
             <div class="card-body text-center py-5">
@@ -60,6 +98,36 @@
                 @unless (isset($connected[$branch->id]))
                     <div class="alert alert-warning small py-2">Pesan belum bisa terkirim sebelum nomor WhatsApp branch ini terhubung. Hubungkan dulu di menu WhatsApp › Device &amp; Inbox, pengaturan di bawah tetap bisa disiapkan.</div>
                 @endunless
+
+                {{-- Chatbot WhatsApp Jadwal: satu sakelar untuk semua interaksi balas-membalas (lihat ScheduleBot). --}}
+                <div class="border border-success-subtle rounded-3 p-3 mb-2" style="background: var(--bs-success-bg-subtle)">
+                    <div class="d-flex align-items-start gap-3">
+                        <i class="ri-robot-2-line fs-3 text-success"></i>
+                        <div class="flex-grow-1">
+                            <label for="sw-{{ $branch->id }}-bot" class="fw-semibold mb-0">Chatbot WhatsApp Jadwal</label>
+                            <div class="small text-muted">
+                                Pengingat les bisa langsung dibalas orang tua: <strong>1</strong> konfirmasi hadir, <strong>2</strong> berhalangan
+                                (lalu isi alasan dan, untuk pengingat H-1, ajukan ganti hari ke jadwal pengajar yang masih kosong).
+                                Pengajuan ganti hari dikirim ke WhatsApp Anda untuk disetujui atau ditolak, dan juga muncul di tab <strong>Ganti Hari</strong>.
+                                Pengajar juga bisa membalas rekap H-1 (siap / berhalangan) dan mengabsen murid lewat WhatsApp setelah scan QR tempat
+                                (kelas online: cukup balas "1" saat mulai mengajar). Orang tua dikabari kalau jadwal dipindah atau dibatalkan.
+                                Semua jawaban tercatat sama seperti di website.
+                                Pengingat les H-1 / sebelum les di bawah juga perlu dinyalakan.
+                            </div>
+                            <div class="small mt-2">
+                                @if ($adminPhone)
+                                    <i class="ri-whatsapp-line text-success"></i> Pengajuan dikirim ke nomor Anda: <strong>+{{ $adminPhone }}</strong>
+                                @else
+                                    <i class="ri-error-warning-line text-warning"></i> Isi nomor WhatsApp di profil Anda dulu supaya bisa menyetujui pengajuan lewat WhatsApp.
+                                @endif
+                            </div>
+                        </div>
+                        <div class="form-check form-switch mb-0 pt-1">
+                            <input type="checkbox" role="switch" class="form-check-input" style="width: 2.75em; height: 1.4em" id="sw-{{ $branch->id }}-bot"
+                                name="notify[{{ ScheduleNotice::BOT }}]" value="1" @checked(old('notify.'.ScheduleNotice::BOT, ! empty($branch->wa_notify[ScheduleNotice::BOT])))>
+                        </div>
+                    </div>
+                </div>
 
                 @foreach (ScheduleNotice::AUDIENCES as $audience => [$audienceLabel, $audienceIcon, $color])
                     <div class="d-flex align-items-center gap-2 mt-3 mb-1">

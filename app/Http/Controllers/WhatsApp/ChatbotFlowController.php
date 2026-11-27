@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\WhatsApp\Concerns\InWhatsAppArea;
 use App\Models\WaChatbotFlow;
 use App\Models\WaDevice;
+use App\Services\Subscription\AppAccess;
+use App\Services\WhatsApp\Schedule\ScheduleBot;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -30,6 +32,10 @@ class ChatbotFlowController extends Controller
             'branches' => $this->ownerBranches($request),
             'branch' => $branch,
             'flows' => WaChatbotFlow::where('branch_id', $branch->id)->with('device:id,name')->orderBy('name')->get(),
+            // Flow Jadwal bawaan: tampil kalau branch punya paket Jadwal, diatur di Schedules › Notifikasi (tidak bisa dihapus).
+            'scheduleBot' => app(AppAccess::class)->branchActive($branch->id, 'schedules')
+                ? ['on' => ScheduleBot::enabled($branch->id), 'url' => $request->user()->canAccess('schedules.notifications') ? route('schedules.notifications.index').'#branch-'.$branch->id : null]
+                : null,
         ]);
     }
 

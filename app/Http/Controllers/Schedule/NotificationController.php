@@ -10,6 +10,7 @@ use App\Services\Subscription\AppAccess;
 use App\Support\ScheduleNotice;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -37,6 +38,7 @@ class NotificationController extends Controller
             'branches' => $branches->filter(fn (UserBranch $branch) => in_array($branch->id, $whatsapp, true))->values(),
             'connected' => WaDevice::connectedByBranch(),
             'adminPhone' => $request->user()->handphone,
+            'hasPin' => filled($request->user()->wa_pin),
         ]);
     }
 
@@ -63,12 +65,33 @@ class NotificationController extends Controller
         $model->forceFill(['wa_notify' => [
             ...($model->wa_notify ?? []),
             ...collect(ScheduleNotice::KINDS)->map(fn ($meta, $kind) => $request->boolean("notify.{$kind}"))->all(),
+            ScheduleNotice::BOT => $request->boolean('notify.'.ScheduleNotice::BOT),
             ...collect($data)->only(array_keys(ScheduleNotice::TIMES))->all(),
             'templates' => $templates,
         ]])->save();
 
         return redirect()->to(route('schedules.notifications.index').'#branch-'.$model->getKey())
             ->with('success', "Pengaturan notifikasi {$model->name} tersimpan.");
+    }
+
+    /**
+     * PIN menu admin WhatsApp (4–6 angka), dipakai untuk aksi besar lewat WhatsApp: setujui semua pengajuan,
+     * tagih semua murid, kirim pengingat massal. Membuat / mengganti PIN wajib memasukkan kata sandi akun.
+     */
+    public function pin(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'current_password'],
+            'pin' => ['required', 'regex:/^\d{4,6}$/', 'confirmed'],
+        ], [
+            'pin.regex' => 'PIN berupa 4 sampai 6 angka.',
+            'pin.confirmed' => 'Ulangi PIN belum sama.',
+            'current_password.current_password' => 'Kata sandi akun belum benar.',
+        ], ['current_password' => 'kata sandi akun', 'pin' => 'PIN']);
+
+        $request->user()->forceFill(['wa_pin' => Hash::make($data['pin'])])->save();
+
+        return redirect()->to(route('schedules.notifications.index').'#pin-admin')->with('success', 'PIN admin WhatsApp tersimpan. Jangan bagikan PIN ini ke siapa pun ya.');
     }
 
     /** Branch milik owner yang paket Jadwal-nya aktif. */

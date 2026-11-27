@@ -84,19 +84,22 @@ class SendWaNotification implements ShouldQueue
         return self::queue($order->page->branch_id, 'ticket', $order->phone, $text);
     }
 
-    /** Pengingat les ke murid / orang tua: H-1, atau ($soon) sesaat sebelum les dimulai. Relasi sesi sebaiknya sudah dimuat. */
-    public static function lesson(ScheduleSession $session, ScheduleStudent $student, bool $soon = false): bool
+    /**
+     * Pengingat les ke murid / orang tua: H-1, atau ($soon) sesaat sebelum les dimulai. Relasi sesi sebaiknya sudah dimuat.
+     * $interactive: chatbot Jadwal nyala -> di bawah template owner ditambah pilihan balasan 1 / 2 (lihat ScheduleBot).
+     */
+    public static function lesson(ScheduleSession $session, ScheduleStudent $student, bool $soon = false, bool $interactive = false): bool
     {
         return self::schedule($soon ? 'schedule_soon' : 'schedule', $session->branch_id, $student->phone, [
             ...self::sessionVars($session),
             'sapaan' => $student->guardian_name ?: $student->name,
             'murid' => $student->name,
             'kartu_absen' => $student->cardUrl(),
-        ]);
+        ], $interactive ? \App\Support\ScheduleBotText::reminderFooter($student, $soon) : '');
     }
 
     /** Rekap H-1 untuk satu pengajar: semua pertemuannya besok di satu branch, lengkap dengan murid. */
-    public static function teacherRecap(ScheduleTeacher $teacher, Collection $sessions): bool
+    public static function teacherRecap(ScheduleTeacher $teacher, Collection $sessions, bool $interactive = false): bool
     {
         $first = $sessions->first();
 
@@ -106,7 +109,7 @@ class SendWaNotification implements ShouldQueue
             'hari_tanggal' => $first->start_at->translatedFormat('l, d F Y'),
             'jumlah' => $sessions->count(),
             'daftar_sesi' => $sessions->map(fn (ScheduleSession $s) => self::sessionLine($s))->join("\n\n"),
-        ]);
+        ], $interactive ? \App\Support\ScheduleBotText::recapFooter() : '');
     }
 
     /**
@@ -131,13 +134,37 @@ class SendWaNotification implements ShouldQueue
         ]);
     }
 
+    /**
+     * Jadwal dipindah / dibatalkan: kabar ke setiap murid / orang tua di sesi itu. Hanya kalau chatbot WhatsApp Jadwal
+     * nyala, dan sama seperti info ke pengajar hanya untuk pertemuan dalam ScheduleNotice::CHANGE_DAYS hari ke depan.
+     *
+     * @param callable(ScheduleStudent): string $text
+     */
+    public static function studentChange(ScheduleSession $session, callable $text, ?CarbonInterface $was = null): void
+    {
+        $soon = fn (?CarbonInterface $at) => $at && $at->between(now(), now()->addDays(ScheduleNotice::CHANGE_DAYS));
+
+        if (! $soon($session->start_at) && ! $soon($was)) {
+            return;
+        }
+
+        $session->loadMissing(['teacher:id,name', 'grade.category.subject', 'attendances.student']);
+
+        foreach ($session->attendances as $attendance) {
+            if ($attendance->student?->phone) {
+                self::queue($session->branch_id, ScheduleNotice::BOT, $attendance->student->phone, $text($attendance->student));
+            }
+        }
+    }
+
     /** Kartu murid discan hadir: kabar ke murid / orang tua, dan laporan ke admin (nomor WhatsApp owner branch). */
     public static function checkedIn(ScheduleAttendance $attendance): void
     {
         // load (bukan loadMissing): hasil scan memuat murid & sesi dengan kolom terbatas, jadi dimuat ulang lengkap.
         $attendance->load(['student', 'session.branch.user:id,handphone', 'session.teacher:id,name', 'session.room:id,name', 'session.grade.category.subject']);
         $session = $attendance->session;
-        $vars = [...self::sessionVars($session), 'murid' => $attendance->student?->name, 'jam_hadir' => $attendance->scanned_at?->format('H.i')];
+        // Jam hadir: jam scan kartu, atau jam pengajar mengisi absen lewat WhatsApp.
+        $vars = [...self::sessionVars($session), 'murid' => $attendance->student?->name, 'jam_hadir' => ($attendance->scanned_at ?? $attendance->marked_at)?->format('H.i')];
 
         self::schedule('schedule_checkin', $session->branch_id, $attendance->student?->phone,
             [...$vars, 'sapaan' => $attendance->student?->guardian_name ?: $attendance->student?->name]);
@@ -145,11 +172,11 @@ class SendWaNotification implements ShouldQueue
     }
 
     /** Satu pintu notifikasi Jadwal: sakelar & nomor dicek di queue(), isi pesan dari template branch (bisa diubah owner). */
-    private static function schedule(string $kind, string $branchId, ?string $phone, array $vars): bool
+    private static function schedule(string $kind, string $branchId, ?string $phone, array $vars, string $footer = ''): bool
     {
         $branch = UserBranch::find($branchId);
 
-        return $branch !== null && self::queue($branchId, $kind, $phone, ScheduleNotice::render($branch, $kind, $vars));
+        return $branch !== null && self::queue($branchId, $kind, $phone, ScheduleNotice::render($branch, $kind, $vars).$footer);
     }
 
     /** Kata template yang sama untuk semua pesan tentang satu sesi. */

@@ -19,8 +19,8 @@
                     @else
                         @include('schedule._qr-scan', ['scanUrl' => route('portal.scan.store')])
                         <ol class="small text-muted ps-3 mb-0">
-                            <li>Scan <strong>QR tempat les</strong> yang ditempel di lokasi untuk absen Anda.</li>
-                            <li>Scan <strong>kartu absen murid</strong> satu per satu. Setiap murid cukup sekali per sesi.</li>
+                            <li>Scan <strong>QR tempat les</strong> yang ditempel di lokasi untuk absen Anda. Izinkan akses lokasi kalau browser meminta.</li>
+                            <li>Scan <strong>kartu absen murid</strong> satu per satu, atau (kalau chatbot WhatsApp Jadwal aktif) absen murid dari daftar yang dikirim ke WhatsApp Anda. Cukup salah satu.</li>
                             <li>Setelah sesi dimulai, buka <strong>Selesaikan absen</strong> untuk murid yang izin atau tidak hadir.</li>
                         </ol>
                     @endif

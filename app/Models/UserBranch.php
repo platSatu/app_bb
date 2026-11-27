@@ -30,6 +30,14 @@ class UserBranch extends Model
         'customer' => 'Buku Kontak', 'page' => 'Halaman', 'quiz' => 'Kuis', 'branch_subscription' => 'Paket langganan',
     ];
 
+    /** Scan QR tempat hanya sah dalam radius ini (meter) dari titik lokasi branch. */
+    public const PLACE_RADIUS_METERS = 150;
+
+    /** Lokasi HP yang kurang akurat dari ini (meter) ditolak, supaya tidak menebak. */
+    public const PLACE_MAX_ACCURACY_METERS = 200;
+
+    public const PLACE_QR_GRACE_DAYS = 3;
+
     /** Tabel yang dibuat otomatis oleh sistem (bukan data owner), tidak menghalangi hapus branch. */
     private const DELETE_IGNORED = ['schedule_portal_links'];
 
@@ -38,7 +46,7 @@ class UserBranch extends Model
 
     protected function casts(): array
     {
-        return ['wa_notify' => 'array', 'place_qr_version' => 'integer'];
+        return ['wa_notify' => 'array', 'place_qr_version' => 'integer', 'latitude' => 'float', 'longitude' => 'float', 'place_qr_auto_rotate' => 'boolean', 'place_qr_grace_until' => 'datetime'];
     }
 
     protected static function booted(): void
@@ -89,7 +97,11 @@ class UserBranch extends Model
         return 'BBP.'.$this->getKey().'.'.$version.'.'.self::placeSignature($this->getKey(), $version);
     }
 
-    /** Id branch dari isi QR tempat; null kalau palsu atau sudah diganti. */
+    /**
+     * Id branch dari isi QR tempat; null kalau palsu atau sudah diganti.
+     * Setelah ganti QR otomatis (awal bulan), QR versi sebelumnya masih diterima sampai place_qr_grace_until
+     * supaya owner sempat mencetak ulang. Ganti QR manual langsung mematikan QR lama (tanpa masa tenggang).
+     */
     public static function idFromPlaceQr(string $code): ?string
     {
         if (! preg_match('/^BBP\.([0-9a-f-]{36})\.(\d{1,9})\.([0-9a-f]{16})$/', trim($code), $m)
@@ -97,7 +109,35 @@ class UserBranch extends Model
             return null;
         }
 
-        return self::whereKey($m[1])->where('place_qr_version', (int) $m[2])->exists() ? $m[1] : null;
+        $version = (int) $m[2];
+
+        return self::whereKey($m[1])->where(fn ($q) => $q->where('place_qr_version', $version)
+            ->orWhere(fn ($old) => $old->where('place_qr_version', $version + 1)->where('place_qr_grace_until', '>', now())))->exists() ? $m[1] : null;
+    }
+
+    /** Ganti QR tempat. $auto (ganti bulanan): QR lama masih berlaku PLACE_QR_GRACE_DAYS hari. */
+    public function rotatePlaceQr(bool $auto = false): void
+    {
+        $this->forceFill([
+            'place_qr_version' => (int) ($this->place_qr_version ?: 1) + 1,
+            'place_qr_grace_until' => $auto ? now()->addDays(self::PLACE_QR_GRACE_DAYS) : null,
+        ])->save();
+    }
+
+    /** Titik lokasi tempat les sudah diatur: scan QR tempat dicek jaraknya. */
+    public function hasPlaceLocation(): bool
+    {
+        return $this->latitude !== null && $this->longitude !== null;
+    }
+
+    /** Jarak (meter, haversine) dari titik lokasi tempat les. */
+    public function distanceTo(float $latitude, float $longitude): int
+    {
+        $rad = fn (float $deg) => deg2rad($deg);
+        $a = sin($rad($latitude - $this->latitude) / 2) ** 2
+            + cos($rad($this->latitude)) * cos($rad($latitude)) * sin($rad($longitude - $this->longitude) / 2) ** 2;
+
+        return (int) round(6371000 * 2 * atan2(sqrt($a), sqrt(1 - $a)));
     }
 
     private static function placeSignature(string $id, int $version): string

@@ -63,6 +63,10 @@ class ScheduleSessionService
 
             $locked->forceFill(['status' => ScheduleSession::STATUS_DONE, 'completed_at' => now(), 'completed_by' => $actor?->getKey()])->save();
         });
+
+        // Ganti hari kelas grup yang sudah disetujui (lewat WhatsApp): sesi penggantinya dibuat sekarang lewat makeup().
+        // Dibungkus rescue supaya absensi yang sudah tersimpan tidak pernah ikut gagal.
+        rescue(fn () => app(RescheduleService::class)->afterSessionCompleted($session));
     }
 
     /** Pengajar bisa absen (scan QR tempat) mulai sekian menit sebelum sesi dimulai sampai sesi berakhir. */
@@ -83,9 +87,9 @@ class ScheduleSessionService
      *
      * @return Collection<int, ScheduleSession>
      */
-    public function teacherCheckIn(string $branchId, array $teacherIds): Collection
+    public function teacherCheckIn(string $branchId, array $teacherIds, ?int $distance = null): Collection
     {
-        return DB::transaction(function () use ($branchId, $teacherIds) {
+        return DB::transaction(function () use ($branchId, $teacherIds, $distance) {
             $window = ScheduleSession::whereIn('teacher_id', $teacherIds)->where('branch_id', $branchId)
                 ->where('status', ScheduleSession::STATUS_SCHEDULED)
                 ->where('start_at', '<=', now()->addMinutes(self::CHECK_IN_EARLY_MINUTES))
@@ -101,9 +105,24 @@ class ScheduleSessionService
                     : 'Belum ada sesi Anda di tempat ini. Absen bisa dilakukan mulai '.self::CHECK_IN_EARLY_MINUTES.' menit sebelum sesi dimulai.');
             }
 
-            $open->each(fn (ScheduleSession $session) => $session->forceFill(['teacher_checked_in_at' => now()])->save());
+            // $distance: jarak HP pengajar dari titik lokasi branch (kalau lokasinya diatur), dicatat untuk riwayat.
+            $open->each(fn (ScheduleSession $session) => $session->forceFill(['teacher_checked_in_at' => now(), 'teacher_checkin_via' => 'qr', 'teacher_checkin_distance' => $distance])->save());
 
             return $open->values();
+        });
+    }
+
+    /** Kelas online: absen datang pengajar lewat WhatsApp (balas "1" menjelang sesi), pengganti scan QR tempat. */
+    public function onlineCheckIn(ScheduleSession $session): void
+    {
+        DB::transaction(function () use ($session) {
+            $locked = ScheduleSession::with('room:id,is_online')->whereKey($session->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($locked->status !== ScheduleSession::STATUS_SCHEDULED || ! $locked->room?->is_online || $locked->teacher_checked_in_at || $locked->end_at->isPast()) {
+                throw new RuntimeException('Sesi ini tidak bisa diabsen sekarang.');
+            }
+
+            $locked->forceFill(['teacher_checked_in_at' => now(), 'teacher_checkin_via' => 'whatsapp'])->save();
         });
     }
 
@@ -167,6 +186,7 @@ class ScheduleSessionService
         });
 
         SendWaNotification::teacherChange($session->refresh(), "❌ Pertemuan ini DIBATALKAN.\nAlasan: {$reason}");
+        SendWaNotification::studentChange($session, fn ($student) => \App\Support\ScheduleBotText::cancelledToParent($student, $session, $reason));
 
         // Paket: pertemuan yang dibatalkan langsung diganti di tanggal pola berikutnya, jatah paket tetap utuh.
         if ($session->routine?->isPackage()) {
@@ -174,8 +194,11 @@ class ScheduleSessionService
         }
     }
 
-    /** Pindah tanggal/jam/pengajar/ruangan satu sesi saja. Jatah bulannya tetap (period tidak berubah). */
-    public function move(ScheduleSession $session, string $date, string $time, string $teacherId, string $roomId): void
+    /**
+     * Pindah tanggal/jam/pengajar/ruangan satu sesi saja. Jatah bulannya tetap (period tidak berubah).
+     * $notifyStudents = false kalau pemanggil mengirim kabarnya sendiri (persetujuan ganti hari).
+     */
+    public function move(ScheduleSession $session, string $date, string $time, string $teacherId, string $roomId, bool $notifyStudents = true): void
     {
         [$oldTeacher, $oldStart] = DB::transaction(function () use ($session, $date, $time, $teacherId, $roomId) {
             UserBranch::whereKey($session->branch_id)->lockForUpdate()->first();
@@ -218,6 +241,9 @@ class ScheduleSessionService
         } else {
             SendWaNotification::teacherChange($session, "📅 Jadwal pertemuan dipindah.\n{$from}", null, $oldStart);
         }
+
+        // Orang tua ikut dapat jadwal terbaru (hanya kalau chatbot WhatsApp Jadwal nyala).
+        $notifyStudents && SendWaNotification::studentChange($session, fn ($student) => \App\Support\ScheduleBotText::movedToParent($student, $session, $oldStart), $oldStart);
     }
 
     /** Sesi pengganti untuk murid yang izin. Honor dihitung di sesi pengganti saat diselesaikan. */

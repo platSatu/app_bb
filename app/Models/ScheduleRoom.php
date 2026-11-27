@@ -14,7 +14,13 @@ class ScheduleRoom extends Model
 
     public const LABEL_WITH = [];
 
-    protected $fillable = ['name', 'description', 'status'];
+    protected $fillable = ['name', 'is_online', 'description', 'status'];
+
+    /** Ruang kelas online: absen datang pengajar lewat WhatsApp ("mulai"), tanpa QR tempat & GPS. */
+    protected function casts(): array
+    {
+        return ['is_online' => 'boolean'];
+    }
 
     public function subjects(): HasMany
     {

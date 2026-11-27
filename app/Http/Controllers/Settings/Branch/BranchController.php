@@ -81,10 +81,35 @@ class BranchController extends Controller
         $model = $this->ownedBranch($request, $branch);
         abort_unless(app(AppAccess::class)->branchActive($model->getKey(), 'schedules'), 403);
 
-        $model->increment('place_qr_version');
+        // Manual = QR lama langsung tidak berlaku (tanpa masa tenggang).
+        $model->rotatePlaceQr();
 
         return redirect()->to(route('settings.branches.edit', $model).'#qr-tempat')
             ->with('success', 'QR tempat '.$model->name.' sudah diganti. Cetak QR baru dan tempel menggantikan yang lama ya.');
+    }
+
+    /**
+     * Titik lokasi tempat les (cek GPS saat pengajar scan QR tempat) & ganti QR otomatis tiap awal bulan.
+     * Lokasi dikosongkan = scan tidak dicek jaraknya.
+     */
+    public function placeLocation(Request $request, string $branch): RedirectResponse
+    {
+        $model = $this->ownedBranch($request, $branch);
+        abort_unless(app(AppAccess::class)->branchActive($model->getKey(), 'schedules'), 403);
+
+        $data = $request->validate([
+            'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-180,180'],
+        ], [], ['latitude' => 'garis lintang', 'longitude' => 'garis bujur']);
+
+        $model->forceFill([
+            'latitude' => $data['latitude'] ?? null,
+            'longitude' => $data['longitude'] ?? null,
+            'place_qr_auto_rotate' => $request->boolean('place_qr_auto_rotate'),
+        ])->save();
+
+        return redirect()->to(route('settings.branches.edit', $model).'#qr-tempat')
+            ->with('success', 'Pengaturan lokasi & QR tempat '.$model->name.' tersimpan.');
     }
 
     /** Simpan sakelar notifikasi WhatsApp (Invoice, Tiket, Jadwal). Ditolak kalau paket WhatsApp tidak aktif. */

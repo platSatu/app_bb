@@ -35,8 +35,16 @@
                             {{ $session->teacher?->name }}
                             @if ($session->teacher_checked_in_at)
                                 <div class="text-success"><i class="ri-user-follow-line"></i> Hadir {{ $session->teacher_checked_in_at->format('H:i') }}{{ $session->teacher_checked_in_at->gt($session->start_at) ? ', terlambat '.(int) $session->start_at->diffInMinutes($session->teacher_checked_in_at).' menit' : '' }}</div>
+                                @if ($session->teacher_checkin_via === 'whatsapp')
+                                    <div class="text-muted"><i class="ri-whatsapp-line"></i> Kelas online, absen lewat WhatsApp</div>
+                                @elseif ($session->teacher_checkin_distance !== null)
+                                    <div class="text-muted"><i class="ri-map-pin-line"></i> Scan QR ± {{ $session->teacher_checkin_distance }} m dari lokasi</div>
+                                @endif
                             @elseif ($session->status !== \App\Models\ScheduleSession::STATUS_CANCELLED && $started)
                                 <div class="text-muted">Belum absen scan</div>
+                            @endif
+                            @if ($session->teacher_unavailable_at && $session->status === \App\Models\ScheduleSession::STATUS_SCHEDULED)
+                                <div class="text-danger"><i class="ri-error-warning-line"></i> Mengabarkan berhalangan via WhatsApp {{ $session->teacher_unavailable_at->translatedFormat('d M H:i') }}. Pindahkan jadwal atau ganti pengajar.</div>
                             @endif
                         </dd>
                         <dt class="col-5">Ruangan</dt><dd class="col-7">{{ $session->room?->name }}</dd>
@@ -87,6 +95,16 @@
                                                 <div class="fw-semibold">{{ $attendance->student?->name }}</div>
                                                 @if ($attendance->scanned_at)
                                                     <div class="small text-success"><i class="ri-qr-scan-2-line"></i> Scan pukul {{ $attendance->scanned_at->format('H:i') }}</div>
+                                                @endif
+                                                @if ($attendance->marked_via === 'whatsapp' && $attendance->marked_at)
+                                                    <div class="small text-success"><i class="ri-whatsapp-line"></i> Diabsen pengajar via WhatsApp {{ $attendance->marked_at->format('H:i') }}</div>
+                                                @endif
+                                                @if ($attendance->response && $attendance->responded_at)
+                                                    <div class="small {{ $attendance->response === \App\Models\ScheduleAttendance::RESPONSE_CONFIRMED ? 'text-success' : 'text-warning' }}">
+                                                        <i class="ri-whatsapp-line"></i>
+                                                        {{ $attendance->response === \App\Models\ScheduleAttendance::RESPONSE_CONFIRMED ? 'Konfirmasi hadir' : 'Izin' }}
+                                                        via WhatsApp {{ $attendance->responded_at->translatedFormat('d M H:i') }}
+                                                    </div>
                                                 @endif
                                                 @if ($attendance->replaces)
                                                     <div class="text-muted small">Pengganti sesi {{ $attendance->replaces->session?->start_at->translatedFormat('d M Y') }}</div>

@@ -65,6 +65,8 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $hidden = [
         'password',
         'remember_token',
+        // PIN menu admin WhatsApp Jadwal (hash), diisi lewat Schedules › Notifikasi.
+        'wa_pin',
     ];
 
     /**

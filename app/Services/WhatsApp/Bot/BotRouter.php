@@ -5,6 +5,7 @@ namespace App\Services\WhatsApp\Bot;
 use App\Models\WaAutoReply;
 use App\Models\WaChat;
 use App\Models\WaMessage;
+use App\Services\WhatsApp\Schedule\ScheduleBot;
 use App\Services\WhatsApp\WaGateway;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
@@ -15,10 +16,11 @@ use Illuminate\Support\Str;
  *   1. STOP/BERHENTI         -> diam (go_bizbos mencatat opt-out)
  *   2. dipegang manusia      -> diam (di-assign, dijeda, atau admin baru membalas)
  *   3. batas balasan tercapai -> diserahkan ke admin (satu pesan), bot dijeda
- *   4. sedang di chatbot flow -> flow melanjutkan
- *   5. kata kunci flow       -> flow dimulai
- *   6. auto reply cocok      -> auto reply
- *   7. AI bot aktif          -> AI menjawab
+ *   4. percakapan bot Jadwal  -> ScheduleBot (hanya nomor yang sedang dibalas pengingat / admin pengajuan)
+ *   5. sedang di chatbot flow -> flow melanjutkan
+ *   6. kata kunci flow       -> flow dimulai
+ *   7. auto reply cocok      -> auto reply
+ *   8. AI bot aktif          -> AI menjawab
  */
 class BotRouter
 {
@@ -38,7 +40,7 @@ class BotRouter
 
     private const STOP_WORDS = ['stop', 'berhenti', 'unsubscribe'];
 
-    public function __construct(private WaGateway $wa, private FlowEngine $flows, private AiResponder $ai) {}
+    public function __construct(private WaGateway $wa, private FlowEngine $flows, private AiResponder $ai, private ScheduleBot $schedule) {}
 
     public function handle(string $messageId): void
     {
@@ -72,7 +74,8 @@ class BotRouter
             return;
         }
 
-        $reply = $this->flows->continue($chat, $text)
+        $reply = $this->schedule->reply($chat, $text, (string) $message->body)
+            ?? $this->flows->continue($chat, $text)
             ?? $this->flows->start($chat, $text)
             ?? $this->autoReply($chat, $text)
             ?? $this->ai->reply($chat, $message);

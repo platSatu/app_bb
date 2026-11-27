@@ -45,6 +45,12 @@ class ScheduleNotice
         'admin_checkin' => ['murid', 'jam_hadir', 'kelas', 'pengajar', 'ruang', 'branch'],
     ];
 
+    /**
+     * Sakelar chatbot WhatsApp Jadwal di wa_notify (bawaan mati). Nyala = pengingat les bisa dibalas
+     * (konfirmasi / izin / ajukan ganti hari) dan admin menyetujui pengajuan lewat WhatsApp. Lihat ScheduleBot.
+     */
+    public const BOT = 'schedule_bot';
+
     /** Jam & jarak waktu bawaan; owner bisa mengubahnya. */
     public const TIMES = ['schedule_at' => '16:00', 'schedule_soon_minutes' => 60, 'teacher_recap_at' => '18:00'];
 

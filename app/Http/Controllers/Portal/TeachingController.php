@@ -10,6 +10,7 @@ use App\Models\ScheduleStudent;
 use App\Models\ScheduleTeacher;
 use App\Models\UserBranch;
 use App\Services\Schedule\ScheduleSessionService;
+use App\Services\WhatsApp\Schedule\TeacherBot;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -25,7 +26,7 @@ class TeachingController extends Controller
 {
     use InPortal;
 
-    public function __construct(private readonly ScheduleSessionService $sessions)
+    public function __construct(private readonly ScheduleSessionService $sessions, private readonly TeacherBot $teacherBot)
     {
     }
 
@@ -139,10 +140,19 @@ class TeachingController extends Controller
                     return $this->rejectScan($request, 'QR tempat ini tidak berlaku untuk Anda. Pastikan memakai QR terbaru di tempat Anda mengajar.', 'QR tempat tidak sah / branch lain', $branchId);
                 }
 
-                $sessions = $this->sessions->teacherCheckIn($branchId, $ids);
+                [$problem, $distance] = $this->placeCheck($request, UserBranch::findOrFail($branchId));
+
+                if ($problem) {
+                    return $this->rejectScan($request, $problem, 'lokasi di luar tempat les'.($distance !== null ? " ({$distance} m)" : ''), $branchId);
+                }
+
+                $sessions = $this->sessions->teacherCheckIn($branchId, $ids, $distance);
+                // Chatbot WhatsApp Jadwal: sesi yang sudah dimulai langsung dikirimi daftar absen murid (sisanya menyusul saat mulai).
+                $sentToWa = $sessions->filter(fn ($session) => $this->teacherBot->promptAttendance($session))->isNotEmpty();
 
                 return response()->json([
-                    'message' => 'Terima kasih, Anda tercatat hadir pukul '.now()->format('H:i').' untuk '.$sessions->count().' sesi. Sekarang scan kartu murid ya.',
+                    'message' => 'Terima kasih, Anda tercatat hadir pukul '.now()->format('H:i').' untuk '.$sessions->count().' sesi. '
+                        .($sentToWa ? 'Daftar murid juga kami kirim ke WhatsApp Anda, bisa diabsen dari sana atau scan kartu murid.' : 'Sekarang scan kartu murid ya.'),
                     'reload' => true,
                 ]);
             }
@@ -164,6 +174,39 @@ class TeachingController extends Controller
             'message' => $attendance->student?->name.' hadir, tercatat pukul '.$attendance->scanned_at->format('H:i').'.',
             'session' => $attendance->session_id,
         ]);
+    }
+
+    /**
+     * Cek GPS absen datang: kalau owner sudah mengatur titik lokasi branch, HP pengajar harus berada dalam
+     * UserBranch::PLACE_RADIUS_METERS dari titik itu (dikurangi sedikit toleransi akurasi). Tanpa titik lokasi = tidak dicek.
+     *
+     * @return array{0: ?string, 1: ?int} [pesan penolakan atau null, jarak meter]
+     */
+    private function placeCheck(Request $request, UserBranch $branch): array
+    {
+        if (! $branch->hasPlaceLocation()) {
+            return [null, null];
+        }
+
+        $lat = $request->input('lat');
+        $lng = $request->input('lng');
+        $accuracy = (float) $request->input('accuracy', 9999);
+
+        if (! is_numeric($lat) || ! is_numeric($lng) || abs((float) $lat) > 90 || abs((float) $lng) > 180) {
+            return ['Izinkan akses lokasi (GPS) di browser dulu ya. Absen di tempat les perlu memastikan Anda berada di lokasi.', null];
+        }
+
+        if ($accuracy > UserBranch::PLACE_MAX_ACCURACY_METERS) {
+            return ['Lokasi HP Anda belum akurat (sekitar '.(int) round($accuracy).' m). Nyalakan GPS / mode akurasi tinggi, tunggu sebentar, lalu scan lagi.', null];
+        }
+
+        $distance = $branch->distanceTo((float) $lat, (float) $lng);
+
+        if ($distance - min($accuracy, 50) > UserBranch::PLACE_RADIUS_METERS) {
+            return ['Anda terdeteksi sekitar '.$distance.' m dari tempat les. Absen hanya bisa dilakukan di lokasi ya.', $distance];
+        }
+
+        return [null, $distance];
     }
 
     private function rejectScan(Request $request, string $message, string $reason, ?string $target = null): JsonResponse

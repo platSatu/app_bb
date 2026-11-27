@@ -3,6 +3,7 @@
 use App\Http\Controllers\Schedule\CategoryController;
 use App\Http\Controllers\Schedule\GradeController;
 use App\Http\Controllers\Schedule\NotificationController;
+use App\Http\Controllers\Schedule\RescheduleController;
 use App\Http\Controllers\Schedule\RoomController;
 use App\Http\Controllers\Schedule\RoutineController;
 use App\Http\Controllers\Schedule\SessionController;
@@ -74,11 +75,18 @@ Route::middleware('auth')->prefix('schedules')->name('schedules.')->group(functi
     Route::middleware('permission:schedules.sessions')->group(function () use ($sessionRead, $sessionWrite) {
         $sessionRead();
         $sessionWrite();
+
+        // Ganti Hari: pengajuan dari orang tua lewat chatbot WhatsApp (owner saja; bisa juga disetujui lewat WhatsApp).
+        Route::get('reschedules', [RescheduleController::class, 'index'])->name('reschedules.index');
+        Route::post('reschedules/{reschedule}/approve', [RescheduleController::class, 'approve'])->middleware('throttle:30,1')->name('reschedules.approve');
+        Route::post('reschedules/{reschedule}/reject', [RescheduleController::class, 'reject'])->middleware('throttle:30,1')->name('reschedules.reject');
     });
 
     // Notifikasi WhatsApp Jadwal per branch (owner saja; superadmin tidak punya tab ini).
     Route::middleware('permission:schedules.notifications')->group(function () {
         Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+        // Didaftarkan sebelum notifications/{branch} supaya "pin" tidak dibaca sebagai id branch.
+        Route::put('notifications/pin', [NotificationController::class, 'pin'])->middleware('throttle:5,1')->name('notifications.pin');
         Route::put('notifications/{branch}', [NotificationController::class, 'update'])->middleware('throttle:20,1')->name('notifications.update');
     });
 });

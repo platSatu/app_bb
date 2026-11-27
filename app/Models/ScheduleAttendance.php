@@ -22,6 +22,10 @@ class ScheduleAttendance extends Model
         self::STATUS_EXCUSED => 'Izin',
     ];
 
+    /** Jawaban murid / orang tua atas pengingat les (kolom response). */
+    public const RESPONSE_CONFIRMED = 'confirmed';
+    public const RESPONSE_EXCUSED = 'excused';
+
     /** Hadir & alpa tetap dihitung honor; izin tidak (bisa dibuatkan sesi pengganti). */
     public const BILLABLE = [self::STATUS_PRESENT, self::STATUS_ABSENT];
 
@@ -36,7 +40,7 @@ class ScheduleAttendance extends Model
 
     protected function casts(): array
     {
-        return ['teacher_fee' => 'integer', 'owner_fee' => 'integer', 'scanned_at' => 'datetime'];
+        return ['teacher_fee' => 'integer', 'owner_fee' => 'integer', 'scanned_at' => 'datetime', 'responded_at' => 'datetime', 'marked_at' => 'datetime'];
     }
 
     public function session(): BelongsTo

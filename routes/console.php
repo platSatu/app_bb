@@ -10,6 +10,10 @@ Schedule::command('catalog:expire')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('schedules:generate')->dailyAt('00:30')->withoutOverlapping();
 // Pengingat Jadwal (murid H-1, murid sebelum les, rekap pengajar): dicek tiap 5 menit, jam kirimnya diatur per branch di Schedules › Notifikasi.
 Schedule::command('schedules:remind')->everyFiveMinutes()->withoutOverlapping();
+// Chatbot WhatsApp Jadwal: "mulai" kelas online, daftar absen murid ke pengajar, dan tutup sesi yang sudah diabsen lewat WhatsApp.
+Schedule::command('schedules:wa-attendance')->everyMinute()->withoutOverlapping();
+// Ganti QR tempat les otomatis tiap awal bulan (hanya branch yang menyalakannya di Settings › Branch).
+Schedule::command('schedules:rotate-place-qr')->monthlyOn(1, '00:05')->withoutOverlapping();
 Schedule::command('invoices:expire')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('invoices:remind')->dailyAt('07:55')->withoutOverlapping();
 Schedule::command('subscriptions:remind')->dailyAt('08:10')->withoutOverlapping();
