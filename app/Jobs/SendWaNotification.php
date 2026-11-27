@@ -14,6 +14,7 @@ use App\Models\WaDevice;
 use App\Services\WhatsApp\WaGateway;
 use App\Support\ScheduleNotice;
 use Carbon\CarbonInterface;
+use Illuminate\Contracts\Queue\Queue as QueueContract;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Collection;
@@ -38,9 +39,23 @@ class SendWaNotification implements ShouldQueue
         $this->afterCommit();
     }
 
-    /** Antrekan pesan; false kalau notifikasi jenis ini tidak aktif atau nomor tujuan kosong. */
-    public static function queue(?string $branchId, string $kind, ?string $phone, string $text): bool
+    /**
+     * Antrekan pesan; false kalau notifikasi jenis ini tidak aktif atau nomor tujuan kosong.
+     *
+     * PENTING: Laravel memanggil $job->queue($antrean, $job) setiap kali men-dispatch job yang punya method bernama
+     * queue() (Bus\Dispatcher::dispatchToQueue). Karena nama method ini sudah dipakai di banyak tempat, panggilan dari
+     * Laravel itu dikenali di sini dan diteruskan ke antrean seperti biasa. Tanpa ini, setiap dispatch berakhir TypeError.
+     */
+    public static function queue(mixed $branchId, mixed $kind = null, ?string $phone = null, ?string $text = null): mixed
     {
+        if ($branchId instanceof QueueContract) {
+            return $branchId->push($kind, '', $kind->queue ?? null);
+        }
+
+        if (! is_string($kind) || $text === null) {
+            return false;
+        }
+
         $phone = User::normalizePhone($phone);
 
         if (! $branchId || $phone === '' || ! UserBranch::find($branchId)?->waNotifies($kind) || ! WaDevice::connectedByBranch($branchId)) {
@@ -148,7 +163,8 @@ class SendWaNotification implements ShouldQueue
             return;
         }
 
-        $session->loadMissing(['teacher:id,name', 'grade.category.subject', 'attendances.student']);
+        // load (bukan loadMissing): info ke pengajar sebelumnya memuat murid tanpa kolom nomor WhatsApp.
+        $session->loadMissing(['teacher:id,name', 'grade.category.subject'])->load('attendances.student');
 
         foreach ($session->attendances as $attendance) {
             if ($attendance->student?->phone) {

@@ -11,12 +11,14 @@ use App\Services\Schedule\ScheduleSessionService;
 use App\Services\WhatsApp\WaGateway;
 
 /**
- * Chatbot WhatsApp Jadwal tahap 2 (pengajar). Memakai swbSetup / swbSay dari ScheduleWhatsAppBotTest.
+ * Chatbot WhatsApp Jadwal tahap 2 (pengajar). Helper bersama di ScheduleBotHelpers.php.
  * Titik lokasi branch: Monas (-6.1753924, 106.8271528).
  */
 const SWT_TEACHER = '6281300000004';
 const SWT_LAT = -6.1753924;
 const SWT_LNG = 106.8271528;
+
+require_once __DIR__.'/ScheduleBotHelpers.php';
 
 beforeEach(function () {
     $this->sent = [];
@@ -37,7 +39,7 @@ function swtSetup(int $students = 1): array
     ScheduleTeacher::whereKey($s['session']->teacher_id)->update(['phone' => SWT_TEACHER, 'user_id' => $teacherUser->id]);
     $s['branch']->forceFill(['latitude' => SWT_LAT, 'longitude' => SWT_LNG])->save();
 
-    return [...$s, 'teacherUser' => $teacherUser, 'teacherChat' => notifChat(WaDevice::first(), ['phone' => SWT_TEACHER, 'name' => 'Bu Sari'])];
+    return [...$s, 'teacherUser' => $teacherUser, 'teacherChat' => swbChat(WaDevice::first(), ['phone' => SWT_TEACHER, 'name' => 'Bu Sari'])];
 }
 
 /** Pengajar scan QR tempat dari halaman Scan Absen (lokasi HP dikirim bersama). */
@@ -107,7 +109,7 @@ it('nomor selain pengajar sesi itu tidak bisa mengabsen', function () {
     $this->travelTo($s['session']->start_at->copy()->addMinutes(5));
     swtScanPlace($s)->assertOk();
 
-    $stranger = notifChat(WaDevice::first(), ['phone' => '6281999999998']);
+    $stranger = swbChat(WaDevice::first(), ['phone' => '6281999999998']);
     expect(swbSay($stranger, '1'))->toBeNull()
         ->and($s['attendance']->refresh()->status)->toBe(ScheduleAttendance::STATUS_PENDING);
 

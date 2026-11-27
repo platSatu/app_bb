@@ -167,6 +167,8 @@ Route::middleware('auth')->prefix('whatsapp')->name('whatsapp.')->group(function
     Route::middleware('permission:whatsapp.flows')->controller(ChatbotFlowController::class)->prefix('flows')->name('flows.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('create', 'create')->name('create');
+        // Flow Jadwal bawaan (chatbot WhatsApp Jadwal): hanya dilihat, diatur di Schedules › Notifikasi.
+        Route::get('jadwal', 'schedule')->name('schedule');
         Route::post('/', 'store')->name('store');
         Route::get('{flow}/edit', 'edit')->whereUuid('flow')->name('edit');
         Route::put('{flow}', 'update')->whereUuid('flow')->name('update');

@@ -16,11 +16,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Chatbot WhatsApp Jadwal tahap 1. Helper appBranch / notifDevice / notifChat / slMaster dipakai bersama tes lain.
+ * Chatbot WhatsApp Jadwal tahap 1. Data uji & helper di ScheduleBotHelpers.php (berdiri sendiri, tidak bergantung tes lain).
  * WhatsApp dipalsukan: setiap pesan keluar dicatat di $this->sent.
  */
-const SWB_OWNER = '6281100000001';
-const SWB_PARENT = '6281200000002';
+require_once __DIR__.'/ScheduleBotHelpers.php';
 
 beforeEach(function () {
     $this->sent = [];
@@ -32,69 +31,6 @@ beforeEach(function () {
         });
     });
 });
-
-/** Branch dengan paket Jadwal & WhatsApp, bot nyala, nomor owner terisi, satu sesi les besok untuk Natan (privat). */
-function swbSetup(int $students = 1): array
-{
-    $branch = appBranch(['schedules', 'whatsapp']);
-    $branch->forceFill(['wa_notify' => ['schedule_bot' => true, 'schedule' => true, 'schedule_at' => '00:00']])->save();
-    User::whereKey($branch->user_id)->update(['handphone' => SWB_OWNER]);
-    $device = notifDevice($branch);
-    $master = slMaster($branch);
-    DB::table('schedule_teacher_grades')->insert(['teacher_id' => $master['teacher_id'], 'grade_id' => $master['grade_id']]);
-
-    $ids = collect(range(1, $students))->map(function ($i) use ($branch) {
-        $id = (string) Str::uuid();
-        DB::table('schedule_students')->insert(['id' => $id, 'branch_id' => $branch->id, 'name' => $i === 1 ? 'Natan' : 'Murid '.$i,
-            'guardian_name' => $i === 1 ? 'Mom Natan' : null, 'phone' => $i === 1 ? SWB_PARENT : '62812000000'.(10 + $i), 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
-
-        return $id;
-    })->all();
-
-    $start = today()->addDay()->setTime(10, 30);
-    $session = tap((new ScheduleSession())->forceFill([...$master, 'branch_id' => $branch->id, 'date' => $start->toDateString(), 'start_at' => $start,
-        'end_at' => $start->copy()->addMinutes(30), 'status' => ScheduleSession::STATUS_SCHEDULED]))->save();
-
-    foreach ($ids as $id) {
-        (new ScheduleAttendance())->forceFill(['session_id' => $session->id, 'student_id' => $id, 'status' => ScheduleAttendance::STATUS_PENDING])->save();
-    }
-
-    // Slot kosong pengajar yang sama: jadwal rutin tanpa murid, lusa jam 15.00.
-    $slotDay = today()->addDays(2);
-    tap((new ScheduleRoutine())->forceFill([...$master, 'branch_id' => $branch->id, 'day_of_week' => $slotDay->dayOfWeekIso, 'start_time' => '15:00:00',
-        'end_time' => '15:30:00', 'duration_minutes' => 30, 'capacity' => 1, 'starts_on' => today()->subDay(), 'ends_on' => null, 'status' => 'active']))->save();
-
-    return [
-        'branch' => $branch->refresh(),
-        'session' => $session,
-        'attendance' => ScheduleAttendance::where('session_id', $session->id)->where('student_id', $ids[0])->first(),
-        'parentChat' => notifChat($device, ['phone' => SWB_PARENT, 'name' => 'Mom Natan']),
-        'ownerChat' => notifChat($device, ['phone' => SWB_OWNER, 'name' => 'Owner']),
-        'slot' => $slotDay->copy()->setTime(15, 0),
-    ];
-}
-
-function swbSay(WaChat $chat, string $text): ?string
-{
-    return app(ScheduleBot::class)->reply($chat, mb_strtolower(trim($text)), $text)?->text;
-}
-
-function swbOpenReminder(array $s): void
-{
-    app(ScheduleBot::class)->openReminder($s['attendance']->load('student'), $s['session'], false);
-}
-
-/** Orang tua: 2 -> alasan -> 1 (ganti hari) -> 1 (slot pertama). */
-function swbSubmit(array $s): ScheduleRescheduleRequest
-{
-    swbOpenReminder($s);
-    swbSay($s['parentChat'], '2');
-    swbSay($s['parentChat'], 'Ada acara keluarga');
-    swbSay($s['parentChat'], '1');
-    swbSay($s['parentChat'], '1');
-
-    return ScheduleRescheduleRequest::firstOrFail();
-}
 
 it('pengingat H-1 berisi pilihan balasan dan membuka percakapan', function () {
     $s = swbSetup();
@@ -199,7 +135,7 @@ it('chat biasa, nomor lain, dan bot yang dimatikan tidak tersentuh', function ()
     expect(swbSay($s['parentChat'], '1'))->toBeNull();
 
     swbOpenReminder($s);
-    $stranger = notifChat(\App\Models\WaDevice::first(), ['phone' => '6281999999999']);
+    $stranger = swbChat(\App\Models\WaDevice::first(), ['phone' => '6281999999999']);
     expect(swbSay($stranger, '2'))->toBeNull();
 
     $s['branch']->forceFill(['wa_notify' => ['schedule_bot' => false]])->save();
@@ -223,7 +159,7 @@ it('hanya nomor owner yang bisa membuka dan menjawab pengajuan', function () {
 it('pengajuan bisa disetujui di website, tapi tidak oleh owner branch lain', function () {
     $s = swbSetup();
     $request = swbSubmit($s);
-    $other = User::find(appBranch(['schedules'])->user_id);
+    $other = User::find(swbBranch(['schedules'])->user_id);
 
     $this->actingAs($other)->post(route('schedules.reschedules.approve', $request))->assertNotFound();
 

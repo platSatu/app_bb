@@ -13,25 +13,26 @@
                     <a href="{{ route('whatsapp.flows.create', ['branch' => $branch->id]) }}" class="btn btn-primary btn-sm"><i class="ri-add-line"></i> Buat Flow</a>
                 </div>
             </div>
-            @if ($scheduleBot)
-                <div class="border rounded-3 p-3 mb-3 d-flex flex-wrap align-items-center gap-3">
-                    <i class="ri-robot-2-line fs-3 text-success"></i>
-                    <div class="flex-grow-1">
-                        <div class="fw-semibold">Flow Jadwal <span class="badge bg-light text-dark border ms-1">Bawaan</span>
-                            <span class="badge ms-1 {{ $scheduleBot['on'] ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }}">{{ $scheduleBot['on'] ? 'Aktif' : 'Nonaktif' }}</span>
-                        </div>
-                        <div class="small text-muted">Orang tua membalas pengingat les (konfirmasi, izin, ajukan ganti hari), pengajar mengabsen murid & mengabarkan berhalangan, dan admin menyetujui pengajuan, semuanya lewat WhatsApp. Berjalan otomatis tanpa kata kunci, dan tidak mengganggu flow lain.</div>
-                    </div>
-                    @if ($scheduleBot['url'])
-                        <a href="{{ $scheduleBot['url'] }}" class="btn btn-sm rounded-pill btn-outline-success"><i class="ri-settings-3-line"></i> Atur di Schedules › Notifikasi</a>
-                    @endif
-                </div>
-            @endif
-
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light"><tr><th>Nama</th><th>Kata kunci</th><th>Device</th><th class="text-center">Langkah</th><th>Status</th><th class="text-end">Aksi</th></tr></thead>
                     <tbody>
+                        {{-- Flow Jadwal bawaan: tampil seperti flow lain, tidak bisa diubah / dihapus di sini. --}}
+                        @if ($scheduleBot)
+                            <tr class="table-success" style="--bs-table-bg: var(--bs-success-bg-subtle)">
+                                <td class="fw-semibold"><i class="ri-robot-2-line text-success me-1"></i>Flow Jadwal <span class="badge bg-light text-dark border ms-1">Bawaan</span></td>
+                                <td class="small">Otomatis dari pengingat les & absen · <em>menu</em> (khusus admin)</td>
+                                <td class="small">Semua device</td>
+                                <td class="text-center">3 alur</td>
+                                <td><span class="badge {{ $scheduleBot['on'] ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }}">{{ $scheduleBot['on'] ? 'Aktif' : 'Nonaktif' }}</span></td>
+                                <td class="text-end text-nowrap">
+                                    <a href="{{ route('whatsapp.flows.schedule', ['branch' => $branch->id]) }}" class="btn btn-sm rounded-pill btn-outline-secondary"><i class="ri-git-branch-line"></i> Lihat alur</a>
+                                    @if ($scheduleBot['url'])
+                                        <a href="{{ $scheduleBot['url'] }}" class="btn btn-sm rounded-pill btn-outline-success" title="Atur di Schedules › Notifikasi"><i class="ri-settings-3-line"></i></a>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endif
                         @forelse ($flows as $flow)
                             <tr>
                                 <td class="fw-semibold">{{ $flow->name }}</td>
@@ -49,7 +50,9 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="text-center text-muted py-4">Belum ada chatbot flow.</td></tr>
+                            @unless ($scheduleBot)
+                                <tr><td colspan="6" class="text-center text-muted py-4">Belum ada chatbot flow.</td></tr>
+                            @endunless
                         @endforelse
                     </tbody>
                 </table>

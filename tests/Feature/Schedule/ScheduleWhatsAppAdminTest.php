@@ -5,7 +5,9 @@ use App\Models\User;
 use App\Services\WhatsApp\WaGateway;
 use Illuminate\Support\Facades\Hash;
 
-/** Chatbot WhatsApp Jadwal tahap 3 (menu admin). Memakai swbSetup / swbSay / swbSubmit dari ScheduleWhatsAppBotTest. */
+/** Chatbot WhatsApp Jadwal tahap 3 (menu admin). Helper bersama di ScheduleBotHelpers.php. */
+require_once __DIR__.'/ScheduleBotHelpers.php';
+
 beforeEach(function () {
     $this->sent = [];
     $this->mock(WaGateway::class, function ($mock) {

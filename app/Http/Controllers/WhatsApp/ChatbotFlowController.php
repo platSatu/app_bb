@@ -39,6 +39,21 @@ class ChatbotFlowController extends Controller
         ]);
     }
 
+    /** Alur Flow Jadwal bawaan (orang tua, pengajar, admin), hanya untuk dilihat. */
+    public function schedule(Request $request): View|RedirectResponse
+    {
+        if (! $branch = $this->currentBranch($request)) {
+            return $this->branchRequired();
+        }
+
+        return view('whatsapp.flows.schedule', [
+            'branch' => $branch,
+            'on' => ScheduleBot::enabled($branch->id),
+            'hasSchedules' => app(AppAccess::class)->branchActive($branch->id, 'schedules'),
+            'settingsUrl' => $request->user()->canAccess('schedules.notifications') ? route('schedules.notifications.index').'#branch-'.$branch->id : null,
+        ]);
+    }
+
     public function create(Request $request): View|RedirectResponse
     {
         if (! $branch = $this->currentBranch($request)) {
