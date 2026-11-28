@@ -10,6 +10,13 @@ class Menu
     public const ABILITY_VIEW = 'view';
     public const ABILITY_MANAGE = 'manage';
 
+    /**
+     * Layanan owner yang juga boleh dipakai superadmin untuk bisnis Bizbos sendiri,
+     * asal superadmin punya branch sendiri dengan paket layanan itu aktif (lihat whatsapp:superadmin-branch).
+     * Datanya tetap hanya branch milik superadmin, bukan branch tenant.
+     */
+    public const SUPERADMIN_OWN_APPS = ['whatsapp'];
+
     /** Semua submenu (permission_key => item), lintas section & group. */
     public static function items(): Collection
     {
@@ -32,6 +39,7 @@ class Menu
      * Section > group > (submenu >) item yang boleh dilihat user; yang kosong tidak ditampilkan.
      * Menu aplikasi milik user (owner_app) tidak ditampilkan untuk tim platform,
      * karena mereka mengelolanya lewat menu Applications di area superadmin.
+     * Pengecualian: superadmin melihat grup SUPERADMIN_OWN_APPS yang aktif di branch miliknya sendiri.
      */
     public static function visibleSections(User $user): Collection
     {
@@ -40,7 +48,10 @@ class Menu
         );
 
         return collect(config('menu'))
-            ->reject(fn (array $section) => ($section['owner_app'] ?? false) && $user->isPlatformTeam())
+            ->map(fn (array $section) => ($section['owner_app'] ?? false) && $user->isPlatformTeam()
+                ? static::superadminOwnSection($user, $section)
+                : $section)
+            ->filter()
             ->map(fn (array $section) => [
                 'label' => $section['label'],
                 'groups' => collect($section['groups'])
@@ -71,6 +82,20 @@ class Menu
         return collect($keys)
             ->mapWithKeys(fn (string $key) => [$key => static::find($key)])
             ->filter(fn (?array $item, string $key) => $item && $user->canAccess($key));
+    }
+
+    /** Section owner untuk tim platform: staff tidak dapat apa-apa; superadmin hanya grup layanan miliknya yang aktif. */
+    private static function superadminOwnSection(User $user, array $section): ?array
+    {
+        if (! $user->isSuperadmin()) {
+            return null;
+        }
+
+        $access = app(\App\Services\Subscription\AppAccess::class);
+        $groups = collect($section['groups'] ?? [])->filter(fn (array $group) => in_array($group['app'] ?? null, self::SUPERADMIN_OWN_APPS, true)
+            && $access->ownerHas($user, $group['app']));
+
+        return $groups->isEmpty() ? null : [...$section, 'label' => 'Layanan Bizbos', 'groups' => $groups->all()];
     }
 
     private static function sectionItems(array $section): Collection
