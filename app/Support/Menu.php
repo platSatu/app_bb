@@ -11,8 +11,8 @@ class Menu
     public const ABILITY_MANAGE = 'manage';
 
     /**
-     * Layanan owner yang juga boleh dipakai superadmin untuk bisnis Bizbos sendiri,
-     * asal superadmin punya branch sendiri dengan paket layanan itu aktif (lihat whatsapp:superadmin-branch).
+     * Layanan owner yang juga dipakai superadmin untuk bisnis Bizbos sendiri, ditampilkan di menu Tools superadmin.
+     * Syaratnya superadmin punya branch sendiri dengan paket layanan itu aktif (lihat whatsapp:superadmin-branch).
      * Datanya tetap hanya branch milik superadmin, bukan branch tenant.
      */
     public const SUPERADMIN_OWN_APPS = ['whatsapp'];
@@ -39,7 +39,6 @@ class Menu
      * Section > group > (submenu >) item yang boleh dilihat user; yang kosong tidak ditampilkan.
      * Menu aplikasi milik user (owner_app) tidak ditampilkan untuk tim platform,
      * karena mereka mengelolanya lewat menu Applications di area superadmin.
-     * Pengecualian: superadmin melihat grup SUPERADMIN_OWN_APPS yang aktif di branch miliknya sendiri.
      */
     public static function visibleSections(User $user): Collection
     {
@@ -47,11 +46,8 @@ class Menu
             fn (array $item, string $key) => ($item['sidebar'] ?? true) && $user->canAccess($key)
         );
 
-        return collect(config('menu'))
-            ->map(fn (array $section) => ($section['owner_app'] ?? false) && $user->isPlatformTeam()
-                ? static::superadminOwnSection($user, $section)
-                : $section)
-            ->filter()
+        return collect(static::withSuperadminOwnApps($user, config('menu')))
+            ->reject(fn (array $section) => ($section['owner_app'] ?? false) && $user->isPlatformTeam())
             ->map(fn (array $section) => [
                 'label' => $section['label'],
                 'groups' => collect($section['groups'])
@@ -84,18 +80,44 @@ class Menu
             ->filter(fn (?array $item, string $key) => $item && $user->canAccess($key));
     }
 
-    /** Section owner untuk tim platform: staff tidak dapat apa-apa; superadmin hanya grup layanan miliknya yang aktif. */
-    private static function superadminOwnSection(User $user, array $section): ?array
+    /**
+     * Superadmin: grup layanan SUPERADMIN_OWN_APPS yang aktif di branch miliknya ditambahkan sebagai submenu Tools.
+     * Hanya mengubah tampilan sidebar; kunci izin & route tetap milik menu owner. User lain: config tidak berubah.
+     */
+    private static function withSuperadminOwnApps(User $user, array $menu): array
     {
-        if (! $user->isSuperadmin()) {
-            return null;
+        if (! $user->isSuperadmin() || ! isset($menu['superadmin']['groups']['tools'])) {
+            return $menu;
         }
 
         $access = app(\App\Services\Subscription\AppAccess::class);
-        $groups = collect($section['groups'] ?? [])->filter(fn (array $group) => in_array($group['app'] ?? null, self::SUPERADMIN_OWN_APPS, true)
-            && $access->ownerHas($user, $group['app']));
+        $submenus = [];
 
-        return $groups->isEmpty() ? null : [...$section, 'label' => 'Layanan Bizbos', 'groups' => $groups->all()];
+        foreach (array_filter($menu, fn (array $section) => $section['owner_app'] ?? false) as $section) {
+            foreach ($section['groups'] ?? [] as $key => $group) {
+                $app = $group['app'] ?? null;
+
+                if (! in_array($app, self::SUPERADMIN_OWN_APPS, true) || ! $access->ownerHas($user, $app)) {
+                    continue;
+                }
+
+                // Sidebar maksimal 3 tingkat: Tools > WhatsApp, Tools > WhatsApp Settings, dst.
+                if (! empty($group['items'])) {
+                    $submenus[$key] = ['label' => $group['label'], 'items' => $group['items']];
+                }
+
+                foreach ($group['submenus'] ?? [] as $subKey => $submenu) {
+                    $submenus[$key.'-'.$subKey] = ['label' => $group['label'].' '.$submenu['label'], 'items' => $submenu['items']];
+                }
+            }
+        }
+
+        if ($submenus !== []) {
+            $tools = &$menu['superadmin']['groups']['tools'];
+            $tools['submenus'] = [...($tools['submenus'] ?? []), ...$submenus];
+        }
+
+        return $menu;
     }
 
     private static function sectionItems(array $section): Collection
