@@ -382,6 +382,13 @@ return [
                         'active' => 'superadmin.tools.social.*',
                         'superadmin_only' => true,
                     ],
+                    // Satu inbox: WhatsApp branch superadmin + DM/komentar Instagram, Facebook, YouTube resmi bizbos, dibalas admin atau AI.
+                    'superadmin.tools.inbox' => [
+                        'label' => 'Inbox',
+                        'route' => 'superadmin.tools.inbox.index',
+                        'active' => 'superadmin.tools.inbox.*',
+                        'superadmin_only' => true,
+                    ],
                 ],
             ],
             'settings' => [

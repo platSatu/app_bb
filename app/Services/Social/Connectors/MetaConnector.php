@@ -21,6 +21,9 @@ class MetaConnector implements SocialConnector
     public const SCOPES = [
         'pages_show_list', 'pages_read_engagement', 'pages_manage_posts',
         'instagram_basic', 'instagram_content_publish', 'business_management',
+        // Tools › Inbox: DM & komentar.
+        'pages_manage_metadata', 'pages_messaging', 'pages_read_user_content', 'pages_manage_engagement',
+        'instagram_manage_messages', 'instagram_manage_comments',
     ];
 
     public function authorizeUrl(SocialApp $app, string $state): string

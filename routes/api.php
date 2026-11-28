@@ -22,6 +22,7 @@ use App\Http\Controllers\Invoice\Api\InvoiceApiController;
 use App\Http\Controllers\WhatsApp\Api\FormWebhookController;
 use App\Http\Controllers\WhatsApp\Api\WaApiController;
 use App\Http\Controllers\WhatsApp\WaWebhookController;
+use App\Http\Controllers\Social\MetaWebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -49,6 +50,10 @@ Route::prefix('v1')->middleware('invoice.api')->group(function () {
 
 // Webhook dari service WhatsApp (go_bizbos), ditandatangani WA_WEBHOOK_SECRET.
 Route::post('webhooks/wa', WaWebhookController::class);
+
+// Webhook Meta untuk Tools › Inbox (DM & komentar Instagram / Facebook Page). POST wajib bertanda tangan App Secret.
+Route::get('webhooks/meta', [MetaWebhookController::class, 'verify'])->middleware('throttle:30,1');
+Route::post('webhooks/meta', [MetaWebhookController::class, 'receive'])->middleware('throttle:600,1');
 
 // API WhatsApp per device, format sama dengan teleios (X-WA-Token + X-WA-Secret). Kunci di menu WhatsApp > Third Party > Integrasi Web.
 Route::prefix('wa-api/v1')->middleware('wa.api')->group(function () {

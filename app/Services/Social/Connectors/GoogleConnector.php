@@ -16,7 +16,8 @@ use Throwable;
  */
 class GoogleConnector implements SocialConnector
 {
-    public const SCOPES = ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube.readonly'];
+    // youtube.force-ssl: baca & balas komentar di Tools › Inbox.
+    public const SCOPES = ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube.readonly', 'https://www.googleapis.com/auth/youtube.force-ssl'];
 
     private const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 

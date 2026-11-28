@@ -27,6 +27,8 @@ Schedule::call(fn () => app(\App\Services\Marketing\ProspectAgent::class)->run()
 Schedule::command('content:publish')->everyMinute()->withoutOverlapping(10);
 // Akun Sosmed: perpanjang token TikTok/YouTube sebelum habis, cek token Instagram/Facebook sekali sehari.
 Schedule::command('social:refresh-tokens')->hourly()->withoutOverlapping();
+// Tools › Inbox: komentar YouTube (tidak ada webhook) diambil tiap 10 menit. Instagram & Facebook masuk lewat webhook.
+Schedule::command('social:poll-comments')->everyTenMinutes()->withoutOverlapping(10);
 // Token toko marketplace diperpanjang sebelum habis (Lazada ~7 hari, Shopee hanya 4 jam), jadi dicek tiap jam.
 Schedule::command('marketplace:refresh-tokens')->hourly()->withoutOverlapping();
 Schedule::command('db:backup')->dailyAt('01:00')->withoutOverlapping();
